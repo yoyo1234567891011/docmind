@@ -1,0 +1,41 @@
+{
+  "document_type": "Facture EDF",
+  "title": "Facture electricite EDF-465605",
+  "summary": "Facture ÉnergieClaire EDF-465605 pour Léa Bernard, total TTC 167,37 €, payable avant le 28/09/2026.",
+  "people": [
+    "Léa Bernard"
+  ],
+  "organizations": [
+    "ÉnergieClaire"
+  ],
+  "amounts": [
+    "18,94 €",
+    "167,37 €",
+    "14 €"
+  ],
+  "dates": [
+    "24/05/2025",
+    "18/10/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 28/09/2026",
+    "En l'absence de règlement sous 15 jours, mise en demeure"
+  ],
+  "important_points": [
+    "Consommation de 571 kWh",
+    "Total TTC de 167,37 €",
+    "Date limite de paiement au 28/09/2026"
+  ],
+  "risks": [
+    "Pénalités de retard de 14 €",
+    "Frais et taxes d'acheminement peu visibles",
+    "Risque de coupure en cas de non-paiement",
+    "Reconduction mensuelle automatique de l'offre"
+  ],
+  "actions": [
+    "Payer 167,37 € avant le 28/09/2026",
+    "Vérifier le détail des taxes et contribution d'acheminement",
+    "Relever le compteur si demandé"
+  ],
+  "risk_score": 96
+}

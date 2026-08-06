@@ -1,0 +1,46 @@
+{
+  "document_type": "Devis",
+  "title": "Devis DEV-899392",
+  "summary": "Devis DEV-899392 de Atelier Pro Renov pour Lucas Mercier, total TTC 2 279,21 €, valable jusqu'au 19/12/2026.",
+  "people": [
+    "Lucas Mercier"
+  ],
+  "organizations": [
+    "Atelier Pro Renov"
+  ],
+  "amounts": [
+    "864 €",
+    "988 €",
+    "47 €",
+    "1 899,34 €",
+    "379,87 €",
+    "2 279,21 €",
+    "40 €",
+    "199 €"
+  ],
+  "dates": [
+    "04/05/2026"
+  ],
+  "deadlines": [
+    "19/12/2026",
+    "Décisions client sous 48 h",
+    "Intervention estimée sous 1 mois"
+  ],
+  "important_points": [
+    "Total TTC de 2 279,21 €",
+    "Acompte de 30 % à la commande",
+    "Validité jusqu'au 19/12/2026",
+    "Frais d'évacuation des gravats non inclus : 199 €"
+  ],
+  "risks": [
+    "Pénalités de retard de paiement et indemnité forfaitaire de 40 €",
+    "Frais annexes non inclus de 199 €",
+    "Le devis devient contrat dès signature"
+  ],
+  "actions": [
+    "Accepter ou refuser avant le 19/12/2026",
+    "Prévoir l'acompte de 30 %",
+    "Garantir l'accès chantier et les décisions sous 48 h"
+  ],
+  "risk_score": 66
+}

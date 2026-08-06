@@ -1,0 +1,42 @@
+{
+  "document_type": "Contrat Internet",
+  "title": "Contrat Internet fibre NET-485785",
+  "summary": "Contrat Internet NetHorizon pour Hugo Richard à 8 impasse des Cerisiers, 21000 Dijon, mensualité 34,11 €, engagement 24 mois, début 11/11/2025.",
+  "people": [
+    "Hugo Richard"
+  ],
+  "organizations": [
+    "NetHorizon"
+  ],
+  "amounts": [
+    "34,11 €",
+    "3,90 €",
+    "31 €",
+    "139 €",
+    "97 €"
+  ],
+  "dates": [
+    "11/11/2025"
+  ],
+  "deadlines": [
+    "Résiliation à notifier avant le 14/12/2026",
+    "matériel non retourné sous 30 jours",
+    "intervention technicien sous 8 jours"
+  ],
+  "important_points": [
+    "Mensualité de 34,11 €",
+    "Engagement 24 mois",
+    "Location box de 3,90 € par mois"
+  ],
+  "risks": [
+    "Renouvellement automatique au tarif catalogue",
+    "Frais de résiliation anticipée de 139 €",
+    "Pénalité de 97 € si matériel non restitué"
+  ],
+  "actions": [
+    "Notifier une résiliation avant le 14/12/2026 si souhaité",
+    "Anticiper la restitution du matériel",
+    "Prévoir l'accès logement pour le technicien sous 8 jours"
+  ],
+  "risk_score": 81
+}

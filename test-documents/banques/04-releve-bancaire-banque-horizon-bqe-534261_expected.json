@@ -1,0 +1,48 @@
+{
+  "document_type": "Banque",
+  "title": "Relevé bancaire Banque Horizon BQE-534261",
+  "summary": "Relevé de compte Banque Horizon pour Lucas Robert, solde de -219,55 €, avec frais de tenue de 6,47 € et demande de régularisation avant le 26/04/2026.",
+  "people": [
+    "Lucas Robert"
+  ],
+  "organizations": [
+    "Banque Horizon"
+  ],
+  "amounts": [
+    "-219,55 €",
+    "23,66 €",
+    "6,47 €",
+    "716 €",
+    "3 032 €",
+    "3,68 €",
+    "10 €"
+  ],
+  "dates": [
+    "12/03/2026",
+    "13/05/2026",
+    "22/12/2026",
+    "19/07/2026",
+    "07/03/2026"
+  ],
+  "deadlines": [
+    "Régularisation du solde avant le 26/04/2026"
+  ],
+  "important_points": [
+    "Solde arrêté à -219,55 €",
+    "Frais de tenue de compte de 6,47 € par mois",
+    "Commission d'intervention de 23,66 €"
+  ],
+  "risks": [
+    "Frais cachés : commission de mouvement de 3,68 €",
+    "Frais de rejet de prélèvement de 10 €",
+    "Intérêts débiteurs à 13,5 % l'an",
+    "Risque de suspension des moyens de paiement",
+    "Risque d'inscription au FICP"
+  ],
+  "actions": [
+    "Régulariser le solde avant le 26/04/2026",
+    "Vérifier les frais de découvert et commissions prélevées",
+    "Maintenir une provision suffisante sur le compte"
+  ],
+  "risk_score": 66
+}

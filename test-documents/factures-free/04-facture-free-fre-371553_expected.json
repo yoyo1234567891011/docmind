@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Free",
+  "title": "Facture Free FRE-371553",
+  "summary": "Facture Free FRE-371553 pour Léa Leroy (Mobile 100 Go), total 68,80 €, à payer avant le 24/04/2026.",
+  "people": [
+    "Léa Leroy"
+  ],
+  "organizations": [
+    "Free"
+  ],
+  "amounts": [
+    "61,41 €",
+    "2,02 €",
+    "5,36 €",
+    "68,80 €",
+    "6 €"
+  ],
+  "dates": [
+    "17/07/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 24/04/2026",
+    "Délai de résiliation : préavis de 10 jours"
+  ],
+  "important_points": [
+    "Offre Mobile 100 Go",
+    "Total TTC de 68,80 €",
+    "Échéance de paiement au 24/04/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 5,36 €",
+    "Frais de rejet de prélèvement de 6 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 68,80 € avant le 24/04/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 10 jours pour résilier"
+  ],
+  "risk_score": 96
+}

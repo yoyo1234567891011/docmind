@@ -1,0 +1,41 @@
+{
+  "document_type": "Facture EDF",
+  "title": "Facture electricite EDF-358307",
+  "summary": "Facture ÉnergieClaire EDF-358307 pour Léa Michel, total TTC 195,70 €, payable avant le 23/02/2026.",
+  "people": [
+    "Léa Michel"
+  ],
+  "organizations": [
+    "ÉnergieClaire"
+  ],
+  "amounts": [
+    "19,79 €",
+    "195,70 €",
+    "12 €"
+  ],
+  "dates": [
+    "19/02/2025",
+    "21/01/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 23/02/2026",
+    "En l'absence de règlement sous 15 jours, mise en demeure"
+  ],
+  "important_points": [
+    "Consommation de 278 kWh",
+    "Total TTC de 195,70 €",
+    "Date limite de paiement au 23/02/2026"
+  ],
+  "risks": [
+    "Pénalités de retard de 12 €",
+    "Frais et taxes d'acheminement peu visibles",
+    "Risque de coupure en cas de non-paiement",
+    "Reconduction mensuelle automatique de l'offre"
+  ],
+  "actions": [
+    "Payer 195,70 € avant le 23/02/2026",
+    "Vérifier le détail des taxes et contribution d'acheminement",
+    "Relever le compteur si demandé"
+  ],
+  "risk_score": 96
+}

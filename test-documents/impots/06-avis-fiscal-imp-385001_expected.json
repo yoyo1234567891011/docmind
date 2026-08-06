@@ -1,0 +1,41 @@
+{
+  "document_type": "Impôts",
+  "title": "Avis fiscal IMP-385001",
+  "summary": "Avis fiscal IMP-385001 adressé à Lucas Morel pour un reste à payer de 1 333 € au titre de 2025, à régler avant le 17/12/2026.",
+  "people": [
+    "Lucas Morel"
+  ],
+  "organizations": [
+    "Direction générale des Finances publiques"
+  ],
+  "amounts": [
+    "1 123 €",
+    "1 333 €",
+    "11 €"
+  ],
+  "dates": [
+    "21/04/2026",
+    "2025"
+  ],
+  "deadlines": [
+    "Le règlement doit intervenir au plus tard le 17/12/2026",
+    "Produire les justificatifs demandés sous 15 jours"
+  ],
+  "important_points": [
+    "Principal dû de 1 123 €",
+    "Majoration de 19 %",
+    "Total à régler de 1 333 €",
+    "Échéance de paiement au 17/12/2026"
+  ],
+  "risks": [
+    "Majoration automatique en cas de retard",
+    "Procédure de recouvrement forcé possible",
+    "Frais de relance de 11 €"
+  ],
+  "actions": [
+    "Régler 1 333 € avant le 17/12/2026",
+    "Contester de façon motivée avant la date limite si désaccord",
+    "Fournir les justificatifs demandés sous 15 jours"
+  ],
+  "risk_score": 81
+}

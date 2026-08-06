@@ -1,0 +1,42 @@
+{
+  "document_type": "Assurance",
+  "title": "Contrat assurance habitation ASS-392723",
+  "summary": "Contrat d'assurance habitation ASS-392723 souscrit par Lucas Martin auprès de SécuriHome Assurances pour le logement situé à 14 allée des Tilleuls, 21000 Dijon, avec cotisation de 72,56 € et échéance au 03/12/2026.",
+  "people": [
+    "Lucas Martin"
+  ],
+  "organizations": [
+    "SécuriHome Assurances"
+  ],
+  "amounts": [
+    "72,56 €",
+    "211 €",
+    "74 €",
+    "36 €"
+  ],
+  "dates": [
+    "25/09/2025",
+    "03/12/2026"
+  ],
+  "deadlines": [
+    "Toute demande de modification doit être adressée avant le 09/11/2026"
+  ],
+  "important_points": [
+    "Cotisation mensuelle de 72,56 €",
+    "Franchise générale de 211 €",
+    "Tacite reconduction : le contrat se renouvelle automatiquement chaque année sauf résiliation par lettre recommandée.",
+    "Adresse du risque : 14 allée des Tilleuls, 21000 Dijon"
+  ],
+  "risks": [
+    "Tacite reconduction : le contrat se renouvelle automatiquement chaque année sauf résiliation par lettre recommandée.",
+    "Pénalité de résiliation anticipée de 74 €",
+    "Frais de gestion de sinistre de 36 € hors franchise",
+    "Nullité des garanties en cas de déclaration inexacte",
+    "Résiliation de plein droit après mise en demeure restée sans effet"
+  ],
+  "actions": [
+    "Vérifier la date d'échéance du 03/12/2026",
+    "Adresser toute demande de modification avant le 09/11/2026"
+  ],
+  "risk_score": 66
+}

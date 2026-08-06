@@ -1,0 +1,42 @@
+{
+  "document_type": "Mutuelle",
+  "title": "Contrat mutuelle santé MUT-675391",
+  "summary": "Contrat de mutuelle MUT-675391 pour Lucas Fournier auprès de Mutuelle Santé Équilibre, cotisation 66,78 €, échéance 28/02/2027.",
+  "people": [
+    "Lucas Fournier"
+  ],
+  "organizations": [
+    "Mutuelle Santé Équilibre"
+  ],
+  "amounts": [
+    "66,78 €",
+    "202 €",
+    "383 €",
+    "2,28 €",
+    "42 €"
+  ],
+  "dates": [
+    "28/02/2027"
+  ],
+  "deadlines": [
+    "Déclarer les ayants droit sous 30 jours",
+    "Délai de carence : 90 jours sur certaines garanties dentaires"
+  ],
+  "important_points": [
+    "Cotisation mensuelle de 66,78 €",
+    "Forfait optique de 202 € par an",
+    "Tacite reconduction annuelle"
+  ],
+  "risks": [
+    "Renouvellement automatique par tacite reconduction",
+    "Frais de gestion cachés de 2,28 € par mois",
+    "Frais de radiation anticipée de 42 €",
+    "Délai de carence de 90 jours"
+  ],
+  "actions": [
+    "Anticiper l'échéance du 28/02/2027 pour une éventuelle résiliation",
+    "Vérifier les frais de gestion hors cotisation",
+    "Déclarer les ayants droit sous 30 jours"
+  ],
+  "risk_score": 66
+}

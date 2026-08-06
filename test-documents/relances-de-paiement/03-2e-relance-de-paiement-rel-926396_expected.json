@@ -1,0 +1,41 @@
+{
+  "document_type": "Relance de paiement",
+  "title": "2e relance de paiement REL-926396",
+  "summary": "2e relance adressée à Chloé Dubois pour la facture REL-926396, total réclamé 656 €, à régler avant le 14/10/2026.",
+  "people": [
+    "Chloé Dubois"
+  ],
+  "organizations": [
+    "Service recouvrement"
+  ],
+  "amounts": [
+    "562,98 €",
+    "37 €",
+    "56 €",
+    "656 €"
+  ],
+  "dates": [
+    "07/01/2025"
+  ],
+  "deadlines": [
+    "Règlement exigé sous 8 jours, et au plus tard le 14/10/2026",
+    "Contester par écrit sous 10 jours si désaccord"
+  ],
+  "important_points": [
+    "2e relance sur facture REL-926396",
+    "Principal impayé de 562,98 €",
+    "Total réclamé de 656 €"
+  ],
+  "risks": [
+    "Pénalités de retard de 37 €",
+    "Frais de recouvrement de 56 €",
+    "Transmission possible à un huissier",
+    "Intérêts moratoires au taux légal majoré"
+  ],
+  "actions": [
+    "Régler 656 € avant le 14/10/2026",
+    "Contester par écrit sous 10 jours en cas de désaccord",
+    "Répondre rapidement pour éviter le contentieux"
+  ],
+  "risk_score": 81
+}

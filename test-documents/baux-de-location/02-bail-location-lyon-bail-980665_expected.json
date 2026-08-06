@@ -1,0 +1,41 @@
+{
+  "document_type": "Bail",
+  "title": "Bail location Lyon BAIL-980665",
+  "summary": "Bail entre Lucas Bernard et Hugo Mercier pour un logement de 34 m² à 3 place de la République, 69003 Lyon, loyer 824 €, effet au 22/12/2024.",
+  "people": [
+    "Lucas Bernard",
+    "Hugo Mercier"
+  ],
+  "organizations": [],
+  "amounts": [
+    "824 €",
+    "73 €",
+    "33 €"
+  ],
+  "dates": [
+    "22/12/2024"
+  ],
+  "deadlines": [
+    "État des lieux contradictoire à organiser avant le 17/09/2026",
+    "Congé donné 6 mois avant terme",
+    "Majoration après 15 jours de retard de loyer"
+  ],
+  "important_points": [
+    "Loyer mensuel de 824 €",
+    "Dépôt de garantie de 824 €",
+    "Renouvellement automatique pour 3 ans",
+    "Assurance habitation obligatoire"
+  ],
+  "risks": [
+    "Renouvellement automatique du bail",
+    "Pénalités de retard de 3,8 %",
+    "Frais de relance de 33 €",
+    "Résiliation de plein droit après commandement de payer infructueux"
+  ],
+  "actions": [
+    "Souscrire et transmettre l'attestation d'assurance habitation",
+    "Prévoir l'état des lieux avant le 17/09/2026 en cas de départ",
+    "Anticiper un congé 6 mois avant terme si non-renouvellement souhaité"
+  ],
+  "risk_score": 81
+}

@@ -1,26 +1,401 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f2f4f8;
+  --background-deep: #e6eaf2;
+  --foreground: #0e1420;
+  --muted: #5a6578;
+  --surface: #ffffff;
+  --surface-elevated: #fbfcfe;
+  --border: #d5dbe6;
+  --border-strong: #b8c2d1;
+  --accent: #0f6e7a;
+  --accent-hover: #0c5a64;
+  --accent-foreground: #f4fbfc;
+  --accent-soft: color-mix(in oklab, var(--accent) 12%, white);
+  --accent-mist: color-mix(in oklab, var(--accent) 18%, transparent);
+  --warning: #b45309;
+  --warning-soft: color-mix(in oklab, var(--warning) 12%, white);
+  --danger: #b42318;
+  --danger-soft: color-mix(in oklab, var(--danger) 10%, white);
+  --success: #0f7a4f;
+  --success-soft: color-mix(in oklab, var(--success) 12%, white);
+  --ring: color-mix(in oklab, var(--accent) 35%, transparent);
+  --grid-line: color-mix(in oklab, var(--accent) 10%, transparent);
+  --shadow-sm: 0 1px 0 color-mix(in oklab, var(--foreground) 4%, transparent);
+  --overlay: color-mix(in oklab, var(--foreground) 45%, transparent);
+}
+
+.dark {
+  --background: #0b0f16;
+  --background-deep: #070a10;
+  --foreground: #e8ecf3;
+  --muted: #93a0b5;
+  --surface: #121821;
+  --surface-elevated: #171e2a;
+  --border: #243041;
+  --border-strong: #33445a;
+  --accent: #2bb8c5;
+  --accent-hover: #4ec8d3;
+  --accent-foreground: #041216;
+  --accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
+  --accent-mist: color-mix(in oklab, var(--accent) 16%, transparent);
+  --warning: #e3a008;
+  --warning-soft: color-mix(in oklab, var(--warning) 14%, transparent);
+  --danger: #f07167;
+  --danger-soft: color-mix(in oklab, var(--danger) 14%, transparent);
+  --success: #3ecf8e;
+  --success-soft: color-mix(in oklab, var(--success) 14%, transparent);
+  --ring: color-mix(in oklab, var(--accent) 40%, transparent);
+  --grid-line: color-mix(in oklab, var(--accent) 12%, transparent);
+  --shadow-sm: 0 1px 0 color-mix(in oklab, #000 35%, transparent);
+  --overlay: color-mix(in oklab, #000 55%, transparent);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 28%, transparent);
+  color: var(--foreground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-up-delay-1 {
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.07s both;
+}
+
+.animate-fade-up-delay-2 {
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.14s both;
+}
+
+.animate-fade-up-delay-3 {
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.21s both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out both;
+}
+
+.animate-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--foreground) 6%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.animate-progress-indeterminate {
+  animation: progress-indeterminate 1.35s ease-in-out infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+.font-display {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+}
+
+.surface-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.page-atmosphere {
+  background:
+    radial-gradient(
+      ellipse 90% 55% at 50% -15%,
+      var(--accent-mist),
+      transparent 70%
+    ),
+    linear-gradient(180deg, var(--background) 0%, var(--background-deep) 100%);
+}
+
+.page-grid {
+  opacity: 0.4;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 72%);
+}
+
+/* ─── Landing premium ───────────────────────────────────────────────────── */
+
+@keyframes landing-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-drift {
+  from {
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.1) translate3d(0, -1.5%, 0);
+  }
+}
+
+@keyframes landing-scan {
+  0% {
+    transform: translateY(8vh);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  85% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateY(78vh);
+    opacity: 0;
+  }
+}
+
+@keyframes landing-beam {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateY(220px);
+    opacity: 0;
+  }
+}
+
+.landing-hero-visual {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--background) 18%, transparent) 0%,
+      color-mix(in oklab, var(--background) 78%, transparent) 58%,
+      var(--background) 100%
+    ),
+    radial-gradient(
+      ellipse 70% 55% at 70% 35%,
+      color-mix(in oklab, var(--accent) 22%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(
+      135deg,
+      #dfe7ef 0%,
+      #edf2f6 38%,
+      #c9d6df 72%,
+      #b7c8c4 100%
+    );
+  animation: landing-drift 22s ease-in-out alternate infinite;
+}
+
+.dark .landing-hero-visual {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--background) 35%, transparent) 0%,
+      color-mix(in oklab, var(--background) 88%, transparent) 62%,
+      var(--background) 100%
+    ),
+    radial-gradient(
+      ellipse 65% 50% at 72% 32%,
+      color-mix(in oklab, var(--accent) 18%, transparent),
+      transparent 72%
+    ),
+    linear-gradient(145deg, #101820 0%, #18222d 45%, #1a2a2c 100%);
+}
+
+.landing-hero-visual::before {
+  content: "";
+  position: absolute;
+  inset: 12% 8% auto 42%;
+  height: min(52vh, 420px);
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--surface) 92%, transparent),
+      color-mix(in oklab, var(--surface) 78%, transparent)
+    );
+  box-shadow: var(--shadow-sm);
+  transform: rotate(-4deg);
+}
+
+.landing-hero-visual::after {
+  content: "";
+  position: absolute;
+  inset: 22% 18% auto 52%;
+  height: min(44vh, 340px);
+  border: 1px solid color-mix(in oklab, var(--accent) 28%, transparent);
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent,
+      transparent 14px,
+      color-mix(in oklab, var(--foreground) 6%, transparent) 14px,
+      color-mix(in oklab, var(--foreground) 6%, transparent) 15px
+    ),
+    color-mix(in oklab, var(--surface) 88%, transparent);
+  transform: rotate(3deg);
+}
+
+.landing-hero-scan {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--accent) 55%, transparent),
+    transparent
+  );
+  animation: landing-scan 7s ease-in-out infinite;
+}
+
+.landing-reveal {
+  animation: landing-reveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-reveal-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.landing-reveal-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.landing-reveal-delay-3 {
+  animation-delay: 0.24s;
+}
+
+.landing-demo-beam {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--accent) 35%, transparent),
+    transparent
+  );
+  animation: landing-beam 3.8s ease-in-out infinite;
+}
+
+.landing-demo-line {
+  animation: landing-reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-demo-line-delay-1 {
+  animation-delay: 0.35s;
+}
+
+.landing-demo-line-delay-2 {
+  animation-delay: 0.55s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-up-delay-1,
+  .animate-fade-up-delay-2,
+  .animate-fade-up-delay-3,
+  .animate-fade-in,
+  .animate-shimmer,
+  .animate-progress-indeterminate,
+  .animate-pulse-soft,
+  .landing-reveal,
+  .landing-reveal-delay-1,
+  .landing-reveal-delay-2,
+  .landing-reveal-delay-3,
+  .landing-hero-visual,
+  .landing-hero-scan,
+  .landing-demo-beam,
+  .landing-demo-line,
+  .landing-demo-line-delay-1,
+  .landing-demo-line-delay-2 {
+    animation: none !important;
+  }
 }

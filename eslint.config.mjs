@@ -20,6 +20,14 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  // Fichiers .ts serveur : `usePersistentStorage` / `useRedisCache` ne sont pas des React Hooks.
+  // Les vrais hooks React restent contrôlés dans les .tsx.
+  {
+    files: ["**/*.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

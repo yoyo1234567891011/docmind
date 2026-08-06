@@ -1,0 +1,41 @@
+{
+  "document_type": "Facture EDF",
+  "title": "Facture electricite EDF-572903",
+  "summary": "Facture ÉnergieClaire EDF-572903 pour Léa Garcia, total TTC 139,03 €, payable avant le 06/04/2026.",
+  "people": [
+    "Léa Garcia"
+  ],
+  "organizations": [
+    "ÉnergieClaire"
+  ],
+  "amounts": [
+    "18,08 €",
+    "139,03 €",
+    "10 €"
+  ],
+  "dates": [
+    "01/09/2025",
+    "14/08/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 06/04/2026",
+    "En l'absence de règlement sous 15 jours, mise en demeure"
+  ],
+  "important_points": [
+    "Consommation de 864 kWh",
+    "Total TTC de 139,03 €",
+    "Date limite de paiement au 06/04/2026"
+  ],
+  "risks": [
+    "Pénalités de retard de 10 €",
+    "Frais et taxes d'acheminement peu visibles",
+    "Risque de coupure en cas de non-paiement",
+    "Reconduction mensuelle automatique de l'offre"
+  ],
+  "actions": [
+    "Payer 139,03 € avant le 06/04/2026",
+    "Vérifier le détail des taxes et contribution d'acheminement",
+    "Relever le compteur si demandé"
+  ],
+  "risk_score": 96
+}

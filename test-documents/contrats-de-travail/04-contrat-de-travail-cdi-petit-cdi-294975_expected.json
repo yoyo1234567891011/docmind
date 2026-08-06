@@ -1,0 +1,40 @@
+{
+  "document_type": "Contrat de travail",
+  "title": "Contrat de travail CDI Petit CDI-294975",
+  "summary": "CDI de Hugo Petit chez TechnoNova SAS en tant que Assistant commercial à Reims, salaire brut de 2 346 €, entrée le 12/01/2025.",
+  "people": [
+    "Hugo Petit"
+  ],
+  "organizations": [
+    "TechnoNova SAS"
+  ],
+  "amounts": [
+    "2 346 €",
+    "10,99 €"
+  ],
+  "dates": [
+    "12/01/2025"
+  ],
+  "deadlines": [
+    "Délai de préavis : 3 mois",
+    "Période d'essai : 4 mois"
+  ],
+  "important_points": [
+    "Poste de Assistant commercial",
+    "Salaire brut mensuel de 2 346 €",
+    "Clause de non-concurrence de 12 mois (28 % du salaire)",
+    "Période d'essai de 4 mois"
+  ],
+  "risks": [
+    "Clause de non-concurrence de 12 mois",
+    "Clause de mobilité dans un rayon de 50 km",
+    "Risque de licenciement pour faute en cas de manquement à la confidentialité",
+    "Pénalité possible en cas de rupture abusive de période d'essai"
+  ],
+  "actions": [
+    "Relire la clause de non-concurrence avant signature",
+    "Vérifier la durée et le renouvellement de la période d'essai",
+    "Noter le préavis de 3 mois"
+  ],
+  "risk_score": 51
+}

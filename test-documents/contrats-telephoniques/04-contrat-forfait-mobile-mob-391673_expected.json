@@ -1,0 +1,38 @@
+{
+  "document_type": "Contrat téléphonique",
+  "title": "Contrat forfait mobile MOB-391673",
+  "summary": "Forfait mobile 120 Go 5G pour Chloé Morel à 18,09 € par mois, engagement 12 mois, souscrit le 13/06/2025.",
+  "people": [
+    "Chloé Morel"
+  ],
+  "organizations": [],
+  "amounts": [
+    "18,09 €",
+    "18,37 €",
+    "6,43 €"
+  ],
+  "dates": [
+    "13/06/2025"
+  ],
+  "deadlines": [
+    "Délai de rétractation : 14 jours à compter de la souscription"
+  ],
+  "important_points": [
+    "Forfait 120 Go 5G",
+    "Prix mensuel de 18,09 €",
+    "Financement terminal de 18,37 € par mois",
+    "Engagement 12 mois"
+  ],
+  "risks": [
+    "Renouvellement automatique du forfait",
+    "Assurance casse pré-cochée à 6,43 € par mois",
+    "Pénalités égales aux mensualités restantes du terminal",
+    "Suspension après 2 prélèvements rejetés"
+  ],
+  "actions": [
+    "Vérifier et désactiver l'assurance casse si non souhaitée",
+    "Exercer la rétractation sous 14 jours si besoin",
+    "Anticiper le coût de résiliation anticipée lié au terminal"
+  ],
+  "risk_score": 63
+}

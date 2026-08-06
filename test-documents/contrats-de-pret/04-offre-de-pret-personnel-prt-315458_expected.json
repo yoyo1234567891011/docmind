@@ -1,0 +1,42 @@
+{
+  "document_type": "Contrat de prêt",
+  "title": "Offre de pret personnel PRT-315458",
+  "summary": "Offre de prêt PRT-315458 de Crédit Serein pour Hugo Richard : capital 27 048 €, TAEG 4,67 %, mensualité 481 € sur 68 mois.",
+  "people": [
+    "Hugo Richard"
+  ],
+  "organizations": [
+    "Crédit Serein"
+  ],
+  "amounts": [
+    "27 048 €",
+    "481 €",
+    "16 €",
+    "42 €",
+    "17,28 €"
+  ],
+  "dates": [
+    "18/07/2025"
+  ],
+  "deadlines": [
+    "Délai de rétractation : 14 jours"
+  ],
+  "important_points": [
+    "Capital de 27 048 €",
+    "TAEG de 4,67 %",
+    "Mensualité de 481 €",
+    "Durée de 68 mois"
+  ],
+  "risks": [
+    "Frais de report d'échéance de 42 €",
+    "Assurance emprunteur proposée à 17,28 € par mois",
+    "Pénalités de remboursement anticipé de 0,7 %",
+    "Déchéance du terme en cas d'impayés"
+  ],
+  "actions": [
+    "Comparer le coût de l'assurance emprunteur avant acceptation",
+    "Exercer la rétractation sous 14 jours si besoin",
+    "Anticiper le coût d'un remboursement anticipé"
+  ],
+  "risk_score": 81
+}

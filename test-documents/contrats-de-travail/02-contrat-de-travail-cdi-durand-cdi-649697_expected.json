@@ -1,0 +1,40 @@
+{
+  "document_type": "Contrat de travail",
+  "title": "Contrat de travail CDI Durand CDI-649697",
+  "summary": "CDI de Hugo Durand chez MediConseil SAS en tant que Comptable à Strasbourg, salaire brut de 2 511 €, entrée le 02/09/2025.",
+  "people": [
+    "Hugo Durand"
+  ],
+  "organizations": [
+    "MediConseil SAS"
+  ],
+  "amounts": [
+    "2 511 €",
+    "10,36 €"
+  ],
+  "dates": [
+    "02/09/2025"
+  ],
+  "deadlines": [
+    "Délai de préavis : 2 mois",
+    "Période d'essai : 3 mois"
+  ],
+  "important_points": [
+    "Poste de Comptable",
+    "Salaire brut mensuel de 2 511 €",
+    "Clause de non-concurrence de 12 mois (25 % du salaire)",
+    "Période d'essai de 3 mois"
+  ],
+  "risks": [
+    "Clause de non-concurrence de 12 mois",
+    "Clause de mobilité dans un rayon de 50 km",
+    "Risque de licenciement pour faute en cas de manquement à la confidentialité",
+    "Pénalité possible en cas de rupture abusive de période d'essai"
+  ],
+  "actions": [
+    "Relire la clause de non-concurrence avant signature",
+    "Vérifier la durée et le renouvellement de la période d'essai",
+    "Noter le préavis de 2 mois"
+  ],
+  "risk_score": 51
+}

@@ -1,0 +1,68 @@
+import { getOptimizationConfig } from "@/config/optimizations";
+import { scoreRiskFromFindings } from "@/services/risk/score-from-findings";
+import { assessDocumentRisk } from "@/ai/scoring";
+import type { RiskFinding } from "@/types";
+import type { AnalysisAgent, AgentResult } from "./types";
+import { pushAgentStep } from "./utils";
+
+/**
+ * Prépare les findings pour un scoring provisoire :
+ * confidence ≥ seuil → treated as confirmed (le verify final tranche).
+ */
+function provisionalFindings(findings: RiskFinding[]): RiskFinding[] {
+  const min = getOptimizationConfig().reasoningMode.minConfidenceConfirmed;
+  return findings.map((f) => ({
+    ...f,
+    status:
+      f.excerpt.length >= 8 && f.confidence >= min
+        ? ("confirmed" as const)
+        : f.confidence < min
+          ? ("ambiguous" as const)
+          : ("ambiguous" as const),
+  }));
+}
+
+/** Agent 5 — Calcul du score de risque (déterministe). */
+export const scoreAgent: AnalysisAgent = {
+  id: "score",
+  label: "Calcul du score de risque",
+  kind: "deterministic",
+
+  async run(state): Promise<AgentResult> {
+    const started = Date.now();
+    const findings = state.risk_findings ?? [];
+
+    const assessment =
+      findings.length > 0
+        ? scoreRiskFromFindings(provisionalFindings(findings))
+        : assessDocumentRisk(
+            {
+              deadlines: state.facts?.deadlines || [],
+              important_points: state.legal?.important_points || [],
+              risks: state.risks || [],
+              actions: state.actions || [],
+            },
+            state.documentText,
+          );
+
+    const next = pushAgentStep(
+      { ...state, assessment },
+      "score",
+      {
+        durationMs: Date.now() - started,
+        generation: null,
+        ok: true,
+        note: `Score provisoire ${assessment.risk_score}/100 (${assessment.risk_level}).`,
+      },
+    );
+
+    return {
+      state: next,
+      meta: {
+        durationMs: Date.now() - started,
+        ok: true,
+        note: `Score ${assessment.risk_score}/100`,
+      },
+    };
+  },
+};

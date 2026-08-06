@@ -1,0 +1,41 @@
+{
+  "document_type": "Facture EDF",
+  "title": "Facture electricite EDF-143711",
+  "summary": "Facture ÉnergieClaire EDF-143711 pour Léa Laurent, total TTC 90,37 €, payable avant le 12/11/2026.",
+  "people": [
+    "Léa Laurent"
+  ],
+  "organizations": [
+    "ÉnergieClaire"
+  ],
+  "amounts": [
+    "21,50 €",
+    "90,37 €",
+    "15 €"
+  ],
+  "dates": [
+    "08/07/2025",
+    "01/05/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 12/11/2026",
+    "En l'absence de règlement sous 15 jours, mise en demeure"
+  ],
+  "important_points": [
+    "Consommation de 433 kWh",
+    "Total TTC de 90,37 €",
+    "Date limite de paiement au 12/11/2026"
+  ],
+  "risks": [
+    "Pénalités de retard de 15 €",
+    "Frais et taxes d'acheminement peu visibles",
+    "Risque de coupure en cas de non-paiement",
+    "Reconduction mensuelle automatique de l'offre"
+  ],
+  "actions": [
+    "Payer 90,37 € avant le 12/11/2026",
+    "Vérifier le détail des taxes et contribution d'acheminement",
+    "Relever le compteur si demandé"
+  ],
+  "risk_score": 96
+}

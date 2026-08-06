@@ -1,0 +1,41 @@
+{
+  "document_type": "Relance de paiement",
+  "title": "1ère relance de paiement REL-270839",
+  "summary": "1ère relance adressée à Chloé Bernard pour la facture REL-270839, total réclamé 822 €, à régler avant le 25/05/2026.",
+  "people": [
+    "Chloé Bernard"
+  ],
+  "organizations": [
+    "Service recouvrement"
+  ],
+  "amounts": [
+    "749,02 €",
+    "43 €",
+    "30 €",
+    "822 €"
+  ],
+  "dates": [
+    "20/05/2025"
+  ],
+  "deadlines": [
+    "Règlement exigé sous 8 jours, et au plus tard le 25/05/2026",
+    "Contester par écrit sous 10 jours si désaccord"
+  ],
+  "important_points": [
+    "1ère relance sur facture REL-270839",
+    "Principal impayé de 749,02 €",
+    "Total réclamé de 822 €"
+  ],
+  "risks": [
+    "Pénalités de retard de 43 €",
+    "Frais de recouvrement de 30 €",
+    "Transmission possible à un huissier",
+    "Intérêts moratoires au taux légal majoré"
+  ],
+  "actions": [
+    "Régler 822 € avant le 25/05/2026",
+    "Contester par écrit sous 10 jours en cas de désaccord",
+    "Répondre rapidement pour éviter le contentieux"
+  ],
+  "risk_score": 81
+}

@@ -1,0 +1,41 @@
+{
+  "document_type": "Bail",
+  "title": "Bail location Montpellier BAIL-320985",
+  "summary": "Bail entre Chloé Lefebvre et Hugo Simon pour un logement de 78 m² à 19 chemin du Moulin, 34000 Montpellier, loyer 969 €, effet au 26/02/2024.",
+  "people": [
+    "Chloé Lefebvre",
+    "Hugo Simon"
+  ],
+  "organizations": [],
+  "amounts": [
+    "969 €",
+    "48 €",
+    "28 €"
+  ],
+  "dates": [
+    "26/02/2024"
+  ],
+  "deadlines": [
+    "État des lieux contradictoire à organiser avant le 12/02/2026",
+    "Congé donné 6 mois avant terme",
+    "Majoration après 15 jours de retard de loyer"
+  ],
+  "important_points": [
+    "Loyer mensuel de 969 €",
+    "Dépôt de garantie de 969 €",
+    "Renouvellement automatique pour 3 ans",
+    "Assurance habitation obligatoire"
+  ],
+  "risks": [
+    "Renouvellement automatique du bail",
+    "Pénalités de retard de 3,0 %",
+    "Frais de relance de 28 €",
+    "Résiliation de plein droit après commandement de payer infructueux"
+  ],
+  "actions": [
+    "Souscrire et transmettre l'attestation d'assurance habitation",
+    "Prévoir l'état des lieux avant le 12/02/2026 en cas de départ",
+    "Anticiper un congé 6 mois avant terme si non-renouvellement souhaité"
+  ],
+  "risk_score": 81
+}

@@ -1,0 +1,36 @@
+{
+  "document_type": "Courrier administratif",
+  "title": "Courrier administratif ADM-683823",
+  "summary": "Courrier administratif ADM-683823 demandant à Chloé Martin de compléter un dossier avant le 15/01/2026, sous peine de classement sans suite.",
+  "people": [
+    "Chloé Martin"
+  ],
+  "organizations": [
+    "Préfecture / Service administratif"
+  ],
+  "amounts": [
+    "22 €"
+  ],
+  "dates": [
+    "16/05/2026"
+  ],
+  "deadlines": [
+    "Votre réponse est attendue avant le 15/01/2026",
+    "sous 15 jours, sous peine de classement sans suite"
+  ],
+  "important_points": [
+    "Demande de complément de dossier",
+    "Pièces demandées : justificatif de domicile, pièce d'identité, formulaire cerfa",
+    "Réponse attendue avant le 15/01/2026"
+  ],
+  "risks": [
+    "Classement sans suite en cas d'absence de réponse",
+    "Rejet de la demande et perte d'antériorité du dépôt"
+  ],
+  "actions": [
+    "Transmettre les pièces avant le 15/01/2026",
+    "Répondre sous 15 jours",
+    "Conserver la référence de dossier"
+  ],
+  "risk_score": 63
+}

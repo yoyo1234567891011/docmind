@@ -1,0 +1,46 @@
+{
+  "document_type": "Devis",
+  "title": "Devis DEV-871546",
+  "summary": "Devis DEV-871546 de Atelier Pro Renov pour Lucas David, total TTC 1 734,08 €, valable jusqu'au 16/04/2026.",
+  "people": [
+    "Lucas David"
+  ],
+  "organizations": [
+    "Atelier Pro Renov"
+  ],
+  "amounts": [
+    "848 €",
+    "539 €",
+    "57 €",
+    "1 445,06 €",
+    "289,01 €",
+    "1 734,08 €",
+    "40 €",
+    "154 €"
+  ],
+  "dates": [
+    "13/06/2026"
+  ],
+  "deadlines": [
+    "16/04/2026",
+    "Décisions client sous 48 h",
+    "Intervention estimée sous 3 semaines"
+  ],
+  "important_points": [
+    "Total TTC de 1 734,08 €",
+    "Acompte de 30 % à la commande",
+    "Validité jusqu'au 16/04/2026",
+    "Frais d'évacuation des gravats non inclus : 154 €"
+  ],
+  "risks": [
+    "Pénalités de retard de paiement et indemnité forfaitaire de 40 €",
+    "Frais annexes non inclus de 154 €",
+    "Le devis devient contrat dès signature"
+  ],
+  "actions": [
+    "Accepter ou refuser avant le 16/04/2026",
+    "Prévoir l'acompte de 30 %",
+    "Garantir l'accès chantier et les décisions sous 48 h"
+  ],
+  "risk_score": 66
+}

@@ -1,0 +1,41 @@
+{
+  "document_type": "Bail",
+  "title": "Bail location Rennes BAIL-141943",
+  "summary": "Bail entre Jade Morel et Hugo Morel pour un logement de 60 m² à 14 allée des Tilleuls, 35000 Rennes, loyer 1 405 €, effet au 09/09/2024.",
+  "people": [
+    "Jade Morel",
+    "Hugo Morel"
+  ],
+  "organizations": [],
+  "amounts": [
+    "1 405 €",
+    "50 €",
+    "39 €"
+  ],
+  "dates": [
+    "09/09/2024"
+  ],
+  "deadlines": [
+    "État des lieux contradictoire à organiser avant le 23/05/2026",
+    "Congé donné 6 mois avant terme",
+    "Majoration après 15 jours de retard de loyer"
+  ],
+  "important_points": [
+    "Loyer mensuel de 1 405 €",
+    "Dépôt de garantie de 1 405 €",
+    "Renouvellement automatique pour 3 ans",
+    "Assurance habitation obligatoire"
+  ],
+  "risks": [
+    "Renouvellement automatique du bail",
+    "Pénalités de retard de 3,5 %",
+    "Frais de relance de 39 €",
+    "Résiliation de plein droit après commandement de payer infructueux"
+  ],
+  "actions": [
+    "Souscrire et transmettre l'attestation d'assurance habitation",
+    "Prévoir l'état des lieux avant le 23/05/2026 en cas de départ",
+    "Anticiper un congé 6 mois avant terme si non-renouvellement souhaité"
+  ],
+  "risk_score": 81
+}

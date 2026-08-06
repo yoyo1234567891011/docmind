@@ -1,0 +1,36 @@
+{
+  "document_type": "Courrier administratif",
+  "title": "Courrier administratif ADM-849226",
+  "summary": "Courrier administratif ADM-849226 demandant à Chloé Michel de compléter un dossier avant le 13/06/2026, sous peine de classement sans suite.",
+  "people": [
+    "Chloé Michel"
+  ],
+  "organizations": [
+    "Préfecture / Service administratif"
+  ],
+  "amounts": [
+    "36 €"
+  ],
+  "dates": [
+    "25/03/2026"
+  ],
+  "deadlines": [
+    "Votre réponse est attendue avant le 13/06/2026",
+    "sous 15 jours, sous peine de classement sans suite"
+  ],
+  "important_points": [
+    "Demande de complément de dossier",
+    "Pièces demandées : justificatif de domicile, pièce d'identité, formulaire cerfa",
+    "Réponse attendue avant le 13/06/2026"
+  ],
+  "risks": [
+    "Classement sans suite en cas d'absence de réponse",
+    "Rejet de la demande et perte d'antériorité du dépôt"
+  ],
+  "actions": [
+    "Transmettre les pièces avant le 13/06/2026",
+    "Répondre sous 15 jours",
+    "Conserver la référence de dossier"
+  ],
+  "risk_score": 63
+}

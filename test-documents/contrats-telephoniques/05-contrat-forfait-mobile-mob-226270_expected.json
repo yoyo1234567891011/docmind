@@ -1,0 +1,38 @@
+{
+  "document_type": "Contrat téléphonique",
+  "title": "Contrat forfait mobile MOB-226270",
+  "summary": "Forfait mobile 70 Go 5G pour Chloé Durand à 21,59 € par mois, engagement 24 mois, souscrit le 18/07/2025.",
+  "people": [
+    "Chloé Durand"
+  ],
+  "organizations": [],
+  "amounts": [
+    "21,59 €",
+    "7,40 €",
+    "4,45 €"
+  ],
+  "dates": [
+    "18/07/2025"
+  ],
+  "deadlines": [
+    "Délai de rétractation : 14 jours à compter de la souscription"
+  ],
+  "important_points": [
+    "Forfait 70 Go 5G",
+    "Prix mensuel de 21,59 €",
+    "Financement terminal de 7,40 € par mois",
+    "Engagement 24 mois"
+  ],
+  "risks": [
+    "Renouvellement automatique du forfait",
+    "Assurance casse pré-cochée à 4,45 € par mois",
+    "Pénalités égales aux mensualités restantes du terminal",
+    "Suspension après 2 prélèvements rejetés"
+  ],
+  "actions": [
+    "Vérifier et désactiver l'assurance casse si non souhaitée",
+    "Exercer la rétractation sous 14 jours si besoin",
+    "Anticiper le coût de résiliation anticipée lié au terminal"
+  ],
+  "risk_score": 63
+}

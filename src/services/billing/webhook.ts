@@ -1,0 +1,397 @@
+import type Stripe from "stripe";
+
+import { getStripe, getStripeWebhookSecret } from "@/lib/stripe";
+import { AppError } from "@/lib/errors";
+import { trackAnalyticsEvent } from "@/services/analytics";
+import { applyStripeSubscription } from "@/services/billing/apply-subscription";
+import {
+  findUserIdByStripeCustomerId,
+  getUserSubscription,
+  upsertSubscriptionPatch,
+} from "@/services/billing/store";
+
+async function resolveUserId(
+  sub: Stripe.Subscription,
+): Promise<string | null> {
+  const fromMeta = sub.metadata?.docmind_user_id?.trim();
+  if (fromMeta) return fromMeta;
+
+  const customerId =
+    typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+  if (!customerId) return null;
+  return findUserIdByStripeCustomerId(customerId);
+}
+
+async function resolveUserIdFromCustomer(
+  customer: string | Stripe.Customer | Stripe.DeletedCustomer | null,
+): Promise<string | null> {
+  const customerId =
+    typeof customer === "string" ? customer : customer?.id ?? null;
+  if (!customerId) return null;
+  return findUserIdByStripeCustomerId(customerId);
+}
+
+async function recordWebhookMeta(
+  userId: string,
+  event: Stripe.Event,
+): Promise<void> {
+  await upsertSubscriptionPatch(userId, {
+    lastWebhookEventId: event.id,
+    lastWebhookEventType: event.type,
+    lastWebhookAt: new Date(event.created * 1000).toISOString(),
+  });
+}
+
+async function syncSubscription(
+  sub: Stripe.Subscription,
+  event?: Stripe.Event,
+): Promise<void> {
+  const userId = await resolveUserId(sub);
+  if (!userId) return;
+
+  await applyStripeSubscription(
+    userId,
+    sub,
+    event
+      ? { id: event.id, type: event.type, created: event.created }
+      : undefined,
+  );
+}
+
+/**
+ * Remboursement complet → révocation immédiate des droits Premium locaux
+ * (+ tentative d’annulation de l’abonnement Stripe si encore actif).
+ */
+async function revokePremiumAfterFullRefund(
+  userId: string,
+  event: Stripe.Event,
+  options?: { stripeSubscriptionId?: string | null },
+): Promise<void> {
+  const previous = await getUserSubscription(userId);
+  const now = new Date().toISOString();
+
+  await upsertSubscriptionPatch(userId, {
+    plan: "free",
+    status: "canceled",
+    cancelAtPeriodEnd: false,
+    canceledAt: previous.canceledAt ?? now,
+    lastWebhookEventId: event.id,
+    lastWebhookEventType: event.type,
+    lastWebhookAt: new Date(event.created * 1000).toISOString(),
+  });
+
+  const stripeSubscriptionId =
+    options?.stripeSubscriptionId ?? previous.stripeSubscriptionId;
+
+  await trackAnalyticsEvent({
+    name: "billing.refunded",
+    userId,
+    idempotencyKey: `billing.refunded:${event.id}`,
+    meta: {
+      plan: previous.plan,
+      full: true,
+      reason: "full_refund",
+      source: event.type,
+      stripeSubscriptionId,
+    },
+  });
+
+  if (
+    previous.plan === "premium" &&
+    (previous.status === "active" ||
+      previous.status === "trialing" ||
+      previous.status === "past_due")
+  ) {
+    await trackAnalyticsEvent({
+      name: "billing.churned",
+      userId,
+      idempotencyKey: `billing.churned:${event.id}`,
+      meta: {
+        plan: "free",
+        status: "canceled",
+        reason: "full_refund",
+        source: event.type,
+        stripeSubscriptionId,
+      },
+    });
+  }
+
+  const subId =
+    options?.stripeSubscriptionId ?? previous.stripeSubscriptionId;
+  if (!subId) return;
+
+  try {
+    const stripe = getStripe();
+    const sub = await stripe.subscriptions.retrieve(subId);
+    if (sub.status !== "canceled") {
+      await stripe.subscriptions.cancel(subId);
+    }
+  } catch {
+    // La révocation locale prime ; Stripe peut déjà être annulé.
+  }
+}
+
+function isFullChargeRefund(charge: Stripe.Charge): boolean {
+  if (!charge.paid) return false;
+  if (charge.refunded) return true;
+  const amount = charge.amount ?? 0;
+  const refunded = charge.amount_refunded ?? 0;
+  return amount > 0 && refunded >= amount;
+}
+
+async function handleChargeRefunded(
+  event: Stripe.Event,
+): Promise<{ handled: boolean }> {
+  const charge = event.data.object as Stripe.Charge;
+  if (!isFullChargeRefund(charge)) {
+    const userId = await resolveUserIdFromCustomer(charge.customer);
+    if (userId) {
+      await recordWebhookMeta(userId, event);
+      await trackAnalyticsEvent({
+        name: "billing.refunded",
+        userId,
+        idempotencyKey: `billing.refunded:${event.id}`,
+        meta: {
+          full: false,
+          reason: "partial_refund",
+          source: event.type,
+          // Montant en centimes — pas de PII
+          amountRefunded: charge.amount_refunded ?? 0,
+          currency: charge.currency ?? null,
+        },
+      });
+    }
+    return { handled: true };
+  }
+
+  const userId = await resolveUserIdFromCustomer(charge.customer);
+  if (!userId) return { handled: false };
+
+  let stripeSubscriptionId: string | null = null;
+  const invoiceRef = (
+    charge as Stripe.Charge & {
+      invoice?: string | Stripe.Invoice | null;
+    }
+  ).invoice;
+  if (invoiceRef) {
+    try {
+      const stripe = getStripe();
+      const invoiceId =
+        typeof invoiceRef === "string" ? invoiceRef : invoiceRef.id;
+      const invoice = await stripe.invoices.retrieve(invoiceId);
+      const sub = (
+        invoice as { subscription?: string | { id: string } | null }
+      ).subscription;
+      stripeSubscriptionId =
+        typeof sub === "string" ? sub : sub?.id ?? null;
+    } catch {
+      stripeSubscriptionId = null;
+    }
+  }
+
+  await revokePremiumAfterFullRefund(userId, event, { stripeSubscriptionId });
+  return { handled: true };
+}
+
+async function handleRefundCreated(
+  event: Stripe.Event,
+): Promise<{ handled: boolean }> {
+  const refund = event.data.object as Stripe.Refund;
+  const chargeId =
+    typeof refund.charge === "string" ? refund.charge : refund.charge?.id;
+  if (!chargeId) return { handled: false };
+
+  const stripe = getStripe();
+  const charge = await stripe.charges.retrieve(chargeId);
+  if (!isFullChargeRefund(charge)) {
+    const userId = await resolveUserIdFromCustomer(charge.customer);
+    if (userId) {
+      await recordWebhookMeta(userId, event);
+      await trackAnalyticsEvent({
+        name: "billing.refunded",
+        userId,
+        idempotencyKey: `billing.refunded:${event.id}`,
+        meta: {
+          full: false,
+          reason: "partial_refund",
+          source: event.type,
+          amountRefunded: charge.amount_refunded ?? 0,
+          currency: charge.currency ?? null,
+        },
+      });
+    }
+    return { handled: true };
+  }
+
+  return handleChargeRefunded({
+    ...event,
+    type: "charge.refunded",
+    data: { ...event.data, object: charge },
+  } as Stripe.Event);
+}
+
+async function handleDispute(
+  event: Stripe.Event,
+): Promise<{ handled: boolean }> {
+  const dispute = event.data.object as Stripe.Dispute;
+  const chargeId =
+    typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+  if (!chargeId) return { handled: false };
+
+  const stripe = getStripe();
+  const charge = await stripe.charges.retrieve(chargeId);
+  const userId = await resolveUserIdFromCustomer(charge.customer);
+  if (!userId) return { handled: false };
+
+  let stripeSubscriptionId: string | null = null;
+  const invoiceRef = (
+    charge as Stripe.Charge & { invoice?: string | Stripe.Invoice | null }
+  ).invoice;
+  if (invoiceRef) {
+    try {
+      const invoiceId =
+        typeof invoiceRef === "string" ? invoiceRef : invoiceRef.id;
+      const invoice = await stripe.invoices.retrieve(invoiceId);
+      const sub = (
+        invoice as { subscription?: string | { id: string } | null }
+      ).subscription;
+      stripeSubscriptionId =
+        typeof sub === "string" ? sub : sub?.id ?? null;
+    } catch {
+      stripeSubscriptionId = null;
+    }
+  }
+
+  await revokePremiumAfterFullRefund(userId, event, { stripeSubscriptionId });
+  return { handled: true };
+}
+
+export function constructStripeEvent(
+  rawBody: string | Buffer,
+  signature: string,
+): Stripe.Event {
+  const secret = getStripeWebhookSecret();
+  if (!secret) {
+    throw new AppError(
+      "BAD_REQUEST",
+      "STRIPE_WEBHOOK_SECRET manquant.",
+      503,
+    );
+  }
+  const stripe = getStripe();
+  return stripe.webhooks.constructEvent(rawBody, signature, secret);
+}
+
+/**
+ * Traite les événements Stripe utiles à l’abonnement DocMind.
+ * Les droits Premium sont toujours dérivés de l’état synchronisé (webhooks).
+ */
+export async function handleStripeWebhookEvent(
+  event: Stripe.Event,
+): Promise<{ handled: boolean }> {
+  const {
+    claimStripeWebhookEvent,
+    isStripeWebhookEventClaimed,
+  } = await import("@/services/persistence/webhook-events-pg");
+
+  // Claim APRÈS succès : un crash mid-dispatch laisse Stripe retry (pas d’événement fantôme).
+  if (await isStripeWebhookEventClaimed(event.id)) {
+    return { handled: true };
+  }
+
+  const result = await dispatchStripeWebhookEvent(event);
+  if (result.handled) {
+    await claimStripeWebhookEvent(event.id, event.type);
+  }
+  // handled:false → pas de claim → retry Stripe possible (ex. userId non résolu)
+  return result;
+}
+
+async function dispatchStripeWebhookEvent(
+  event: Stripe.Event,
+): Promise<{ handled: boolean }> {
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.mode !== "subscription") return { handled: false };
+      const subId =
+        typeof session.subscription === "string"
+          ? session.subscription
+          : session.subscription?.id;
+      if (!subId) return { handled: false };
+      const stripe = getStripe();
+      const sub = await stripe.subscriptions.retrieve(subId);
+      if (session.client_reference_id || session.metadata?.docmind_user_id) {
+        sub.metadata = {
+          ...sub.metadata,
+          docmind_user_id:
+            session.metadata?.docmind_user_id ||
+            session.client_reference_id ||
+            "",
+          plan: "premium",
+        };
+      }
+      await syncSubscription(sub, event);
+      return { handled: true };
+    }
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      await syncSubscription(
+        event.data.object as Stripe.Subscription,
+        event,
+      );
+      return { handled: true };
+    }
+    case "invoice.paid":
+    case "invoice.payment_failed":
+    case "invoice.payment_action_required": {
+      const invoice = event.data.object as Stripe.Invoice;
+      const subId =
+        typeof (invoice as { subscription?: string | { id: string } })
+          .subscription === "string"
+          ? ((invoice as { subscription?: string }).subscription as string)
+          : (invoice as { subscription?: { id: string } }).subscription?.id;
+      if (!subId) return { handled: false };
+      const stripe = getStripe();
+      const sub = await stripe.subscriptions.retrieve(subId);
+      await syncSubscription(sub, event);
+
+      if (event.type === "invoice.paid") {
+        const billingReason =
+          (invoice as { billing_reason?: string | null }).billing_reason ??
+          null;
+        // Renouvellement de cycle (pas la 1ʳᵉ facture de création)
+        if (billingReason === "subscription_cycle") {
+          const userId = await resolveUserId(sub);
+          if (userId) {
+            await trackAnalyticsEvent({
+              name: "billing.renewed",
+              userId,
+              idempotencyKey: `billing.renewed:${invoice.id}`,
+              meta: {
+                plan: "premium",
+                source: "invoice.paid",
+                billingReason,
+                stripeSubscriptionId: subId,
+                stripeInvoiceId: invoice.id,
+                amountPaid: invoice.amount_paid ?? null,
+                currency: invoice.currency ?? null,
+              },
+            });
+          }
+        }
+      }
+      return { handled: true };
+    }
+    case "charge.refunded":
+      return handleChargeRefunded(event);
+    case "refund.created":
+      return handleRefundCreated(event);
+    case "charge.dispute.created":
+    case "charge.dispute.funds_withdrawn":
+      return handleDispute(event);
+    default:
+      return { handled: false };
+  }
+}

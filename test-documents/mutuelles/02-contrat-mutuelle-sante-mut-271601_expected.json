@@ -1,0 +1,42 @@
+{
+  "document_type": "Mutuelle",
+  "title": "Contrat mutuelle santé MUT-271601",
+  "summary": "Contrat de mutuelle MUT-271601 pour Lucas Moreau auprès de Mutuelle Santé Équilibre, cotisation 82,28 €, échéance 17/07/2027.",
+  "people": [
+    "Lucas Moreau"
+  ],
+  "organizations": [
+    "Mutuelle Santé Équilibre"
+  ],
+  "amounts": [
+    "82,28 €",
+    "164 €",
+    "252 €",
+    "2,22 €",
+    "36 €"
+  ],
+  "dates": [
+    "17/07/2027"
+  ],
+  "deadlines": [
+    "Déclarer les ayants droit sous 30 jours",
+    "Délai de carence : 90 jours sur certaines garanties dentaires"
+  ],
+  "important_points": [
+    "Cotisation mensuelle de 82,28 €",
+    "Forfait optique de 164 € par an",
+    "Tacite reconduction annuelle"
+  ],
+  "risks": [
+    "Renouvellement automatique par tacite reconduction",
+    "Frais de gestion cachés de 2,22 € par mois",
+    "Frais de radiation anticipée de 36 €",
+    "Délai de carence de 90 jours"
+  ],
+  "actions": [
+    "Anticiper l'échéance du 17/07/2027 pour une éventuelle résiliation",
+    "Vérifier les frais de gestion hors cotisation",
+    "Déclarer les ayants droit sous 30 jours"
+  ],
+  "risk_score": 66
+}

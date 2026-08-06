@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture SFR",
+  "title": "Facture SFR SFR-583076",
+  "summary": "Facture SFR SFR-583076 pour Léa Simon (Mobile 100 Go), total 48,05 €, à payer avant le 08/09/2026.",
+  "people": [
+    "Léa Simon"
+  ],
+  "organizations": [
+    "SFR"
+  ],
+  "amounts": [
+    "40,64 €",
+    "3,56 €",
+    "3,85 €",
+    "48,05 €",
+    "6 €"
+  ],
+  "dates": [
+    "19/08/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 08/09/2026",
+    "Délai de résiliation : préavis de 30 jours"
+  ],
+  "important_points": [
+    "Offre Mobile 100 Go",
+    "Total TTC de 48,05 €",
+    "Échéance de paiement au 08/09/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 3,85 €",
+    "Frais de rejet de prélèvement de 6 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 48,05 € avant le 08/09/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 30 jours pour résilier"
+  ],
+  "risk_score": 81
+}

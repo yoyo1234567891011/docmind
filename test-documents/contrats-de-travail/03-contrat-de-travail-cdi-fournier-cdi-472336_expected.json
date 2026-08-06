@@ -1,0 +1,40 @@
+{
+  "document_type": "Contrat de travail",
+  "title": "Contrat de travail CDI Fournier CDI-472336",
+  "summary": "CDI de Hugo Fournier chez TechnoNova SAS en tant que Technicien support à Toulouse, salaire brut de 3 279 €, entrée le 21/11/2025.",
+  "people": [
+    "Hugo Fournier"
+  ],
+  "organizations": [
+    "TechnoNova SAS"
+  ],
+  "amounts": [
+    "3 279 €",
+    "9,18 €"
+  ],
+  "dates": [
+    "21/11/2025"
+  ],
+  "deadlines": [
+    "Délai de préavis : 2 mois",
+    "Période d'essai : 4 mois"
+  ],
+  "important_points": [
+    "Poste de Technicien support",
+    "Salaire brut mensuel de 3 279 €",
+    "Clause de non-concurrence de 12 mois (27 % du salaire)",
+    "Période d'essai de 4 mois"
+  ],
+  "risks": [
+    "Clause de non-concurrence de 12 mois",
+    "Clause de mobilité dans un rayon de 50 km",
+    "Risque de licenciement pour faute en cas de manquement à la confidentialité",
+    "Pénalité possible en cas de rupture abusive de période d'essai"
+  ],
+  "actions": [
+    "Relire la clause de non-concurrence avant signature",
+    "Vérifier la durée et le renouvellement de la période d'essai",
+    "Noter le préavis de 2 mois"
+  ],
+  "risk_score": 51
+}

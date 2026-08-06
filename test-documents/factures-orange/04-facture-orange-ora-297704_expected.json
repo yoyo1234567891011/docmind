@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Orange",
+  "title": "Facture Orange ORA-297704",
+  "summary": "Facture Orange ORA-297704 pour Hugo Girard (Mobile 100 Go), total 73,51 €, à payer avant le 13/09/2026.",
+  "people": [
+    "Hugo Girard"
+  ],
+  "organizations": [
+    "Orange"
+  ],
+  "amounts": [
+    "55,69 €",
+    "12,31 €",
+    "5,50 €",
+    "73,51 €",
+    "11 €"
+  ],
+  "dates": [
+    "19/08/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 13/09/2026",
+    "Délai de résiliation : préavis de 60 jours"
+  ],
+  "important_points": [
+    "Offre Mobile 100 Go",
+    "Total TTC de 73,51 €",
+    "Échéance de paiement au 13/09/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 5,50 €",
+    "Frais de rejet de prélèvement de 11 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 73,51 € avant le 13/09/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 60 jours pour résilier"
+  ],
+  "risk_score": 81
+}

@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Free",
+  "title": "Facture Free FRE-540415",
+  "summary": "Facture Free FRE-540415 pour Léa Simon (Box + Mobile), total 67,13 €, à payer avant le 06/11/2026.",
+  "people": [
+    "Léa Simon"
+  ],
+  "organizations": [
+    "Free"
+  ],
+  "amounts": [
+    "48,88 €",
+    "14,46 €",
+    "3,79 €",
+    "67,13 €",
+    "11 €"
+  ],
+  "dates": [
+    "09/03/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 06/11/2026",
+    "Délai de résiliation : préavis de 30 jours"
+  ],
+  "important_points": [
+    "Offre Box + Mobile",
+    "Total TTC de 67,13 €",
+    "Échéance de paiement au 06/11/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 3,79 €",
+    "Frais de rejet de prélèvement de 11 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 67,13 € avant le 06/11/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 30 jours pour résilier"
+  ],
+  "risk_score": 81
+}

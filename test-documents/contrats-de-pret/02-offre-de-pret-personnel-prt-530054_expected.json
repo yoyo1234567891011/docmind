@@ -1,0 +1,42 @@
+{
+  "document_type": "Contrat de prêt",
+  "title": "Offre de pret personnel PRT-530054",
+  "summary": "Offre de prêt PRT-530054 de Crédit Serein pour Hugo Petit : capital 20 785 €, TAEG 3,69 %, mensualité 341 € sur 55 mois.",
+  "people": [
+    "Hugo Petit"
+  ],
+  "organizations": [
+    "Crédit Serein"
+  ],
+  "amounts": [
+    "20 785 €",
+    "341 €",
+    "114 €",
+    "29 €",
+    "23,53 €"
+  ],
+  "dates": [
+    "01/09/2025"
+  ],
+  "deadlines": [
+    "Délai de rétractation : 14 jours"
+  ],
+  "important_points": [
+    "Capital de 20 785 €",
+    "TAEG de 3,69 %",
+    "Mensualité de 341 €",
+    "Durée de 55 mois"
+  ],
+  "risks": [
+    "Frais de report d'échéance de 29 €",
+    "Assurance emprunteur proposée à 23,53 € par mois",
+    "Pénalités de remboursement anticipé de 0,5 %",
+    "Déchéance du terme en cas d'impayés"
+  ],
+  "actions": [
+    "Comparer le coût de l'assurance emprunteur avant acceptation",
+    "Exercer la rétractation sous 14 jours si besoin",
+    "Anticiper le coût d'un remboursement anticipé"
+  ],
+  "risk_score": 81
+}

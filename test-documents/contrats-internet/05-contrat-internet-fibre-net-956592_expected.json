@@ -1,0 +1,42 @@
+{
+  "document_type": "Contrat Internet",
+  "title": "Contrat Internet fibre NET-956592",
+  "summary": "Contrat Internet NetHorizon pour Hugo Dubois à 12 rue des Lilas, 31000 Toulouse, mensualité 42,46 €, engagement sans engagement, début 26/08/2025.",
+  "people": [
+    "Hugo Dubois"
+  ],
+  "organizations": [
+    "NetHorizon"
+  ],
+  "amounts": [
+    "42,46 €",
+    "5,61 €",
+    "16 €",
+    "109 €",
+    "90 €"
+  ],
+  "dates": [
+    "26/08/2025"
+  ],
+  "deadlines": [
+    "Résiliation à notifier avant le 20/08/2026",
+    "matériel non retourné sous 30 jours",
+    "intervention technicien sous 8 jours"
+  ],
+  "important_points": [
+    "Mensualité de 42,46 €",
+    "Engagement sans engagement",
+    "Location box de 5,61 € par mois"
+  ],
+  "risks": [
+    "Renouvellement automatique au tarif catalogue",
+    "Frais de résiliation anticipée de 109 €",
+    "Pénalité de 90 € si matériel non restitué"
+  ],
+  "actions": [
+    "Notifier une résiliation avant le 20/08/2026 si souhaité",
+    "Anticiper la restitution du matériel",
+    "Prévoir l'accès logement pour le technicien sous 8 jours"
+  ],
+  "risk_score": 81
+}

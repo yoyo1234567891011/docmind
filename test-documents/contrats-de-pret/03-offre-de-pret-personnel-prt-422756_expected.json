@@ -1,0 +1,42 @@
+{
+  "document_type": "Contrat de prêt",
+  "title": "Offre de pret personnel PRT-422756",
+  "summary": "Offre de prêt PRT-422756 de Crédit Serein pour Hugo Vincent : capital 8 917 €, TAEG 4,18 %, mensualité 411 € sur 62 mois.",
+  "people": [
+    "Hugo Vincent"
+  ],
+  "organizations": [
+    "Crédit Serein"
+  ],
+  "amounts": [
+    "8 917 €",
+    "411 €",
+    "65 €",
+    "20 €",
+    "20,41 €"
+  ],
+  "dates": [
+    "23/02/2025"
+  ],
+  "deadlines": [
+    "Délai de rétractation : 14 jours"
+  ],
+  "important_points": [
+    "Capital de 8 917 €",
+    "TAEG de 4,18 %",
+    "Mensualité de 411 €",
+    "Durée de 62 mois"
+  ],
+  "risks": [
+    "Frais de report d'échéance de 20 €",
+    "Assurance emprunteur proposée à 20,41 € par mois",
+    "Pénalités de remboursement anticipé de 0,6 %",
+    "Déchéance du terme en cas d'impayés"
+  ],
+  "actions": [
+    "Comparer le coût de l'assurance emprunteur avant acceptation",
+    "Exercer la rétractation sous 14 jours si besoin",
+    "Anticiper le coût d'un remboursement anticipé"
+  ],
+  "risk_score": 81
+}

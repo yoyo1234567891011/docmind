@@ -1,0 +1,46 @@
+{
+  "document_type": "Devis",
+  "title": "Devis DEV-168254",
+  "summary": "Devis DEV-168254 de Services Multitech pour Lucas Bernard, total TTC 1 950,76 €, valable jusqu'au 01/06/2026.",
+  "people": [
+    "Lucas Bernard"
+  ],
+  "organizations": [
+    "Services Multitech"
+  ],
+  "amounts": [
+    "718 €",
+    "809 €",
+    "99 €",
+    "1 625,63 €",
+    "325,13 €",
+    "1 950,76 €",
+    "40 €",
+    "157 €"
+  ],
+  "dates": [
+    "24/12/2026"
+  ],
+  "deadlines": [
+    "01/06/2026",
+    "Décisions client sous 48 h",
+    "Intervention estimée sous 1 mois"
+  ],
+  "important_points": [
+    "Total TTC de 1 950,76 €",
+    "Acompte de 30 % à la commande",
+    "Validité jusqu'au 01/06/2026",
+    "Frais d'évacuation des gravats non inclus : 157 €"
+  ],
+  "risks": [
+    "Pénalités de retard de paiement et indemnité forfaitaire de 40 €",
+    "Frais annexes non inclus de 157 €",
+    "Le devis devient contrat dès signature"
+  ],
+  "actions": [
+    "Accepter ou refuser avant le 01/06/2026",
+    "Prévoir l'acompte de 30 %",
+    "Garantir l'accès chantier et les décisions sous 48 h"
+  ],
+  "risk_score": 66
+}

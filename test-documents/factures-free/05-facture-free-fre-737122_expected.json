@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Free",
+  "title": "Facture Free FRE-737122",
+  "summary": "Facture Free FRE-737122 pour Léa Morel (Forfait 5G), total 42,63 €, à payer avant le 18/01/2026.",
+  "people": [
+    "Léa Morel"
+  ],
+  "organizations": [
+    "Free"
+  ],
+  "amounts": [
+    "37,68 €",
+    "3,31 €",
+    "1,65 €",
+    "42,63 €",
+    "11 €"
+  ],
+  "dates": [
+    "20/09/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 18/01/2026",
+    "Délai de résiliation : préavis de 10 jours"
+  ],
+  "important_points": [
+    "Offre Forfait 5G",
+    "Total TTC de 42,63 €",
+    "Échéance de paiement au 18/01/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 1,65 €",
+    "Frais de rejet de prélèvement de 11 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 42,63 € avant le 18/01/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 10 jours pour résilier"
+  ],
+  "risk_score": 96
+}

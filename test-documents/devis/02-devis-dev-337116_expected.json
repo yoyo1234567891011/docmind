@@ -1,0 +1,46 @@
+{
+  "document_type": "Devis",
+  "title": "Devis DEV-337116",
+  "summary": "Devis DEV-337116 de Atelier Pro Renov pour Lucas Dubois, total TTC 1 526,30 €, valable jusqu'au 11/01/2026.",
+  "people": [
+    "Lucas Dubois"
+  ],
+  "organizations": [
+    "Atelier Pro Renov"
+  ],
+  "amounts": [
+    "571 €",
+    "629 €",
+    "71 €",
+    "1 271,92 €",
+    "254,38 €",
+    "1 526,30 €",
+    "40 €",
+    "115 €"
+  ],
+  "dates": [
+    "16/08/2026"
+  ],
+  "deadlines": [
+    "11/01/2026",
+    "Décisions client sous 48 h",
+    "Intervention estimée sous 10 jours"
+  ],
+  "important_points": [
+    "Total TTC de 1 526,30 €",
+    "Acompte de 30 % à la commande",
+    "Validité jusqu'au 11/01/2026",
+    "Frais d'évacuation des gravats non inclus : 115 €"
+  ],
+  "risks": [
+    "Pénalités de retard de paiement et indemnité forfaitaire de 40 €",
+    "Frais annexes non inclus de 115 €",
+    "Le devis devient contrat dès signature"
+  ],
+  "actions": [
+    "Accepter ou refuser avant le 11/01/2026",
+    "Prévoir l'acompte de 30 %",
+    "Garantir l'accès chantier et les décisions sous 48 h"
+  ],
+  "risk_score": 66
+}

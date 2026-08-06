@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Orange",
+  "title": "Facture Orange ORA-100996",
+  "summary": "Facture Orange ORA-100996 pour Léa Laurent (Box + Mobile), total 78,51 €, à payer avant le 01/07/2026.",
+  "people": [
+    "Léa Laurent"
+  ],
+  "organizations": [
+    "Orange"
+  ],
+  "amounts": [
+    "66,90 €",
+    "8,47 €",
+    "3,14 €",
+    "78,51 €",
+    "10 €"
+  ],
+  "dates": [
+    "07/01/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 01/07/2026",
+    "Délai de résiliation : préavis de 10 jours"
+  ],
+  "important_points": [
+    "Offre Box + Mobile",
+    "Total TTC de 78,51 €",
+    "Échéance de paiement au 01/07/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 3,14 €",
+    "Frais de rejet de prélèvement de 10 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 78,51 € avant le 01/07/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 10 jours pour résilier"
+  ],
+  "risk_score": 96
+}

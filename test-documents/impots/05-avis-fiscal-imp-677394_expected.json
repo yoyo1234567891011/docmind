@@ -1,0 +1,41 @@
+{
+  "document_type": "Impôts",
+  "title": "Avis fiscal IMP-677394",
+  "summary": "Avis fiscal IMP-677394 adressé à Lucas Moreau pour un reste à payer de 2 373 € au titre de 2025, à régler avant le 13/10/2026.",
+  "people": [
+    "Lucas Moreau"
+  ],
+  "organizations": [
+    "Direction générale des Finances publiques"
+  ],
+  "amounts": [
+    "2 021 €",
+    "2 373 €",
+    "27 €"
+  ],
+  "dates": [
+    "26/07/2026",
+    "2025"
+  ],
+  "deadlines": [
+    "Le règlement doit intervenir au plus tard le 13/10/2026",
+    "Produire les justificatifs demandés sous 15 jours"
+  ],
+  "important_points": [
+    "Principal dû de 2 021 €",
+    "Majoration de 17 %",
+    "Total à régler de 2 373 €",
+    "Échéance de paiement au 13/10/2026"
+  ],
+  "risks": [
+    "Majoration automatique en cas de retard",
+    "Procédure de recouvrement forcé possible",
+    "Frais de relance de 27 €"
+  ],
+  "actions": [
+    "Régler 2 373 € avant le 13/10/2026",
+    "Contester de façon motivée avant la date limite si désaccord",
+    "Fournir les justificatifs demandés sous 15 jours"
+  ],
+  "risk_score": 81
+}

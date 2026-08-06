@@ -1,0 +1,41 @@
+{
+  "document_type": "Bail",
+  "title": "Bail d'habitation anonymisé",
+  "summary": "Bail d'habitation T2 entre Alice Martin (locataire) et SCI Exemple (bailleur), effet au 01/09/2024, loyer 850 € plus 80 € de charges, dépôt 1 700 €, préavis de 3 mois.",
+  "people": [
+    "Alice Martin",
+    "Claire Bernard"
+  ],
+  "organizations": [
+    "SCI Exemple"
+  ],
+  "amounts": [
+    "850,00 €",
+    "80,00 €",
+    "1 700 €"
+  ],
+  "dates": [
+    "12/03/1985",
+    "01/09/2024",
+    "31/12/2025",
+    "31/03/2026"
+  ],
+  "deadlines": [
+    "31/12/2025",
+    "31/03/2026"
+  ],
+  "important_points": [
+    "Loyer mensuel de 850,00 € hors charges, payable le 5 de chaque mois",
+    "Dépôt de garantie de 1 700 € à la signature",
+    "Préavis de résiliation de 3 mois"
+  ],
+  "risks": [
+    "Risque d'impayés de loyer entraînant mise en demeure",
+    "Préavis insuffisant pouvant retarder la résiliation"
+  ],
+  "actions": [
+    "Vérifier le paiement du loyer au 5 de chaque mois",
+    "Respecter le préavis de 3 mois pour toute résiliation"
+  ],
+  "risk_score": 45
+}

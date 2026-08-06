@@ -1,0 +1,46 @@
+{
+  "document_type": "Devis",
+  "title": "Devis DEV-533823",
+  "summary": "Devis DEV-533823 de Services Multitech pour Lucas Lefebvre, total TTC 1 742,98 €, valable jusqu'au 24/03/2026.",
+  "people": [
+    "Lucas Lefebvre"
+  ],
+  "organizations": [
+    "Services Multitech"
+  ],
+  "amounts": [
+    "441 €",
+    "898 €",
+    "113 €",
+    "1 452,49 €",
+    "290,50 €",
+    "1 742,98 €",
+    "40 €",
+    "118 €"
+  ],
+  "dates": [
+    "28/02/2026"
+  ],
+  "deadlines": [
+    "24/03/2026",
+    "Décisions client sous 48 h",
+    "Intervention estimée sous 1 mois"
+  ],
+  "important_points": [
+    "Total TTC de 1 742,98 €",
+    "Acompte de 30 % à la commande",
+    "Validité jusqu'au 24/03/2026",
+    "Frais d'évacuation des gravats non inclus : 118 €"
+  ],
+  "risks": [
+    "Pénalités de retard de paiement et indemnité forfaitaire de 40 €",
+    "Frais annexes non inclus de 118 €",
+    "Le devis devient contrat dès signature"
+  ],
+  "actions": [
+    "Accepter ou refuser avant le 24/03/2026",
+    "Prévoir l'acompte de 30 %",
+    "Garantir l'accès chantier et les décisions sous 48 h"
+  ],
+  "risk_score": 66
+}

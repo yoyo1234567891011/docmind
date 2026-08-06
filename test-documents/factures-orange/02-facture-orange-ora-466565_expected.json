@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Orange",
+  "title": "Facture Orange ORA-466565",
+  "summary": "Facture Orange ORA-466565 pour Léa André (Fibre 1 Gb/s), total 56,84 €, à payer avant le 23/04/2026.",
+  "people": [
+    "Léa André"
+  ],
+  "organizations": [
+    "Orange"
+  ],
+  "amounts": [
+    "43,16 €",
+    "9,75 €",
+    "3,93 €",
+    "56,84 €",
+    "8 €"
+  ],
+  "dates": [
+    "11/04/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 23/04/2026",
+    "Délai de résiliation : préavis de 60 jours"
+  ],
+  "important_points": [
+    "Offre Fibre 1 Gb/s",
+    "Total TTC de 56,84 €",
+    "Échéance de paiement au 23/04/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 3,93 €",
+    "Frais de rejet de prélèvement de 8 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 56,84 € avant le 23/04/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 60 jours pour résilier"
+  ],
+  "risk_score": 81
+}

@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture SFR",
+  "title": "Facture SFR SFR-779783",
+  "summary": "Facture SFR SFR-779783 pour Léa Morel (Box + Mobile), total 38,55 €, à payer avant le 20/11/2026.",
+  "people": [
+    "Léa Morel"
+  ],
+  "organizations": [
+    "SFR"
+  ],
+  "amounts": [
+    "29,43 €",
+    "7,40 €",
+    "1,71 €",
+    "38,55 €",
+    "6 €"
+  ],
+  "dates": [
+    "02/02/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 20/11/2026",
+    "Délai de résiliation : préavis de 10 jours"
+  ],
+  "important_points": [
+    "Offre Box + Mobile",
+    "Total TTC de 38,55 €",
+    "Échéance de paiement au 20/11/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 1,71 €",
+    "Frais de rejet de prélèvement de 6 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 38,55 € avant le 20/11/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 10 jours pour résilier"
+  ],
+  "risk_score": 96
+}

@@ -1,0 +1,48 @@
+{
+  "document_type": "Banque",
+  "title": "Relevé bancaire Banque Horizon BQE-322695",
+  "summary": "Relevé de compte Banque Horizon pour Lucas Vincent, solde de 1 144,50 €, avec frais de tenue de 8,25 € et demande de régularisation avant le 25/11/2026.",
+  "people": [
+    "Lucas Vincent"
+  ],
+  "organizations": [
+    "Banque Horizon"
+  ],
+  "amounts": [
+    "1 144,50 €",
+    "15,96 €",
+    "8,25 €",
+    "1 173 €",
+    "2 996 €",
+    "2,55 €",
+    "16 €"
+  ],
+  "dates": [
+    "17/08/2026",
+    "02/03/2026",
+    "07/06/2026",
+    "17/01/2026",
+    "17/06/2026"
+  ],
+  "deadlines": [
+    "Régularisation du solde avant le 25/11/2026"
+  ],
+  "important_points": [
+    "Solde arrêté à 1 144,50 €",
+    "Frais de tenue de compte de 8,25 € par mois",
+    "Commission d'intervention de 15,96 €"
+  ],
+  "risks": [
+    "Frais cachés : commission de mouvement de 2,55 €",
+    "Frais de rejet de prélèvement de 16 €",
+    "Intérêts débiteurs à 17,7 % l'an",
+    "Risque de suspension des moyens de paiement",
+    "Risque d'inscription au FICP"
+  ],
+  "actions": [
+    "Régulariser le solde avant le 25/11/2026",
+    "Vérifier les frais de découvert et commissions prélevées",
+    "Maintenir une provision suffisante sur le compte"
+  ],
+  "risk_score": 66
+}

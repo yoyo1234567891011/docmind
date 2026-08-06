@@ -1,0 +1,41 @@
+{
+  "document_type": "Bail",
+  "title": "Bail location Angers BAIL-801623",
+  "summary": "Bail entre Inès Simon et Hugo Moreau pour un logement de 66 m² à 14 allée des Tilleuls, 49000 Angers, loyer 1 260 €, effet au 05/06/2024.",
+  "people": [
+    "Inès Simon",
+    "Hugo Moreau"
+  ],
+  "organizations": [],
+  "amounts": [
+    "1 260 €",
+    "76 €",
+    "19 €"
+  ],
+  "dates": [
+    "05/06/2024"
+  ],
+  "deadlines": [
+    "État des lieux contradictoire à organiser avant le 28/12/2026",
+    "Congé donné 6 mois avant terme",
+    "Majoration après 15 jours de retard de loyer"
+  ],
+  "important_points": [
+    "Loyer mensuel de 1 260 €",
+    "Dépôt de garantie de 1 260 €",
+    "Renouvellement automatique pour 3 ans",
+    "Assurance habitation obligatoire"
+  ],
+  "risks": [
+    "Renouvellement automatique du bail",
+    "Pénalités de retard de 4,3 %",
+    "Frais de relance de 19 €",
+    "Résiliation de plein droit après commandement de payer infructueux"
+  ],
+  "actions": [
+    "Souscrire et transmettre l'attestation d'assurance habitation",
+    "Prévoir l'état des lieux avant le 28/12/2026 en cas de départ",
+    "Anticiper un congé 6 mois avant terme si non-renouvellement souhaité"
+  ],
+  "risk_score": 81
+}

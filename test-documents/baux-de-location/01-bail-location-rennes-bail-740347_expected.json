@@ -1,0 +1,41 @@
+{
+  "document_type": "Bail",
+  "title": "Bail location Rennes BAIL-740347",
+  "summary": "Bail entre Sophie Garcia et Hugo Lefebvre pour un logement de 40 m² à 27 boulevard Gambetta, 35000 Rennes, loyer 679 €, effet au 18/09/2024.",
+  "people": [
+    "Sophie Garcia",
+    "Hugo Lefebvre"
+  ],
+  "organizations": [],
+  "amounts": [
+    "679 €",
+    "99 €",
+    "37 €"
+  ],
+  "dates": [
+    "18/09/2024"
+  ],
+  "deadlines": [
+    "État des lieux contradictoire à organiser avant le 23/05/2026",
+    "Congé donné 6 mois avant terme",
+    "Majoration après 15 jours de retard de loyer"
+  ],
+  "important_points": [
+    "Loyer mensuel de 679 €",
+    "Dépôt de garantie de 679 €",
+    "Renouvellement automatique pour 3 ans",
+    "Assurance habitation obligatoire"
+  ],
+  "risks": [
+    "Renouvellement automatique du bail",
+    "Pénalités de retard de 4,6 %",
+    "Frais de relance de 37 €",
+    "Résiliation de plein droit après commandement de payer infructueux"
+  ],
+  "actions": [
+    "Souscrire et transmettre l'attestation d'assurance habitation",
+    "Prévoir l'état des lieux avant le 23/05/2026 en cas de départ",
+    "Anticiper un congé 6 mois avant terme si non-renouvellement souhaité"
+  ],
+  "risk_score": 81
+}

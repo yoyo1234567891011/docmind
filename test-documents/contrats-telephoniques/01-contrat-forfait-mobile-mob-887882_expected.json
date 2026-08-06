@@ -1,0 +1,38 @@
+{
+  "document_type": "Contrat téléphonique",
+  "title": "Contrat forfait mobile MOB-887882",
+  "summary": "Forfait mobile 70 Go 5G pour Chloé Simon à 37,60 € par mois, engagement 12 mois, souscrit le 26/03/2025.",
+  "people": [
+    "Chloé Simon"
+  ],
+  "organizations": [],
+  "amounts": [
+    "37,60 €",
+    "11,28 €",
+    "7,36 €"
+  ],
+  "dates": [
+    "26/03/2025"
+  ],
+  "deadlines": [
+    "Délai de rétractation : 14 jours à compter de la souscription"
+  ],
+  "important_points": [
+    "Forfait 70 Go 5G",
+    "Prix mensuel de 37,60 €",
+    "Financement terminal de 11,28 € par mois",
+    "Engagement 12 mois"
+  ],
+  "risks": [
+    "Renouvellement automatique du forfait",
+    "Assurance casse pré-cochée à 7,36 € par mois",
+    "Pénalités égales aux mensualités restantes du terminal",
+    "Suspension après 2 prélèvements rejetés"
+  ],
+  "actions": [
+    "Vérifier et désactiver l'assurance casse si non souhaitée",
+    "Exercer la rétractation sous 14 jours si besoin",
+    "Anticiper le coût de résiliation anticipée lié au terminal"
+  ],
+  "risk_score": 63
+}

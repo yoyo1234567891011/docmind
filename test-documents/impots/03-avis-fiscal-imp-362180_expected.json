@@ -1,0 +1,41 @@
+{
+  "document_type": "Impôts",
+  "title": "Avis fiscal IMP-362180",
+  "summary": "Avis fiscal IMP-362180 adressé à Lucas Simon pour un reste à payer de 1 777 € au titre de 2025, à régler avant le 06/05/2026.",
+  "people": [
+    "Lucas Simon"
+  ],
+  "organizations": [
+    "Direction générale des Finances publiques"
+  ],
+  "amounts": [
+    "1 547 €",
+    "1 777 €",
+    "20 €"
+  ],
+  "dates": [
+    "08/02/2026",
+    "2025"
+  ],
+  "deadlines": [
+    "Le règlement doit intervenir au plus tard le 06/05/2026",
+    "Produire les justificatifs demandés sous 15 jours"
+  ],
+  "important_points": [
+    "Principal dû de 1 547 €",
+    "Majoration de 15 %",
+    "Total à régler de 1 777 €",
+    "Échéance de paiement au 06/05/2026"
+  ],
+  "risks": [
+    "Majoration automatique en cas de retard",
+    "Procédure de recouvrement forcé possible",
+    "Frais de relance de 20 €"
+  ],
+  "actions": [
+    "Régler 1 777 € avant le 06/05/2026",
+    "Contester de façon motivée avant la date limite si désaccord",
+    "Fournir les justificatifs demandés sous 15 jours"
+  ],
+  "risk_score": 81
+}

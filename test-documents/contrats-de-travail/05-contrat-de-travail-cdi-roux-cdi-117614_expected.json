@@ -1,0 +1,40 @@
+{
+  "document_type": "Contrat de travail",
+  "title": "Contrat de travail CDI Roux CDI-117614",
+  "summary": "CDI de Hugo Roux chez Atelier Lumière SARL en tant que Développeur à Nice, salaire brut de 3 114 €, entrée le 03/03/2025.",
+  "people": [
+    "Hugo Roux"
+  ],
+  "organizations": [
+    "Atelier Lumière SARL"
+  ],
+  "amounts": [
+    "3 114 €",
+    "9,80 €"
+  ],
+  "dates": [
+    "03/03/2025"
+  ],
+  "deadlines": [
+    "Délai de préavis : 3 mois",
+    "Période d'essai : 2 mois"
+  ],
+  "important_points": [
+    "Poste de Développeur",
+    "Salaire brut mensuel de 3 114 €",
+    "Clause de non-concurrence de 12 mois (30 % du salaire)",
+    "Période d'essai de 2 mois"
+  ],
+  "risks": [
+    "Clause de non-concurrence de 12 mois",
+    "Clause de mobilité dans un rayon de 50 km",
+    "Risque de licenciement pour faute en cas de manquement à la confidentialité",
+    "Pénalité possible en cas de rupture abusive de période d'essai"
+  ],
+  "actions": [
+    "Relire la clause de non-concurrence avant signature",
+    "Vérifier la durée et le renouvellement de la période d'essai",
+    "Noter le préavis de 3 mois"
+  ],
+  "risk_score": 51
+}

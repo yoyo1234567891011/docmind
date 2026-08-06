@@ -1,0 +1,1 @@
+export { uploadPdfDocument } from "./upload";

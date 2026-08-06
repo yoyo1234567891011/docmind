@@ -1,0 +1,41 @@
+{
+  "document_type": "Facture EDF",
+  "title": "Facture electricite EDF-936412",
+  "summary": "Facture ÉnergieClaire EDF-936412 pour Léa André, total TTC 118,71 €, payable avant le 06/04/2026.",
+  "people": [
+    "Léa André"
+  ],
+  "organizations": [
+    "ÉnergieClaire"
+  ],
+  "amounts": [
+    "12,36 €",
+    "118,71 €",
+    "12 €"
+  ],
+  "dates": [
+    "03/04/2025",
+    "05/07/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 06/04/2026",
+    "En l'absence de règlement sous 15 jours, mise en demeure"
+  ],
+  "important_points": [
+    "Consommation de 880 kWh",
+    "Total TTC de 118,71 €",
+    "Date limite de paiement au 06/04/2026"
+  ],
+  "risks": [
+    "Pénalités de retard de 12 €",
+    "Frais et taxes d'acheminement peu visibles",
+    "Risque de coupure en cas de non-paiement",
+    "Reconduction mensuelle automatique de l'offre"
+  ],
+  "actions": [
+    "Payer 118,71 € avant le 06/04/2026",
+    "Vérifier le détail des taxes et contribution d'acheminement",
+    "Relever le compteur si demandé"
+  ],
+  "risk_score": 96
+}

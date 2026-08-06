@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture SFR",
+  "title": "Facture SFR SFR-217507",
+  "summary": "Facture SFR SFR-217507 pour Léa Mercier (Fibre 1 Gb/s), total 69,72 €, à payer avant le 13/12/2026.",
+  "people": [
+    "Léa Mercier"
+  ],
+  "organizations": [
+    "SFR"
+  ],
+  "amounts": [
+    "64,38 €",
+    "2,27 €",
+    "3,06 €",
+    "69,72 €",
+    "8 €"
+  ],
+  "dates": [
+    "15/05/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 13/12/2026",
+    "Délai de résiliation : préavis de 30 jours"
+  ],
+  "important_points": [
+    "Offre Fibre 1 Gb/s",
+    "Total TTC de 69,72 €",
+    "Échéance de paiement au 13/12/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 3,06 €",
+    "Frais de rejet de prélèvement de 8 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 69,72 € avant le 13/12/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 30 jours pour résilier"
+  ],
+  "risk_score": 81
+}

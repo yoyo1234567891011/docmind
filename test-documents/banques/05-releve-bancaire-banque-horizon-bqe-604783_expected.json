@@ -1,0 +1,48 @@
+{
+  "document_type": "Banque",
+  "title": "Relevé bancaire Banque Horizon BQE-604783",
+  "summary": "Relevé de compte Banque Horizon pour Lucas David, solde de 282,44 €, avec frais de tenue de 2,71 € et demande de régularisation avant le 08/01/2026.",
+  "people": [
+    "Lucas David"
+  ],
+  "organizations": [
+    "Banque Horizon"
+  ],
+  "amounts": [
+    "282,44 €",
+    "26,23 €",
+    "2,71 €",
+    "1 113 €",
+    "2 577 €",
+    "3,22 €",
+    "12 €"
+  ],
+  "dates": [
+    "19/02/2026",
+    "08/10/2026",
+    "18/10/2026",
+    "01/09/2026",
+    "22/02/2026"
+  ],
+  "deadlines": [
+    "Régularisation du solde avant le 08/01/2026"
+  ],
+  "important_points": [
+    "Solde arrêté à 282,44 €",
+    "Frais de tenue de compte de 2,71 € par mois",
+    "Commission d'intervention de 26,23 €"
+  ],
+  "risks": [
+    "Frais cachés : commission de mouvement de 3,22 €",
+    "Frais de rejet de prélèvement de 12 €",
+    "Intérêts débiteurs à 14,5 % l'an",
+    "Risque de suspension des moyens de paiement",
+    "Risque d'inscription au FICP"
+  ],
+  "actions": [
+    "Régulariser le solde avant le 08/01/2026",
+    "Vérifier les frais de découvert et commissions prélevées",
+    "Maintenir une provision suffisante sur le compte"
+  ],
+  "risk_score": 66
+}

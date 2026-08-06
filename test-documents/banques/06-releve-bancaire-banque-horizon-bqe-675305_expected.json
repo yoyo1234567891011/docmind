@@ -1,0 +1,48 @@
+{
+  "document_type": "Banque",
+  "title": "Relevé bancaire Banque Horizon BQE-675305",
+  "summary": "Relevé de compte Banque Horizon pour Lucas Thomas, solde de 784,42 €, avec frais de tenue de 8,46 € et demande de régularisation avant le 18/11/2026.",
+  "people": [
+    "Lucas Thomas"
+  ],
+  "organizations": [
+    "Banque Horizon"
+  ],
+  "amounts": [
+    "784,42 €",
+    "28,79 €",
+    "8,46 €",
+    "961 €",
+    "2 122 €",
+    "2,76 €",
+    "15 €"
+  ],
+  "dates": [
+    "27/12/2026",
+    "02/03/2026",
+    "14/08/2026",
+    "10/11/2026",
+    "09/01/2026"
+  ],
+  "deadlines": [
+    "Régularisation du solde avant le 18/11/2026"
+  ],
+  "important_points": [
+    "Solde arrêté à 784,42 €",
+    "Frais de tenue de compte de 8,46 € par mois",
+    "Commission d'intervention de 28,79 €"
+  ],
+  "risks": [
+    "Frais cachés : commission de mouvement de 2,76 €",
+    "Frais de rejet de prélèvement de 15 €",
+    "Intérêts débiteurs à 15,4 % l'an",
+    "Risque de suspension des moyens de paiement",
+    "Risque d'inscription au FICP"
+  ],
+  "actions": [
+    "Régulariser le solde avant le 18/11/2026",
+    "Vérifier les frais de découvert et commissions prélevées",
+    "Maintenir une provision suffisante sur le compte"
+  ],
+  "risk_score": 66
+}

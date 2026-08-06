@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture SFR",
+  "title": "Facture SFR SFR-414214",
+  "summary": "Facture SFR SFR-414214 pour Léa Moreau (Forfait 5G), total 64,72 €, à payer avant le 25/02/2026.",
+  "people": [
+    "Léa Moreau"
+  ],
+  "organizations": [
+    "SFR"
+  ],
+  "amounts": [
+    "53,17 €",
+    "6,12 €",
+    "5,42 €",
+    "64,72 €",
+    "8 €"
+  ],
+  "dates": [
+    "26/12/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 25/02/2026",
+    "Délai de résiliation : préavis de 10 jours"
+  ],
+  "important_points": [
+    "Offre Forfait 5G",
+    "Total TTC de 64,72 €",
+    "Échéance de paiement au 25/02/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 5,42 €",
+    "Frais de rejet de prélèvement de 8 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 64,72 € avant le 25/02/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 10 jours pour résilier"
+  ],
+  "risk_score": 96
+}

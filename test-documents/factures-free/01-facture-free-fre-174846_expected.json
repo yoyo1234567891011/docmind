@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Free",
+  "title": "Facture Free FRE-174846",
+  "summary": "Facture Free FRE-174846 pour Léa Mercier (Box + Mobile), total 88,80 €, à payer avant le 11/02/2026.",
+  "people": [
+    "Léa Mercier"
+  ],
+  "organizations": [
+    "Free"
+  ],
+  "amounts": [
+    "72,62 €",
+    "13,18 €",
+    "3,00 €",
+    "88,80 €",
+    "6 €"
+  ],
+  "dates": [
+    "05/12/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 11/02/2026",
+    "Délai de résiliation : préavis de 30 jours"
+  ],
+  "important_points": [
+    "Offre Box + Mobile",
+    "Total TTC de 88,80 €",
+    "Échéance de paiement au 11/02/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 3,00 €",
+    "Frais de rejet de prélèvement de 6 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 88,80 € avant le 11/02/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 30 jours pour résilier"
+  ],
+  "risk_score": 81
+}

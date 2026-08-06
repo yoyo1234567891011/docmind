@@ -1,0 +1,38 @@
+{
+  "document_type": "Contrat téléphonique",
+  "title": "Contrat forfait mobile MOB-557076",
+  "summary": "Forfait mobile Illimité + roaming UE pour Chloé Moreau à 14,59 € par mois, engagement sans engagement, souscrit le 08/05/2025.",
+  "people": [
+    "Chloé Moreau"
+  ],
+  "organizations": [],
+  "amounts": [
+    "14,59 €",
+    "9,34 €",
+    "8,40 €"
+  ],
+  "dates": [
+    "08/05/2025"
+  ],
+  "deadlines": [
+    "Délai de rétractation : 14 jours à compter de la souscription"
+  ],
+  "important_points": [
+    "Forfait Illimité + roaming UE",
+    "Prix mensuel de 14,59 €",
+    "Financement terminal de 9,34 € par mois",
+    "Engagement sans engagement"
+  ],
+  "risks": [
+    "Renouvellement automatique du forfait",
+    "Assurance casse pré-cochée à 8,40 € par mois",
+    "Pénalités égales aux mensualités restantes du terminal",
+    "Suspension après 2 prélèvements rejetés"
+  ],
+  "actions": [
+    "Vérifier et désactiver l'assurance casse si non souhaitée",
+    "Exercer la rétractation sous 14 jours si besoin",
+    "Anticiper le coût de résiliation anticipée lié au terminal"
+  ],
+  "risk_score": 63
+}

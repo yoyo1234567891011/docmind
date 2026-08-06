@@ -1,0 +1,38 @@
+{
+  "document_type": "CAF",
+  "title": "Notification CAF CAF-267700",
+  "summary": "Notification CAF CAF-267700 demandant des pièces à Camille Martin pour maintenir une aide de 157 €, avec délai au 28/05/2026.",
+  "people": [
+    "Camille Martin"
+  ],
+  "organizations": [
+    "Caisse d'Allocations Familiales"
+  ],
+  "amounts": [
+    "157 €",
+    "687 €"
+  ],
+  "dates": [
+    "21/08/2026"
+  ],
+  "deadlines": [
+    "Les documents doivent être transmis avant le 28/05/2026",
+    "sous 10 jours ouvrés à compter de la présente"
+  ],
+  "important_points": [
+    "Aide mensuelle de 157 €",
+    "Demande de pièces pour maintien des droits",
+    "Réexamen automatique trimestriel des droits"
+  ],
+  "risks": [
+    "Suspension du versement en cas d'absence de réponse",
+    "Indu possible de 687 €",
+    "Remboursement des trop-perçus"
+  ],
+  "actions": [
+    "Envoyer les pièces avant le 28/05/2026",
+    "Déclarer tout changement de situation",
+    "Répondre via l'espace allocataire ou par courrier"
+  ],
+  "risk_score": 81
+}

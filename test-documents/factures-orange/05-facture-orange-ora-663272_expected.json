@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Orange",
+  "title": "Facture Orange ORA-663272",
+  "summary": "Facture Orange ORA-663272 pour Hugo Leroy (Forfait 5G), total 47,34 €, à payer avant le 08/06/2026.",
+  "people": [
+    "Hugo Leroy"
+  ],
+  "organizations": [
+    "Orange"
+  ],
+  "amounts": [
+    "31,95 €",
+    "13,60 €",
+    "1,79 €",
+    "47,34 €",
+    "8 €"
+  ],
+  "dates": [
+    "22/10/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 08/06/2026",
+    "Délai de résiliation : préavis de 30 jours"
+  ],
+  "important_points": [
+    "Offre Forfait 5G",
+    "Total TTC de 47,34 €",
+    "Échéance de paiement au 08/06/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 1,79 €",
+    "Frais de rejet de prélèvement de 8 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 47,34 € avant le 08/06/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 30 jours pour résilier"
+  ],
+  "risk_score": 81
+}

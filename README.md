@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DocMind
 
-## Getting Started
+SaaS d’analyse de documents PDF avec une IA locale (**Ollama**).  
+Next.js 15 · TypeScript · Supabase Auth · Stripe · Postgres/S3/Redis (prod).
 
-First, run the development server:
+## Documentation
+
+**Nouveau développeur → commencer ici :**
+
+### [📚 docs/README.md](./docs/README.md)
+
+| Sujet | Lien |
+|-------|------|
+| Architecture | [docs/01-architecture.md](./docs/01-architecture.md) |
+| Pipeline d’analyse | [docs/02-pipeline.md](./docs/02-pipeline.md) |
+| Mémoire documentaire | [docs/03-memoire.md](./docs/03-memoire.md) |
+| Stripe & billing | [docs/04-stripe.md](./docs/04-stripe.md) |
+| Analytics | [docs/05-analytics.md](./docs/05-analytics.md) |
+| API | [docs/06-api.md](./docs/06-api.md) |
+| Déploiement | [docs/07-deploiement.md](./docs/07-deploiement.md) |
+| Variables ENV | [docs/08-variables-env.md](./docs/08-variables-env.md) |
+| Monitoring | [docs/09-monitoring.md](./docs/09-monitoring.md) |
+| Sauvegardes & restore | [docs/10-sauvegardes-restore.md](./docs/10-sauvegardes-restore.md) |
+| Migration FS → PG/S3 | [docs/11-migration.md](./docs/11-migration.md) |
+| Tests | [docs/12-tests.md](./docs/12-tests.md) |
+| Benchmark | [docs/13-benchmark.md](./docs/13-benchmark.md) |
+
+## Démarrage rapide
 
 ```bash
+cp .env.example .env.local
+npm install
+ollama serve          # autre terminal
+ollama pull qwen3
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Sans Supabase dans `.env.local`, l’app tourne en **local-dev** (pas de login).  
+Référence des variables : [docs/08-variables-env.md](./docs/08-variables-env.md) et [`.env.example`](./.env.example).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Commandes utiles
 
-## Learn More
+| Commande | Rôle |
+|----------|------|
+| `npm run dev` | Développement |
+| `npm run build` / `start` | Production |
+| `npm run e2e` | Tests Playwright |
+| `npm run chaos` | Chaos testing |
+| `npm run evaluate` | Éval qualité corpus |
+| `npm run benchmark` | DocMind vs ChatGPT / Claude / Gemini / Mistral |
+| `npm run backup:run` | Sauvegarde FS |
+| `npm run monitor:check` | Check monitoring |
+| `npm run migrate:persistent` | Migration FS → PG/S3 |
 
-To learn more about Next.js, take a look at the following resources:
+## Architecture (aperçu)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```text
+PDF → upload/extract → analyze (P1 local + P2 agents Ollama)
+                         → history + mémoire + alertes
+                         → billing Stripe (Premium)
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Détails : [docs/01-architecture.md](./docs/01-architecture.md) · [docs/02-pipeline.md](./docs/02-pipeline.md).

@@ -1,0 +1,41 @@
+{
+  "document_type": "Facture EDF",
+  "title": "Facture electricite EDF-251009",
+  "summary": "Facture ÉnergieClaire EDF-251009 pour Léa Martin, total TTC 62,04 €, payable avant le 17/07/2026.",
+  "people": [
+    "Léa Martin"
+  ],
+  "organizations": [
+    "ÉnergieClaire"
+  ],
+  "amounts": [
+    "20,65 €",
+    "62,04 €",
+    "10 €"
+  ],
+  "dates": [
+    "14/11/2025",
+    "25/03/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 17/07/2026",
+    "En l'absence de règlement sous 15 jours, mise en demeure"
+  ],
+  "important_points": [
+    "Consommation de 726 kWh",
+    "Total TTC de 62,04 €",
+    "Date limite de paiement au 17/07/2026"
+  ],
+  "risks": [
+    "Pénalités de retard de 10 €",
+    "Frais et taxes d'acheminement peu visibles",
+    "Risque de coupure en cas de non-paiement",
+    "Reconduction mensuelle automatique de l'offre"
+  ],
+  "actions": [
+    "Payer 62,04 € avant le 17/07/2026",
+    "Vérifier le détail des taxes et contribution d'acheminement",
+    "Relever le compteur si demandé"
+  ],
+  "risk_score": 96
+}

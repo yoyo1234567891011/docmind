@@ -1,0 +1,48 @@
+{
+  "document_type": "Banque",
+  "title": "Relevé bancaire Banque Horizon BQE-393217",
+  "summary": "Relevé de compte Banque Horizon pour Lucas Petit, solde de 1 646,48 €, avec frais de tenue de 4,49 € et demande de régularisation avant le 07/09/2026.",
+  "people": [
+    "Lucas Petit"
+  ],
+  "organizations": [
+    "Banque Horizon"
+  ],
+  "amounts": [
+    "1 646,48 €",
+    "18,53 €",
+    "4,49 €",
+    "1 021 €",
+    "2 541 €",
+    "2,09 €",
+    "18 €"
+  ],
+  "dates": [
+    "25/06/2026",
+    "25/07/2026",
+    "03/04/2026",
+    "27/03/2026",
+    "04/05/2026"
+  ],
+  "deadlines": [
+    "Régularisation du solde avant le 07/09/2026"
+  ],
+  "important_points": [
+    "Solde arrêté à 1 646,48 €",
+    "Frais de tenue de compte de 4,49 € par mois",
+    "Commission d'intervention de 18,53 €"
+  ],
+  "risks": [
+    "Frais cachés : commission de mouvement de 2,09 €",
+    "Frais de rejet de prélèvement de 18 €",
+    "Intérêts débiteurs à 18,6 % l'an",
+    "Risque de suspension des moyens de paiement",
+    "Risque d'inscription au FICP"
+  ],
+  "actions": [
+    "Régulariser le solde avant le 07/09/2026",
+    "Vérifier les frais de découvert et commissions prélevées",
+    "Maintenir une provision suffisante sur le compte"
+  ],
+  "risk_score": 66
+}

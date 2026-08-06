@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture SFR",
+  "title": "Facture SFR SFR-948645",
+  "summary": "Facture SFR SFR-948645 pour Léa Girard (Forfait 5G), total 86,38 €, à payer avant le 02/06/2026.",
+  "people": [
+    "Léa Girard"
+  ],
+  "organizations": [
+    "SFR"
+  ],
+  "amounts": [
+    "76,91 €",
+    "4,84 €",
+    "4,64 €",
+    "86,38 €",
+    "11 €"
+  ],
+  "dates": [
+    "23/10/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 02/06/2026",
+    "Délai de résiliation : préavis de 30 jours"
+  ],
+  "important_points": [
+    "Offre Forfait 5G",
+    "Total TTC de 86,38 €",
+    "Échéance de paiement au 02/06/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 4,64 €",
+    "Frais de rejet de prélèvement de 11 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 86,38 € avant le 02/06/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 30 jours pour résilier"
+  ],
+  "risk_score": 81
+}

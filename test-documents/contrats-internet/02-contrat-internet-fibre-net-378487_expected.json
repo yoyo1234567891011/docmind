@@ -1,0 +1,42 @@
+{
+  "document_type": "Contrat Internet",
+  "title": "Contrat Internet fibre NET-378487",
+  "summary": "Contrat Internet NetHorizon pour Hugo Bertrand à 14 allée des Tilleuls, 49000 Angers, mensualité 46,20 €, engagement 24 mois, début 14/01/2025.",
+  "people": [
+    "Hugo Bertrand"
+  ],
+  "organizations": [
+    "NetHorizon"
+  ],
+  "amounts": [
+    "46,20 €",
+    "4,33 €",
+    "39 €",
+    "106 €",
+    "80 €"
+  ],
+  "dates": [
+    "14/01/2025"
+  ],
+  "deadlines": [
+    "Résiliation à notifier avant le 09/05/2026",
+    "matériel non retourné sous 30 jours",
+    "intervention technicien sous 8 jours"
+  ],
+  "important_points": [
+    "Mensualité de 46,20 €",
+    "Engagement 24 mois",
+    "Location box de 4,33 € par mois"
+  ],
+  "risks": [
+    "Renouvellement automatique au tarif catalogue",
+    "Frais de résiliation anticipée de 106 €",
+    "Pénalité de 80 € si matériel non restitué"
+  ],
+  "actions": [
+    "Notifier une résiliation avant le 09/05/2026 si souhaité",
+    "Anticiper la restitution du matériel",
+    "Prévoir l'accès logement pour le technicien sous 8 jours"
+  ],
+  "risk_score": 81
+}

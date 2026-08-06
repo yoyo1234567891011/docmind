@@ -1,0 +1,38 @@
+{
+  "document_type": "CAF",
+  "title": "Notification CAF CAF-500877",
+  "summary": "Notification CAF CAF-500877 demandant des pièces à Camille Thomas pour maintenir une aide de 483 €, avec délai au 09/09/2026.",
+  "people": [
+    "Camille Thomas"
+  ],
+  "organizations": [
+    "Caisse d'Allocations Familiales"
+  ],
+  "amounts": [
+    "483 €",
+    "447 €"
+  ],
+  "dates": [
+    "13/09/2026"
+  ],
+  "deadlines": [
+    "Les documents doivent être transmis avant le 09/09/2026",
+    "sous 10 jours ouvrés à compter de la présente"
+  ],
+  "important_points": [
+    "Aide mensuelle de 483 €",
+    "Demande de pièces pour maintien des droits",
+    "Réexamen automatique trimestriel des droits"
+  ],
+  "risks": [
+    "Suspension du versement en cas d'absence de réponse",
+    "Indu possible de 447 €",
+    "Remboursement des trop-perçus"
+  ],
+  "actions": [
+    "Envoyer les pièces avant le 09/09/2026",
+    "Déclarer tout changement de situation",
+    "Répondre via l'espace allocataire ou par courrier"
+  ],
+  "risk_score": 81
+}

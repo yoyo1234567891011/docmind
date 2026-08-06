@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Orange",
+  "title": "Facture Orange ORA-832134",
+  "summary": "Facture Orange ORA-832134 pour Léa Simon (Mobile 100 Go), total 95,17 €, à payer avant le 18/01/2026.",
+  "people": [
+    "Léa Simon"
+  ],
+  "organizations": [
+    "Orange"
+  ],
+  "amounts": [
+    "79,43 €",
+    "11,03 €",
+    "4,72 €",
+    "95,17 €",
+    "6 €"
+  ],
+  "dates": [
+    "15/06/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 18/01/2026",
+    "Délai de résiliation : préavis de 60 jours"
+  ],
+  "important_points": [
+    "Offre Mobile 100 Go",
+    "Total TTC de 95,17 €",
+    "Échéance de paiement au 18/01/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 4,72 €",
+    "Frais de rejet de prélèvement de 6 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 95,17 € avant le 18/01/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 60 jours pour résilier"
+  ],
+  "risk_score": 81
+}

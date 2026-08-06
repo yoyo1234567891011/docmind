@@ -1,0 +1,41 @@
+{
+  "document_type": "Impôts",
+  "title": "Avis fiscal IMP-946966",
+  "summary": "Avis fiscal IMP-946966 adressé à Lucas Lefebvre pour un reste à payer de 1 205 € au titre de 2025, à régler avant le 26/01/2026.",
+  "people": [
+    "Lucas Lefebvre"
+  ],
+  "organizations": [
+    "Direction générale des Finances publiques"
+  ],
+  "amounts": [
+    "1 073 €",
+    "1 205 €",
+    "13 €"
+  ],
+  "dates": [
+    "18/08/2026",
+    "2025"
+  ],
+  "deadlines": [
+    "Le règlement doit intervenir au plus tard le 26/01/2026",
+    "Produire les justificatifs demandés sous 15 jours"
+  ],
+  "important_points": [
+    "Principal dû de 1 073 €",
+    "Majoration de 12 %",
+    "Total à régler de 1 205 €",
+    "Échéance de paiement au 26/01/2026"
+  ],
+  "risks": [
+    "Majoration automatique en cas de retard",
+    "Procédure de recouvrement forcé possible",
+    "Frais de relance de 13 €"
+  ],
+  "actions": [
+    "Régler 1 205 € avant le 26/01/2026",
+    "Contester de façon motivée avant la date limite si désaccord",
+    "Fournir les justificatifs demandés sous 15 jours"
+  ],
+  "risk_score": 81
+}

@@ -1,0 +1,42 @@
+{
+  "document_type": "Contrat Internet",
+  "title": "Contrat Internet fibre NET-163891",
+  "summary": "Contrat Internet NetHorizon pour Hugo Garcia à 61 rue Sainte-Catherine, 44000 Nantes, mensualité 30,37 €, engagement 12 mois, début 22/05/2025.",
+  "people": [
+    "Hugo Garcia"
+  ],
+  "organizations": [
+    "NetHorizon"
+  ],
+  "amounts": [
+    "30,37 €",
+    "5,18 €",
+    "7 €",
+    "142 €",
+    "107 €"
+  ],
+  "dates": [
+    "22/05/2025"
+  ],
+  "deadlines": [
+    "Résiliation à notifier avant le 26/03/2026",
+    "matériel non retourné sous 30 jours",
+    "intervention technicien sous 8 jours"
+  ],
+  "important_points": [
+    "Mensualité de 30,37 €",
+    "Engagement 12 mois",
+    "Location box de 5,18 € par mois"
+  ],
+  "risks": [
+    "Renouvellement automatique au tarif catalogue",
+    "Frais de résiliation anticipée de 142 €",
+    "Pénalité de 107 € si matériel non restitué"
+  ],
+  "actions": [
+    "Notifier une résiliation avant le 26/03/2026 si souhaité",
+    "Anticiper la restitution du matériel",
+    "Prévoir l'accès logement pour le technicien sous 8 jours"
+  ],
+  "risk_score": 81
+}

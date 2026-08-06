@@ -1,0 +1,36 @@
+{
+  "document_type": "Courrier administratif",
+  "title": "Courrier administratif ADM-114630",
+  "summary": "Courrier administratif ADM-114630 demandant à Chloé Bernard de compléter un dossier avant le 11/11/2026, sous peine de classement sans suite.",
+  "people": [
+    "Chloé Bernard"
+  ],
+  "organizations": [
+    "Préfecture / Service administratif"
+  ],
+  "amounts": [
+    "50 €"
+  ],
+  "dates": [
+    "06/01/2026"
+  ],
+  "deadlines": [
+    "Votre réponse est attendue avant le 11/11/2026",
+    "sous 15 jours, sous peine de classement sans suite"
+  ],
+  "important_points": [
+    "Demande de complément de dossier",
+    "Pièces demandées : justificatif de domicile, pièce d'identité, formulaire cerfa",
+    "Réponse attendue avant le 11/11/2026"
+  ],
+  "risks": [
+    "Classement sans suite en cas d'absence de réponse",
+    "Rejet de la demande et perte d'antériorité du dépôt"
+  ],
+  "actions": [
+    "Transmettre les pièces avant le 11/11/2026",
+    "Répondre sous 15 jours",
+    "Conserver la référence de dossier"
+  ],
+  "risk_score": 63
+}

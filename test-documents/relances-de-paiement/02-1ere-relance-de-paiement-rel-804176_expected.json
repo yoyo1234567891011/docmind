@@ -1,0 +1,41 @@
+{
+  "document_type": "Relance de paiement",
+  "title": "1ère relance de paiement REL-804176",
+  "summary": "1ère relance adressée à Hugo David pour la facture REL-804176, total réclamé 999 €, à régler avant le 09/12/2026.",
+  "people": [
+    "Hugo David"
+  ],
+  "organizations": [
+    "Service recouvrement"
+  ],
+  "amounts": [
+    "915,47 €",
+    "35 €",
+    "49 €",
+    "999 €"
+  ],
+  "dates": [
+    "15/05/2025"
+  ],
+  "deadlines": [
+    "Règlement exigé sous 8 jours, et au plus tard le 09/12/2026",
+    "Contester par écrit sous 10 jours si désaccord"
+  ],
+  "important_points": [
+    "1ère relance sur facture REL-804176",
+    "Principal impayé de 915,47 €",
+    "Total réclamé de 999 €"
+  ],
+  "risks": [
+    "Pénalités de retard de 35 €",
+    "Frais de recouvrement de 49 €",
+    "Transmission possible à un huissier",
+    "Intérêts moratoires au taux légal majoré"
+  ],
+  "actions": [
+    "Régler 999 € avant le 09/12/2026",
+    "Contester par écrit sous 10 jours en cas de désaccord",
+    "Répondre rapidement pour éviter le contentieux"
+  ],
+  "risk_score": 81
+}

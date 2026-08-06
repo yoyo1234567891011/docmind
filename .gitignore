@@ -12,6 +12,13 @@
 
 # testing
 /coverage
+/e2e/report
+/e2e/test-results
+/e2e/fixtures/sample.pdf
+/chaos/report
+/chaos/test-results
+/playwright-report
+/test-results
 
 # next.js
 /.next/
@@ -32,6 +39,31 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# local uploads / temp files
+/uploads/*
+!/uploads/.gitkeep
+/data/history/*
+!/data/history/.gitkeep
+/data/admin/*
+!/data/admin/.gitkeep
+/data/users/*
+!/data/users/.gitkeep
+/data/system/*
+!/data/system/.gitkeep
+/backups/*
+!/backups/.gitkeep
+/reports/*
+!/reports/.gitkeep
+/tmp
+
+# Corpus réel : originaux + mappings PII (ne jamais committer)
+/corpus/inbox/**
+!/corpus/inbox/.gitkeep
+!/corpus/inbox/README.md
+/corpus/manifest.json
+**/real-anonymized/**/*.replacements.json
 
 # vercel
 .vercel

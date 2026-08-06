@@ -1,0 +1,42 @@
+{
+  "document_type": "Contrat de prêt",
+  "title": "Offre de pret personnel PRT-208160",
+  "summary": "Offre de prêt PRT-208160 de Crédit Serein pour Hugo Bertrand : capital 15 180 €, TAEG 5,15 %, mensualité 151 € sur 27 mois.",
+  "people": [
+    "Hugo Bertrand"
+  ],
+  "organizations": [
+    "Crédit Serein"
+  ],
+  "amounts": [
+    "15 180 €",
+    "151 €",
+    "118 €",
+    "34 €",
+    "14,16 €"
+  ],
+  "dates": [
+    "12/11/2025"
+  ],
+  "deadlines": [
+    "Délai de rétractation : 14 jours"
+  ],
+  "important_points": [
+    "Capital de 15 180 €",
+    "TAEG de 5,15 %",
+    "Mensualité de 151 €",
+    "Durée de 27 mois"
+  ],
+  "risks": [
+    "Frais de report d'échéance de 34 €",
+    "Assurance emprunteur proposée à 14,16 € par mois",
+    "Pénalités de remboursement anticipé de 0,8 %",
+    "Déchéance du terme en cas d'impayés"
+  ],
+  "actions": [
+    "Comparer le coût de l'assurance emprunteur avant acceptation",
+    "Exercer la rétractation sous 14 jours si besoin",
+    "Anticiper le coût d'un remboursement anticipé"
+  ],
+  "risk_score": 81
+}

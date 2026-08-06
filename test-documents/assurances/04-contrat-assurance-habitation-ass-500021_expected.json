@@ -1,0 +1,42 @@
+{
+  "document_type": "Assurance",
+  "title": "Contrat assurance habitation ASS-500021",
+  "summary": "Contrat d'assurance habitation ASS-500021 souscrit par Lucas Michel auprès de SécuriHome Assurances pour le logement situé à 27 boulevard Gambetta, 06000 Nice, avec cotisation de 29,64 € et échéance au 27/10/2026.",
+  "people": [
+    "Lucas Michel"
+  ],
+  "organizations": [
+    "SécuriHome Assurances"
+  ],
+  "amounts": [
+    "29,64 €",
+    "181 €",
+    "64 €",
+    "54 €"
+  ],
+  "dates": [
+    "02/01/2025",
+    "27/10/2026"
+  ],
+  "deadlines": [
+    "Toute demande de modification doit être adressée avant le 14/06/2026"
+  ],
+  "important_points": [
+    "Cotisation mensuelle de 29,64 €",
+    "Franchise générale de 181 €",
+    "Tacite reconduction : le contrat se renouvelle automatiquement chaque année sauf résiliation par lettre recommandée.",
+    "Adresse du risque : 27 boulevard Gambetta, 06000 Nice"
+  ],
+  "risks": [
+    "Tacite reconduction : le contrat se renouvelle automatiquement chaque année sauf résiliation par lettre recommandée.",
+    "Pénalité de résiliation anticipée de 64 €",
+    "Frais de gestion de sinistre de 54 € hors franchise",
+    "Nullité des garanties en cas de déclaration inexacte",
+    "Résiliation de plein droit après mise en demeure restée sans effet"
+  ],
+  "actions": [
+    "Vérifier la date d'échéance du 27/10/2026",
+    "Adresser toute demande de modification avant le 14/06/2026"
+  ],
+  "risk_score": 66
+}

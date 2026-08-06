@@ -1,0 +1,38 @@
+{
+  "document_type": "CAF",
+  "title": "Notification CAF CAF-834288",
+  "summary": "Notification CAF CAF-834288 demandant des pièces à Camille Dubois pour maintenir une aide de 600 €, avec délai au 19/01/2026.",
+  "people": [
+    "Camille Dubois"
+  ],
+  "organizations": [
+    "Caisse d'Allocations Familiales"
+  ],
+  "amounts": [
+    "600 €",
+    "567 €"
+  ],
+  "dates": [
+    "03/03/2026"
+  ],
+  "deadlines": [
+    "Les documents doivent être transmis avant le 19/01/2026",
+    "sous 10 jours ouvrés à compter de la présente"
+  ],
+  "important_points": [
+    "Aide mensuelle de 600 €",
+    "Demande de pièces pour maintien des droits",
+    "Réexamen automatique trimestriel des droits"
+  ],
+  "risks": [
+    "Suspension du versement en cas d'absence de réponse",
+    "Indu possible de 567 €",
+    "Remboursement des trop-perçus"
+  ],
+  "actions": [
+    "Envoyer les pièces avant le 19/01/2026",
+    "Déclarer tout changement de situation",
+    "Répondre via l'espace allocataire ou par courrier"
+  ],
+  "risk_score": 81
+}

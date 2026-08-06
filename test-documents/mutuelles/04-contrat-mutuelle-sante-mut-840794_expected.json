@@ -1,0 +1,42 @@
+{
+  "document_type": "Mutuelle",
+  "title": "Contrat mutuelle santé MUT-840794",
+  "summary": "Contrat de mutuelle MUT-840794 pour Lucas Leroy auprès de Mutuelle Santé Équilibre, cotisation 99,61 €, échéance 24/12/2027.",
+  "people": [
+    "Lucas Leroy"
+  ],
+  "organizations": [
+    "Mutuelle Santé Équilibre"
+  ],
+  "amounts": [
+    "99,61 €",
+    "190 €",
+    "339 €",
+    "3,10 €",
+    "53 €"
+  ],
+  "dates": [
+    "24/12/2027"
+  ],
+  "deadlines": [
+    "Déclarer les ayants droit sous 30 jours",
+    "Délai de carence : 90 jours sur certaines garanties dentaires"
+  ],
+  "important_points": [
+    "Cotisation mensuelle de 99,61 €",
+    "Forfait optique de 190 € par an",
+    "Tacite reconduction annuelle"
+  ],
+  "risks": [
+    "Renouvellement automatique par tacite reconduction",
+    "Frais de gestion cachés de 3,10 € par mois",
+    "Frais de radiation anticipée de 53 €",
+    "Délai de carence de 90 jours"
+  ],
+  "actions": [
+    "Anticiper l'échéance du 24/12/2027 pour une éventuelle résiliation",
+    "Vérifier les frais de gestion hors cotisation",
+    "Déclarer les ayants droit sous 30 jours"
+  ],
+  "risk_score": 66
+}

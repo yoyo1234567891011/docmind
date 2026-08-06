@@ -1,0 +1,48 @@
+{
+  "document_type": "Banque",
+  "title": "Relevé bancaire Banque Horizon BQE-463739",
+  "summary": "Relevé de compte Banque Horizon pour Lucas Roux, solde de 2 148,47 €, avec frais de tenue de 10,23 € et demande de régularisation avant le 17/06/2026.",
+  "people": [
+    "Lucas Roux"
+  ],
+  "organizations": [
+    "Banque Horizon"
+  ],
+  "amounts": [
+    "2 148,47 €",
+    "21,10 €",
+    "10,23 €",
+    "868 €",
+    "2 086 €",
+    "1,63 €",
+    "20 €"
+  ],
+  "dates": [
+    "04/05/2026",
+    "19/12/2026",
+    "26/02/2026",
+    "09/05/2026",
+    "20/04/2026"
+  ],
+  "deadlines": [
+    "Régularisation du solde avant le 17/06/2026"
+  ],
+  "important_points": [
+    "Solde arrêté à 2 148,47 €",
+    "Frais de tenue de compte de 10,23 € par mois",
+    "Commission d'intervention de 21,10 €"
+  ],
+  "risks": [
+    "Frais cachés : commission de mouvement de 1,63 €",
+    "Frais de rejet de prélèvement de 20 €",
+    "Intérêts débiteurs à 12,6 % l'an",
+    "Risque de suspension des moyens de paiement",
+    "Risque d'inscription au FICP"
+  ],
+  "actions": [
+    "Régulariser le solde avant le 17/06/2026",
+    "Vérifier les frais de découvert et commissions prélevées",
+    "Maintenir une provision suffisante sur le compte"
+  ],
+  "risk_score": 66
+}

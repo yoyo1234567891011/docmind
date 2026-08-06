@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "description": "Base de connaissances DocMind — ajouter un .md + une entrée ici (ou frontmatter dans le fichier).",
+  "alwaysInclude": ["general"],
+  "maxInjectChars": 3200,
+  "maxFiles": 3,
+  "domains": [
+    {
+      "id": "general",
+      "file": "general.md",
+      "label": "Droit général / consommation",
+      "categories": ["autre", "courrier-administratif", "conditions-generales"],
+      "aliases": ["général", "droit commun"],
+      "keywords": ["clause", "résiliation", "préavis", "pénalité", "obligation", "consommateur"]
+    },
+    {
+      "id": "assurance",
+      "file": "assurance.md",
+      "label": "Assurance",
+      "categories": ["assurance"],
+      "aliases": ["contrat d'assurance", "police", "sinistre"],
+      "keywords": ["franchise", "prime", "sinistre", "exclusion", "déchéance", "assureur", "police d'assurance", "multirisque", "assuré"]
+    },
+    {
+      "id": "mutuelle",
+      "file": "mutuelle.md",
+      "label": "Mutuelle / complémentaire santé",
+      "categories": ["assurance"],
+      "aliases": ["complémentaire santé", "mutuelle santé"],
+      "keywords": ["mutuelle", "ticket modérateur", "remboursement", "adhésion", "ayants droit"]
+    },
+    {
+      "id": "banque",
+      "file": "banque.md",
+      "label": "Banque / crédit",
+      "categories": ["banque"],
+      "aliases": ["crédit", "prêt", "compte bancaire"],
+      "keywords": ["taux", "TAEG", "découvert", "agios", "crédit", "emprunt", "iban", "prélèvement"]
+    },
+    {
+      "id": "bail",
+      "file": "bail.md",
+      "label": "Bail / location",
+      "categories": ["bail"],
+      "aliases": ["location", "loyer", "bail d'habitation"],
+      "keywords": ["loyer", "caution", "dépôt de garantie", "congé", "charges", "locataire", "bailleur"]
+    },
+    {
+      "id": "contrat_travail",
+      "file": "contrat_travail.md",
+      "label": "Contrat de travail",
+      "categories": ["contrat-de-travail"],
+      "aliases": ["CDI", "CDD", "emploi"],
+      "keywords": ["salarié", "employeur", "période d'essai", "préavis", "licenciement", "salaire", "convention collective"]
+    },
+    {
+      "id": "impots",
+      "file": "impots.md",
+      "label": "Impôts / fiscalité",
+      "categories": ["impots", "courrier-administratif"],
+      "aliases": ["fiscal", "impôt", "DGFiP"],
+      "keywords": ["impôt", "avis d'imposition", "redressement", "TVA", "déclaration", "pénalités fiscales"]
+    },
+    {
+      "id": "telephonie",
+      "file": "telephonie.md",
+      "label": "Téléphonie mobile",
+      "categories": ["contrat", "conditions-generales", "facture"],
+      "aliases": ["opérateur mobile", "forfait mobile"],
+      "keywords": ["forfait", "SIM", "opérateur", "engagement", "résiliation mobile", "FAI mobile"]
+    },
+    {
+      "id": "internet",
+      "file": "internet.md",
+      "label": "Internet / box",
+      "categories": ["contrat", "conditions-generales", "facture"],
+      "aliases": ["FAI", "box internet", "fibre"],
+      "keywords": ["box", "fibre", "ADSL", "FAI", "débit", "frais de résiliation", "déménagement"]
+    },
+    {
+      "id": "energie",
+      "file": "energie.md",
+      "label": "Énergie",
+      "categories": ["contrat", "facture", "conditions-generales"],
+      "aliases": ["électricité", "gaz", "fournisseur d'énergie"],
+      "keywords": ["kWh", "électricité", "gaz", "abonnement énergie", "compteur", "TRV", "fournisseur"]
+    },
+    {
+      "id": "consommation",
+      "file": "consommation.md",
+      "label": "Droit de la consommation",
+      "categories": ["facture", "conditions-generales", "contrat", "autre"],
+      "aliases": ["consommateur", "CGV", "vente à distance"],
+      "keywords": ["rétractation", "consommateur", "garantie légale", "pratique commerciale", "CGV", "livraison"]
+    },
+    {
+      "id": "commerce",
+      "file": "commerce.md",
+      "label": "Commerce / B2B",
+      "categories": ["contrat", "facture", "conditions-generales"],
+      "aliases": ["B2B", "prestation", "CGV professionnelles"],
+      "keywords": ["prestation", "devis", "facture HT", "pénalités de retard", "clause pénale", "sous-traitance"]
+    }
+  ]
+}

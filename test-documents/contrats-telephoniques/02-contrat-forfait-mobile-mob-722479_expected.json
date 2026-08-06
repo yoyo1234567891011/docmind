@@ -1,0 +1,38 @@
+{
+  "document_type": "Contrat téléphonique",
+  "title": "Contrat forfait mobile MOB-722479",
+  "summary": "Forfait mobile Illimité + roaming UE pour Chloé André à 11,09 € par mois, engagement 24 mois, souscrit le 03/04/2025.",
+  "people": [
+    "Chloé André"
+  ],
+  "organizations": [],
+  "amounts": [
+    "11,09 €",
+    "20,31 €",
+    "5,38 €"
+  ],
+  "dates": [
+    "03/04/2025"
+  ],
+  "deadlines": [
+    "Délai de rétractation : 14 jours à compter de la souscription"
+  ],
+  "important_points": [
+    "Forfait Illimité + roaming UE",
+    "Prix mensuel de 11,09 €",
+    "Financement terminal de 20,31 € par mois",
+    "Engagement 24 mois"
+  ],
+  "risks": [
+    "Renouvellement automatique du forfait",
+    "Assurance casse pré-cochée à 5,38 € par mois",
+    "Pénalités égales aux mensualités restantes du terminal",
+    "Suspension après 2 prélèvements rejetés"
+  ],
+  "actions": [
+    "Vérifier et désactiver l'assurance casse si non souhaitée",
+    "Exercer la rétractation sous 14 jours si besoin",
+    "Anticiper le coût de résiliation anticipée lié au terminal"
+  ],
+  "risk_score": 63
+}

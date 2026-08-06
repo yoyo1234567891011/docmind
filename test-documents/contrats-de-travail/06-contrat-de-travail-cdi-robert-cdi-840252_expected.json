@@ -1,0 +1,40 @@
+{
+  "document_type": "Contrat de travail",
+  "title": "Contrat de travail CDI Robert CDI-840252",
+  "summary": "CDI de Hugo Robert chez Atelier Lumière SARL en tant que Chargé de projet à Lille, salaire brut de 2 181 €, entrée le 22/05/2025.",
+  "people": [
+    "Hugo Robert"
+  ],
+  "organizations": [
+    "Atelier Lumière SARL"
+  ],
+  "amounts": [
+    "2 181 €",
+    "8,62 €"
+  ],
+  "dates": [
+    "22/05/2025"
+  ],
+  "deadlines": [
+    "Délai de préavis : 1 mois",
+    "Période d'essai : 2 mois"
+  ],
+  "important_points": [
+    "Poste de Chargé de projet",
+    "Salaire brut mensuel de 2 181 €",
+    "Clause de non-concurrence de 12 mois (32 % du salaire)",
+    "Période d'essai de 2 mois"
+  ],
+  "risks": [
+    "Clause de non-concurrence de 12 mois",
+    "Clause de mobilité dans un rayon de 50 km",
+    "Risque de licenciement pour faute en cas de manquement à la confidentialité",
+    "Pénalité possible en cas de rupture abusive de période d'essai"
+  ],
+  "actions": [
+    "Relire la clause de non-concurrence avant signature",
+    "Vérifier la durée et le renouvellement de la période d'essai",
+    "Noter le préavis de 1 mois"
+  ],
+  "risk_score": 51
+}

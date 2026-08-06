@@ -1,0 +1,42 @@
+{
+  "document_type": "Contrat Internet",
+  "title": "Contrat Internet fibre NET-271189",
+  "summary": "Contrat Internet NetHorizon pour Hugo Thomas à 45 avenue Victor Hugo, 69003 Lyon, mensualité 38,28 €, engagement 12 mois, début 18/03/2025.",
+  "people": [
+    "Hugo Thomas"
+  ],
+  "organizations": [
+    "NetHorizon"
+  ],
+  "amounts": [
+    "38,28 €",
+    "4,75 €",
+    "48 €",
+    "74 €",
+    "63 €"
+  ],
+  "dates": [
+    "18/03/2025"
+  ],
+  "deadlines": [
+    "Résiliation à notifier avant le 03/10/2026",
+    "matériel non retourné sous 30 jours",
+    "intervention technicien sous 8 jours"
+  ],
+  "important_points": [
+    "Mensualité de 38,28 €",
+    "Engagement 12 mois",
+    "Location box de 4,75 € par mois"
+  ],
+  "risks": [
+    "Renouvellement automatique au tarif catalogue",
+    "Frais de résiliation anticipée de 74 €",
+    "Pénalité de 63 € si matériel non restitué"
+  ],
+  "actions": [
+    "Notifier une résiliation avant le 03/10/2026 si souhaité",
+    "Anticiper la restitution du matériel",
+    "Prévoir l'accès logement pour le technicien sous 8 jours"
+  ],
+  "risk_score": 81
+}

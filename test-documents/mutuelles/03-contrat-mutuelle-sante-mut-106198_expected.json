@@ -1,0 +1,42 @@
+{
+  "document_type": "Mutuelle",
+  "title": "Contrat mutuelle santé MUT-106198",
+  "summary": "Contrat de mutuelle MUT-106198 pour Lucas Morel auprès de Mutuelle Santé Équilibre, cotisation 49,45 €, échéance 20/10/2027.",
+  "people": [
+    "Lucas Morel"
+  ],
+  "organizations": [
+    "Mutuelle Santé Équilibre"
+  ],
+  "amounts": [
+    "49,45 €",
+    "177 €",
+    "295 €",
+    "3,91 €",
+    "25 €"
+  ],
+  "dates": [
+    "20/10/2027"
+  ],
+  "deadlines": [
+    "Déclarer les ayants droit sous 30 jours",
+    "Délai de carence : 90 jours sur certaines garanties dentaires"
+  ],
+  "important_points": [
+    "Cotisation mensuelle de 49,45 €",
+    "Forfait optique de 177 € par an",
+    "Tacite reconduction annuelle"
+  ],
+  "risks": [
+    "Renouvellement automatique par tacite reconduction",
+    "Frais de gestion cachés de 3,91 € par mois",
+    "Frais de radiation anticipée de 25 €",
+    "Délai de carence de 90 jours"
+  ],
+  "actions": [
+    "Anticiper l'échéance du 20/10/2027 pour une éventuelle résiliation",
+    "Vérifier les frais de gestion hors cotisation",
+    "Déclarer les ayants droit sous 30 jours"
+  ],
+  "risk_score": 66
+}

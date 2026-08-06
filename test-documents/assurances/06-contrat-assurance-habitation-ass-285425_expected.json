@@ -1,0 +1,44 @@
+{
+  "document_type": "Assurance",
+  "title": "Contrat assurance habitation ASS-285425",
+  "summary": "Contrat d'assurance habitation ASS-285425 souscrit par Lucas Laurent auprès de SécuriHome Assurances pour le logement situé à 8 impasse des Cerisiers, 51100 Reims, avec cotisation de 44,47 € et échéance au 07/02/2026.",
+  "people": [
+    "Lucas Laurent"
+  ],
+  "organizations": [
+    "SécuriHome Assurances"
+  ],
+  "amounts": [
+    "44,47 €",
+    "240 €",
+    "84 €",
+    "73 €"
+  ],
+  "dates": [
+    "19/06/2025",
+    "07/02/2026"
+  ],
+  "deadlines": [
+    "Toute demande de modification doit être adressée avant le 03/04/2026",
+    "Dénonciation 60 jours avant l'échéance"
+  ],
+  "important_points": [
+    "Cotisation mensuelle de 44,47 €",
+    "Franchise générale de 240 €",
+    "Renouvellement automatique : sauf dénonciation 60 jours avant l'échéance, le contrat est reconduit tacitement pour un an.",
+    "Adresse du risque : 8 impasse des Cerisiers, 51100 Reims"
+  ],
+  "risks": [
+    "Renouvellement automatique : sauf dénonciation 60 jours avant l'échéance, le contrat est reconduit tacitement pour un an.",
+    "Pénalité de résiliation anticipée de 84 €",
+    "Frais de gestion de sinistre de 73 € hors franchise",
+    "Nullité des garanties en cas de déclaration inexacte",
+    "Résiliation de plein droit après mise en demeure restée sans effet"
+  ],
+  "actions": [
+    "Vérifier la date d'échéance du 07/02/2026",
+    "Anticiper une éventuelle résiliation avant le délai de 60 jours",
+    "Adresser toute demande de modification avant le 03/04/2026"
+  ],
+  "risk_score": 81
+}

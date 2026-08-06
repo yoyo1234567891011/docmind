@@ -1,0 +1,38 @@
+{
+  "document_type": "CAF",
+  "title": "Notification CAF CAF-100995",
+  "summary": "Notification CAF CAF-100995 demandant des pièces à Camille Michel pour maintenir une aide de 378 €, avec délai au 10/03/2026.",
+  "people": [
+    "Camille Michel"
+  ],
+  "organizations": [
+    "Caisse d'Allocations Familiales"
+  ],
+  "amounts": [
+    "378 €",
+    "627 €"
+  ],
+  "dates": [
+    "26/11/2026"
+  ],
+  "deadlines": [
+    "Les documents doivent être transmis avant le 10/03/2026",
+    "sous 10 jours ouvrés à compter de la présente"
+  ],
+  "important_points": [
+    "Aide mensuelle de 378 €",
+    "Demande de pièces pour maintien des droits",
+    "Réexamen automatique trimestriel des droits"
+  ],
+  "risks": [
+    "Suspension du versement en cas d'absence de réponse",
+    "Indu possible de 627 €",
+    "Remboursement des trop-perçus"
+  ],
+  "actions": [
+    "Envoyer les pièces avant le 10/03/2026",
+    "Déclarer tout changement de situation",
+    "Répondre via l'espace allocataire ou par courrier"
+  ],
+  "risk_score": 81
+}

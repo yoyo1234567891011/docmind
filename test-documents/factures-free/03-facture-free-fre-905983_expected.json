@@ -1,0 +1,42 @@
+{
+  "document_type": "Facture Free",
+  "title": "Facture Free FRE-905983",
+  "summary": "Facture Free FRE-905983 pour Léa Girard (Fibre 1 Gb/s), total 30,47 €, à payer avant le 01/07/2026.",
+  "people": [
+    "Léa Girard"
+  ],
+  "organizations": [
+    "Free"
+  ],
+  "amounts": [
+    "25,15 €",
+    "0,74 €",
+    "4,58 €",
+    "30,47 €",
+    "9 €"
+  ],
+  "dates": [
+    "13/05/2026"
+  ],
+  "deadlines": [
+    "Date limite de paiement : 01/07/2026",
+    "Délai de résiliation : préavis de 30 jours"
+  ],
+  "important_points": [
+    "Offre Fibre 1 Gb/s",
+    "Total TTC de 30,47 €",
+    "Échéance de paiement au 01/07/2026"
+  ],
+  "risks": [
+    "Frais cachés de gestion de 4,58 €",
+    "Frais de rejet de prélèvement de 9 €",
+    "Renouvellement automatique mensuel",
+    "Suspension de ligne possible après incident de paiement"
+  ],
+  "actions": [
+    "Régler 30,47 € avant le 01/07/2026",
+    "Vérifier les frais hors forfait",
+    "Respecter un préavis de 30 jours pour résilier"
+  ],
+  "risk_score": 81
+}

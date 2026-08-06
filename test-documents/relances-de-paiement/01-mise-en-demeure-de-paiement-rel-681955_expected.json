@@ -1,0 +1,41 @@
+{
+  "document_type": "Relance de paiement",
+  "title": "Mise en demeure de paiement REL-681955",
+  "summary": "Mise en demeure adressée à Hugo Robert pour la facture REL-681955, total réclamé 451 €, à régler avant le 04/02/2026.",
+  "people": [
+    "Hugo Robert"
+  ],
+  "organizations": [
+    "Service recouvrement"
+  ],
+  "amounts": [
+    "376,95 €",
+    "32 €",
+    "42 €",
+    "451 €"
+  ],
+  "dates": [
+    "23/09/2025"
+  ],
+  "deadlines": [
+    "Règlement exigé sous 8 jours, et au plus tard le 04/02/2026",
+    "Contester par écrit sous 10 jours si désaccord"
+  ],
+  "important_points": [
+    "Mise en demeure sur facture REL-681955",
+    "Principal impayé de 376,95 €",
+    "Total réclamé de 451 €"
+  ],
+  "risks": [
+    "Pénalités de retard de 32 €",
+    "Frais de recouvrement de 42 €",
+    "Transmission possible à un huissier",
+    "Intérêts moratoires au taux légal majoré"
+  ],
+  "actions": [
+    "Régler 451 € avant le 04/02/2026",
+    "Contester par écrit sous 10 jours en cas de désaccord",
+    "Répondre rapidement pour éviter le contentieux"
+  ],
+  "risk_score": 81
+}

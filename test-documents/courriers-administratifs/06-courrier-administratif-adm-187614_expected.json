@@ -1,0 +1,36 @@
+{
+  "document_type": "Courrier administratif",
+  "title": "Courrier administratif ADM-187614",
+  "summary": "Courrier administratif ADM-187614 demandant à Chloé Simon de compléter un dossier avant le 23/11/2026, sous peine de classement sans suite.",
+  "people": [
+    "Chloé Simon"
+  ],
+  "organizations": [
+    "Préfecture / Service administratif"
+  ],
+  "amounts": [
+    "30 €"
+  ],
+  "dates": [
+    "16/12/2026"
+  ],
+  "deadlines": [
+    "Votre réponse est attendue avant le 23/11/2026",
+    "sous 15 jours, sous peine de classement sans suite"
+  ],
+  "important_points": [
+    "Demande de complément de dossier",
+    "Pièces demandées : justificatif de domicile, pièce d'identité, formulaire cerfa",
+    "Réponse attendue avant le 23/11/2026"
+  ],
+  "risks": [
+    "Classement sans suite en cas d'absence de réponse",
+    "Rejet de la demande et perte d'antériorité du dépôt"
+  ],
+  "actions": [
+    "Transmettre les pièces avant le 23/11/2026",
+    "Répondre sous 15 jours",
+    "Conserver la référence de dossier"
+  ],
+  "risk_score": 63
+}
