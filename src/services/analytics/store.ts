@@ -15,6 +15,8 @@ import { ANALYTICS_EVENT_NAMES } from "@/types/analytics";
 const MAX_EVENTS = 10_000;
 const NAME_SET = new Set<string>(ANALYTICS_EVENT_NAMES);
 
+let memoryAnalytics: AnalyticsFile = { version: 1, events: [] };
+
 function sanitizeMeta(meta?: AnalyticsMeta): AnalyticsMeta | undefined {
   if (!meta) return undefined;
   const out: AnalyticsMeta = {};
@@ -34,12 +36,23 @@ function sanitizeMeta(meta?: AnalyticsMeta): AnalyticsMeta | undefined {
 }
 
 async function ensureSystemDir(): Promise<void> {
+  // Prod / persistent : pas de FS (Vercel lecture seule).
+  const { usePersistentStorage } = await import("@/config/persistence");
+  const { isDeployedEnv } = await import("@/lib/env-validate");
+  if (usePersistentStorage() || isDeployedEnv()) return;
   await mkdir(SYSTEM_DIR, { recursive: true });
   await mkdir(path.dirname(PRODUCT_ANALYTICS_FILE), { recursive: true });
 }
 
+async function analyticsFsEnabled(): Promise<boolean> {
+  const { usePersistentStorage } = await import("@/config/persistence");
+  const { isDeployedEnv } = await import("@/lib/env-validate");
+  return !usePersistentStorage() && !isDeployedEnv();
+}
+
 export async function readAnalyticsFile(): Promise<AnalyticsFile> {
   await ensureSystemDir();
+  if (!(await analyticsFsEnabled())) return memoryAnalytics;
   try {
     const raw = await readFile(PRODUCT_ANALYTICS_FILE, "utf8");
     const parsed = JSON.parse(raw) as AnalyticsFile;
@@ -49,11 +62,15 @@ export async function readAnalyticsFile(): Promise<AnalyticsFile> {
     };
   } catch {
     const empty: AnalyticsFile = { version: 1, events: [] };
-    await writeFile(
-      PRODUCT_ANALYTICS_FILE,
-      JSON.stringify(empty, null, 2),
-      "utf8",
-    );
+    try {
+      await writeFile(
+        PRODUCT_ANALYTICS_FILE,
+        JSON.stringify(empty, null, 2),
+        "utf8",
+      );
+    } catch {
+      return memoryAnalytics;
+    }
     return empty;
   }
 }
@@ -128,11 +145,15 @@ export async function trackAnalyticsEvent(input: {
     if (file.events.length > MAX_EVENTS) {
       file.events = file.events.slice(0, MAX_EVENTS);
     }
-    await writeFile(
-      PRODUCT_ANALYTICS_FILE,
-      JSON.stringify(file, null, 2),
-      "utf8",
-    );
+    if (await analyticsFsEnabled()) {
+      await writeFile(
+        PRODUCT_ANALYTICS_FILE,
+        JSON.stringify(file, null, 2),
+        "utf8",
+      );
+    } else {
+      memoryAnalytics = file;
+    }
     return { recorded: true };
   } catch {
     // Instrumentation never breaks the product path.

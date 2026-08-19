@@ -1,7 +1,9 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { randomUUID } from "crypto";
 
+import { usePersistentStorage } from "@/config/persistence";
 import { ADMIN_DIR, ADMIN_METRICS_FILE } from "@/config/paths";
+import { isDeployedEnv } from "@/lib/env-validate";
 import type {
   AdminFrequentError,
   AdminMetricEvent,
@@ -11,18 +13,30 @@ import type {
 
 const MAX_EVENTS = 2000;
 
+function adminFsEnabled(): boolean {
+  return !usePersistentStorage() && !isDeployedEnv();
+}
+
 async function ensureAdminDir(): Promise<void> {
+  if (!adminFsEnabled()) return;
   await mkdir(ADMIN_DIR, { recursive: true });
 }
 
+let memoryMetrics: AdminMetricsFile = { events: [] };
+
 export async function readAdminMetrics(): Promise<AdminMetricsFile> {
+  if (!adminFsEnabled()) return memoryMetrics;
   await ensureAdminDir();
   try {
     const raw = await readFile(ADMIN_METRICS_FILE, "utf8");
     return JSON.parse(raw) as AdminMetricsFile;
   } catch {
     const empty: AdminMetricsFile = { events: [] };
-    await writeFile(ADMIN_METRICS_FILE, JSON.stringify(empty, null, 2), "utf8");
+    try {
+      await writeFile(ADMIN_METRICS_FILE, JSON.stringify(empty, null, 2), "utf8");
+    } catch {
+      return memoryMetrics;
+    }
     return empty;
   }
 }
@@ -49,7 +63,11 @@ export async function appendAdminMetric(
     if (file.events.length > MAX_EVENTS) {
       file.events = file.events.slice(0, MAX_EVENTS);
     }
-    await writeFile(ADMIN_METRICS_FILE, JSON.stringify(file, null, 2), "utf8");
+    if (adminFsEnabled()) {
+      await writeFile(ADMIN_METRICS_FILE, JSON.stringify(file, null, 2), "utf8");
+    } else {
+      memoryMetrics = file;
+    }
   } catch {
     // Metrics must never break the analysis pipeline.
   }

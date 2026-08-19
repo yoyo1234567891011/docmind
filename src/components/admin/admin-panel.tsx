@@ -35,6 +35,21 @@ const ProductionDashboardPanel = dynamic(
     ),
   },
 );
+
+const AdminOverviewPanel = dynamic(
+  () =>
+    import("@/components/admin/admin-overview-panel").then((m) => ({
+      default: m.AdminOverviewPanel,
+    })),
+  {
+    loading: () => (
+      <div className="space-y-3">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    ),
+  },
+);
 import type {
   AdminPromptKey,
   AdminPromptVersion,
@@ -44,6 +59,7 @@ import type {
 import { cn } from "@/lib/utils";
 
 type TabId =
+  | "overview"
   | "production"
   | "models"
   | "prompts"
@@ -55,8 +71,9 @@ type TabId =
   | "compare";
 
 const TABS: Array<{ id: TabId; label: string }> = [
+  { id: "overview", label: "Vue d'ensemble" },
   { id: "production", label: "Production" },
-  { id: "models", label: "Modèles" },
+  { id: "models", label: "Modèles IA" },
   { id: "prompts", label: "Prompts" },
   { id: "performance", label: "Performances" },
   { id: "monitoring", label: "Monitoring" },
@@ -81,7 +98,7 @@ const TASK_LABELS: Record<string, string> = {
 };
 
 export function AdminPanel() {
-  const [tab, setTab] = useState<TabId>("production");
+  const [tab, setTab] = useState<TabId>("overview");
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -319,8 +336,8 @@ export function AdminPanel() {
             Admin
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
-            Dashboard production, modèles, prompts et ops — sans modifier le
-            code. Persistance dans <code className="text-xs">data/admin/</code>.
+            Vue d&apos;ensemble prod (Groq, tokens, utilisateurs), prompts et
+            ops — sans redéploiement pour les prompts.
           </p>
         </div>
         <Button type="button" variant="secondary" onClick={() => void reload()}>
@@ -357,10 +374,46 @@ export function AdminPanel() {
         ))}
       </div>
 
+      {tab === "overview" ? <AdminOverviewPanel /> : null}
+
       {tab === "production" ? <ProductionDashboardPanel /> : null}
 
       {tab === "models" && configDraft ? (
         <section className="space-y-5">
+          {data?.llmRuntime?.cloudEnabled ? (
+            <div className="space-y-3 rounded-xl border border-[var(--accent)]/30 bg-[var(--accent-soft)]/30 p-4">
+              <p className="font-medium">IA cloud (production)</p>
+              <p className="text-sm text-[var(--muted)]">
+                DocMind utilise{" "}
+                <strong>{data.llmRuntime.provider.toUpperCase()}</strong> en
+                production. Le modèle actif est{" "}
+                <code className="text-xs">{data.llmRuntime.model}</code>.
+              </p>
+              <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-[var(--muted)]">Provider</dt>
+                  <dd>{data.llmRuntime.provider}</dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--muted)]">Modèle</dt>
+                  <dd>{data.llmRuntime.model}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-[var(--muted)]">API</dt>
+                  <dd className="break-all font-mono text-xs">
+                    {data.llmRuntime.baseUrl}
+                  </dd>
+                </div>
+              </dl>
+              <p className="text-xs text-[var(--muted)]">
+                Pour changer de modèle : variable{" "}
+                <code className="text-[11px]">LLM_MODEL</code> sur Vercel →
+                redéployer. Les réglages Ollama ci-dessous ne s&apos;appliquent
+                qu&apos;en développement local.
+              </p>
+            </div>
+          ) : null}
+
           {data?.modelProfiles ? (
             <div className="space-y-3 rounded-xl border border-[var(--border)] p-4">
               <div>

@@ -8,6 +8,7 @@ import type {
   AdminRuntimeConfig,
 } from "@/types/admin";
 import type { AnalyticsProductSummary } from "@/types/analytics";
+import type { AdminPlatformOverview } from "@/types/admin-platform";
 import type { ProductionDashboard } from "@/types/production";
 import type { HistoryRecord } from "@/types";
 
@@ -35,6 +36,12 @@ export interface AdminDashboardData {
   frequentErrors: AdminFrequentError[];
   recentEvents: AdminMetricEvent[];
   productAnalytics?: AnalyticsProductSummary;
+  llmRuntime?: {
+    cloudEnabled: boolean;
+    provider: string;
+    model: string;
+    baseUrl: string;
+  };
   modelProfiles?: {
     active: string;
     runtime: string;
@@ -182,6 +189,11 @@ export async function runAdminMonitoringCheck(): Promise<{
 }
 
 export type { ProductionDashboard };
+
+export async function fetchAdminOverview(): Promise<AdminPlatformOverview> {
+  const response = await fetch("/api/admin/overview", { cache: "no-store" });
+  return parseJson<AdminPlatformOverview>(response);
+}
 
 export async function fetchAdminProduction(): Promise<ProductionDashboard> {
   const response = await fetch("/api/admin/production", { cache: "no-store" });
