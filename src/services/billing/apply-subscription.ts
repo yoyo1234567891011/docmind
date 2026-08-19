@@ -31,13 +31,24 @@ export function periodFromSubscription(sub: Stripe.Subscription): {
   return { start: toIso(start), end: toIso(end) };
 }
 
+/** Lit le price id du 1er item (payload webhook parfois partiel). */
+export function readSubscriptionPriceId(
+  sub: Stripe.Subscription,
+): string | null {
+  const first = sub.items?.data?.[0];
+  if (!first) return null;
+  const price = first.price;
+  if (typeof price === "string") return price;
+  return price?.id ?? null;
+}
+
 /**
  * Mappe un abonnement Stripe → plan DocMind.
  * Accepte uniquement le price Premium configuré ou metadata explicite
  * (évite d’accorder Premium sur un autre produit Stripe du même customer).
  */
 export function planFromSubscription(sub: Stripe.Subscription): BillingPlanId {
-  const priceId = sub.items.data[0]?.price?.id;
+  const priceId = readSubscriptionPriceId(sub);
   const premiumPrice = getStripePremiumPriceId();
   // En production le price id est la source de vérité.
   if (premiumPrice) {
@@ -71,6 +82,7 @@ export function isCancelScheduled(sub: Stripe.Subscription): boolean {
 
 /**
  * Applique l’état d’un abonnement Stripe dans la base locale (source de vérité).
+ * L’ordre des événements est garanti sous le mutex `billing:sub:{userId}`.
  */
 export async function applyStripeSubscription(
   userId: string,
@@ -83,61 +95,57 @@ export async function applyStripeSubscription(
 ): Promise<void> {
   const previous = await getUserSubscription(userId).catch(() => null);
 
-  // Rejette les webhooks hors-ordre (event.created plus ancien que le dernier appliqué).
-  if (eventMeta && previous?.lastWebhookAt) {
-    const prevMs = Date.parse(previous.lastWebhookAt);
-    const eventMs = eventMeta.created * 1000;
-    if (!Number.isNaN(prevMs) && eventMs < prevMs) {
-      return;
-    }
-  }
-
   const period = periodFromSubscription(sub);
   const status = sub.status as BillingSubscriptionStatus;
   const catalogPlan = planFromSubscription(sub);
   const active = isStripePremiumStatus(status);
-  const nextPlan: BillingPlanId =
+  let nextPlan: BillingPlanId =
     active && catalogPlan === "premium" ? "premium" : "free";
+  if (status === "canceled" || status === "unpaid") {
+    nextPlan = "free";
+  }
   const cancelScheduled = isCancelScheduled(sub);
   const periodEnd =
     period.end ||
     (typeof sub.cancel_at === "number" ? toIso(sub.cancel_at) : null);
 
-  await upsertSubscriptionPatch(userId, {
-    plan: nextPlan,
-    status,
-    stripeCustomerId:
-      typeof sub.customer === "string" ? sub.customer : sub.customer?.id || null,
-    stripeSubscriptionId: sub.id,
-    stripePriceId: sub.items.data[0]?.price?.id || null,
-    currentPeriodStart: period.start,
-    currentPeriodEnd: periodEnd,
-    cancelAtPeriodEnd: cancelScheduled,
-    // Ne garder canceledAt que si annulation planifiée ou effective —
-    // sinon un resume laisserait un stale canceled_at Stripe et un faux badge.
-    canceledAt: cancelScheduled
-      ? toIso(sub.canceled_at) || new Date().toISOString()
-      : status === "canceled"
-        ? toIso(sub.canceled_at) || new Date().toISOString()
-        : null,
-    ...(eventMeta
-      ? {
-          lastWebhookEventId: eventMeta.id,
-          lastWebhookEventType: eventMeta.type,
-          lastWebhookAt: new Date(eventMeta.created * 1000).toISOString(),
-        }
-      : {
-          lastWebhookEventType: "sync.stripe",
-          lastWebhookAt: new Date().toISOString(),
-        }),
-  });
-
-  if (status === "canceled" || status === "unpaid") {
-    await upsertSubscriptionPatch(userId, {
-      plan: "free",
+  const applied = await upsertSubscriptionPatch(
+    userId,
+    {
+      plan: nextPlan,
       status,
-    });
-  }
+      stripeCustomerId:
+        typeof sub.customer === "string"
+          ? sub.customer
+          : sub.customer?.id || null,
+      stripeSubscriptionId: sub.id,
+      stripePriceId: readSubscriptionPriceId(sub),
+      currentPeriodStart: period.start,
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: cancelScheduled,
+      // Ne garder canceledAt que si annulation planifiée ou effective —
+      // sinon un resume laisserait un stale canceled_at Stripe et un faux badge.
+      canceledAt: cancelScheduled
+        ? toIso(sub.canceled_at) || new Date().toISOString()
+        : status === "canceled"
+          ? toIso(sub.canceled_at) || new Date().toISOString()
+          : null,
+      ...(eventMeta
+        ? {
+            lastWebhookEventId: eventMeta.id,
+            lastWebhookEventType: eventMeta.type,
+            lastWebhookAt: new Date(eventMeta.created * 1000).toISOString(),
+          }
+        : {
+            lastWebhookEventType: "sync.stripe",
+            lastWebhookAt: new Date().toISOString(),
+          }),
+    },
+    eventMeta ? { webhookCreatedSec: eventMeta.created } : undefined,
+  );
+
+  // Événement plus ancien que lastWebhookAt — ignoré sous le verrou.
+  if (!applied) return;
 
   const wasPremium =
     previous != null &&

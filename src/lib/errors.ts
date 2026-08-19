@@ -12,6 +12,17 @@ export class AppError extends Error {
   }
 }
 
+/** Signature Stripe invalide → 400 (pas retry automatique). */
+export function isStripeWebhookSignatureError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = (error as { name?: string }).name;
+  const type = (error as { type?: string }).type;
+  return (
+    name === "StripeSignatureVerificationError" ||
+    type === "StripeSignatureVerificationError"
+  );
+}
+
 export function toApiErrorResponse(error: unknown): ApiErrorResponse {
   if (error instanceof AppError) {
     return {
@@ -19,6 +30,16 @@ export function toApiErrorResponse(error: unknown): ApiErrorResponse {
       error: {
         code: error.code,
         message: error.message,
+      },
+    };
+  }
+
+  if (isStripeWebhookSignatureError(error)) {
+    return {
+      success: false,
+      error: {
+        code: "BAD_REQUEST",
+        message: "Signature webhook Stripe invalide.",
       },
     };
   }

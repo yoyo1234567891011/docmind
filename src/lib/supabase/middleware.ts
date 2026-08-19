@@ -19,6 +19,9 @@ const PUBLIC_PATH_PREFIXES = [
   "/mentions-legales",
   "/api/health",
   "/api/stripe/webhook",
+  "/api/billing/webhook",
+  // Auth via CRON_SECRET dans la route (pas de session Supabase).
+  "/api/cron",
 ];
 
 function isPublicPath(pathname: string): boolean {

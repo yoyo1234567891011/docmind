@@ -28,4 +28,5 @@ export { syncUserSubscriptionFromStripe } from "./sync";
 export {
   constructStripeEvent,
   handleStripeWebhookEvent,
+  stripeWebhookLogContext,
 } from "./webhook";

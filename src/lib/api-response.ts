@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import type { ApiErrorCode, ApiResponse } from "@/types";
-import { AppError, toApiErrorResponse } from "@/lib/errors";
+import { AppError, isStripeWebhookSignatureError, toApiErrorResponse } from "@/lib/errors";
 
 export function apiSuccess<T>(data: T, status = 200) {
   const body: ApiResponse<T> = {
@@ -28,7 +28,10 @@ export function apiError(
 
 export function apiFromUnknownError(error: unknown) {
   const payload = toApiErrorResponse(error);
-  const status = error instanceof AppError ? error.status : 500;
+  let status = error instanceof AppError ? error.status : 500;
+  if (isStripeWebhookSignatureError(error)) {
+    status = 400;
+  }
 
   if (status >= 500) {
     const message =

@@ -29,7 +29,7 @@ import { AppError } from "../src/lib/errors";
 async function main() {
   // Catalogue
   assert.equal(BILLING_PLANS.free.priceMonthlyEur, null);
-  assert.equal(BILLING_PLANS.premium.priceMonthlyEur, 19);
+  assert.equal(BILLING_PLANS.premium.priceMonthlyEur, 10);
   assert.ok(BILLING_PLANS.free.entitlements.includes("analyze"));
   assert.ok(!BILLING_PLANS.free.entitlements.includes("letter_agent"));
   assert.ok(getBillingPlan("premium").entitlements.includes("letter_agent"));

@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 
+import { readSubscriptionPriceId } from "@/services/billing/apply-subscription";
 import { getStripe, getStripeWebhookSecret } from "@/lib/stripe";
 import { AppError } from "@/lib/errors";
 import { trackAnalyticsEvent } from "@/services/analytics";
@@ -35,27 +36,71 @@ async function recordWebhookMeta(
   userId: string,
   event: Stripe.Event,
 ): Promise<void> {
-  await upsertSubscriptionPatch(userId, {
-    lastWebhookEventId: event.id,
-    lastWebhookEventType: event.type,
-    lastWebhookAt: new Date(event.created * 1000).toISOString(),
-  });
+  await upsertSubscriptionPatch(
+    userId,
+    {
+      lastWebhookEventId: event.id,
+      lastWebhookEventType: event.type,
+      lastWebhookAt: new Date(event.created * 1000).toISOString(),
+    },
+    { webhookCreatedSec: event.created },
+  );
 }
 
 async function syncSubscription(
   sub: Stripe.Subscription,
   event?: Stripe.Event,
 ): Promise<void> {
-  const userId = await resolveUserId(sub);
+  const hydrated = await ensureSubscriptionHydrated(sub);
+  const userId = await resolveUserId(hydrated);
   if (!userId) return;
 
   await applyStripeSubscription(
     userId,
-    sub,
+    hydrated,
     event
       ? { id: event.id, type: event.type, created: event.created }
       : undefined,
   );
+}
+
+/** Payload webhook 2026-06-24 parfois sans items — retrieve Stripe si besoin. */
+async function ensureSubscriptionHydrated(
+  sub: Stripe.Subscription,
+): Promise<Stripe.Subscription> {
+  if (readSubscriptionPriceId(sub)) return sub;
+  try {
+    const stripe = getStripe();
+    return await stripe.subscriptions.retrieve(sub.id, {
+      expand: ["items.data.price"],
+    });
+  } catch {
+    return sub;
+  }
+}
+
+export function stripeWebhookLogContext(event: Stripe.Event): {
+  eventId: string;
+  eventType: string;
+  livemode: boolean;
+  customer: string | null;
+  userId: string | null;
+} {
+  const obj = event.data.object as {
+    customer?: string | { id?: string } | null;
+    metadata?: { docmind_user_id?: string };
+  };
+  const customer =
+    typeof obj.customer === "string"
+      ? obj.customer
+      : obj.customer?.id ?? null;
+  return {
+    eventId: event.id,
+    eventType: event.type,
+    livemode: event.livemode,
+    customer,
+    userId: obj.metadata?.docmind_user_id?.trim() || null,
+  };
 }
 
 /**
@@ -70,15 +115,21 @@ async function revokePremiumAfterFullRefund(
   const previous = await getUserSubscription(userId);
   const now = new Date().toISOString();
 
-  await upsertSubscriptionPatch(userId, {
-    plan: "free",
-    status: "canceled",
-    cancelAtPeriodEnd: false,
-    canceledAt: previous.canceledAt ?? now,
-    lastWebhookEventId: event.id,
-    lastWebhookEventType: event.type,
-    lastWebhookAt: new Date(event.created * 1000).toISOString(),
-  });
+  // Ordre sous mutex : un refund ancien ne doit pas écraser un renewal/cancel plus récent.
+  const applied = await upsertSubscriptionPatch(
+    userId,
+    {
+      plan: "free",
+      status: "canceled",
+      cancelAtPeriodEnd: false,
+      canceledAt: previous.canceledAt ?? now,
+      lastWebhookEventId: event.id,
+      lastWebhookEventType: event.type,
+      lastWebhookAt: new Date(event.created * 1000).toISOString(),
+    },
+    { webhookCreatedSec: event.created },
+  );
+  if (!applied) return;
 
   const stripeSubscriptionId =
     options?.stripeSubscriptionId ?? previous.stripeSubscriptionId;
@@ -282,6 +333,35 @@ export function constructStripeEvent(
   return stripe.webhooks.constructEvent(rawBody, signature, secret);
 }
 
+export type StripeWebhookProcessDeps = {
+  isClaimed: (eventId: string) => Promise<boolean>;
+  claim: (eventId: string, eventType: string) => Promise<boolean>;
+  dispatch: (event: Stripe.Event) => Promise<{ handled: boolean }>;
+};
+
+/**
+ * Cœur idempotent (testable) :
+ * - single-flight par event.id (caller)
+ * - claim définitif UNIQUEMENT après succès réel (handled:true)
+ * - crash avant claim → pas de claim → Stripe/retry peut rejouer
+ */
+export async function processStripeWebhookEvent(
+  event: Stripe.Event,
+  deps: StripeWebhookProcessDeps,
+): Promise<{ handled: boolean }> {
+  // Claim APRÈS succès : un crash mid-dispatch laisse Stripe retry (pas d’événement fantôme).
+  if (await deps.isClaimed(event.id)) {
+    return { handled: true };
+  }
+
+  const result = await deps.dispatch(event);
+  if (result.handled) {
+    await deps.claim(event.id, event.type);
+  }
+  // handled:false → pas de claim → retry Stripe possible (ex. userId non résolu)
+  return result;
+}
+
 /**
  * Traite les événements Stripe utiles à l’abonnement DocMind.
  * Les droits Premium sont toujours dérivés de l’état synchronisé (webhooks).
@@ -289,22 +369,23 @@ export function constructStripeEvent(
 export async function handleStripeWebhookEvent(
   event: Stripe.Event,
 ): Promise<{ handled: boolean }> {
+  const { withKeyedLock } = await import("@/lib/keyed-lock");
   const {
     claimStripeWebhookEvent,
     isStripeWebhookEventClaimed,
   } = await import("@/services/persistence/webhook-events-pg");
 
-  // Claim APRÈS succès : un crash mid-dispatch laisse Stripe retry (pas d’événement fantôme).
-  if (await isStripeWebhookEventClaimed(event.id)) {
-    return { handled: true };
-  }
-
-  const result = await dispatchStripeWebhookEvent(event);
-  if (result.handled) {
-    await claimStripeWebhookEvent(event.id, event.type);
-  }
-  // handled:false → pas de claim → retry Stripe possible (ex. userId non résolu)
-  return result;
+  // Un seul worker dispatch pour un event.id (Redis NX si configuré).
+  return withKeyedLock(
+    `billing:webhook:${event.id}`,
+    () =>
+      processStripeWebhookEvent(event, {
+        isClaimed: isStripeWebhookEventClaimed,
+        claim: claimStripeWebhookEvent,
+        dispatch: dispatchStripeWebhookEvent,
+      }),
+    { ttlMs: 120_000 },
+  );
 }
 
 async function dispatchStripeWebhookEvent(
