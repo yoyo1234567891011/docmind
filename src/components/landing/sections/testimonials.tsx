@@ -13,7 +13,7 @@ const OUTCOMES = [
   },
   {
     title: "Garder le contrôle des données",
-    text: "Analyse via Ollama en local : vos PDF ne sont pas collés dans un chat cloud généraliste.",
+    text: "Espace isolé par compte : vos PDF ne sont pas collés dans un chat cloud généraliste, et vos analyses restent privées.",
   },
 ] as const;
 

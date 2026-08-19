@@ -5,7 +5,7 @@ const REASONS = [
   },
   {
     title: "Privé par conception",
-    text: "L’analyse LLM passe par votre Ollama local. Vos PDF ne partent pas vers une API cloud d’IA générative.",
+    text: "Vos documents restent dans votre espace isolé. L’analyse IA est dédiée à votre compte — vos PDF ne sont pas collés dans un chat public ni partagés entre utilisateurs.",
   },
   {
     title: "Décision, pas résumé",

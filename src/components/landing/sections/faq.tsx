@@ -6,12 +6,12 @@ const FAQ_ITEMS = [
     a: "ChatGPT est un chat généraliste : vous y collez un PDF, vous obtenez un texte. DocMind construit une mémoire (fiches, alertes, recherche, historique) et prépare des actions — sans envoyer vos documents à une IA cloud grand public.",
   },
   {
-    q: "Mes documents quittent-ils mon ordinateur ?",
-    a: "L’analyse LLM s’exécute via votre instance Ollama locale. Les fichiers restent dans votre espace DocMind, isolé par compte — pas dans un chat ChatGPT.",
+    q: "Mes documents sont-ils privés ?",
+    a: "Vos fichiers sont stockés dans votre espace DocMind, isolé par compte. L’analyse IA passe par une API dédiée — elle n’est pas partagée avec d’autres utilisateurs ni utilisée pour entraîner un modèle public.",
   },
   {
-    q: "Dois-je installer Ollama ?",
-    a: "Oui, pour l’analyse IA locale. Sans Ollama, DocMind ne peut pas générer l’analyse. L’installation est gratuite ; une fois lancé, vous déposez simplement vos PDF.",
+    q: "Dois-je installer un logiciel ?",
+    a: "Non. DocMind fonctionne entièrement dans le navigateur. Déposez un PDF, l’analyse démarre automatiquement — aucune installation requise.",
   },
   {
     q: "Faut-il une carte bancaire pour commencer ?",

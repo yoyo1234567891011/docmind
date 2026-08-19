@@ -65,8 +65,7 @@ export default function PrivacyPage() {
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Hébergement & sous-traitants</h2>
         <p>
-          L’analyse LLM s’effectue via Ollama sur l’infrastructure configurée
-          pour le service. Authentification : Supabase. Paiements : Stripe.
+          L’analyse IA s’effectue via une API dédiée (Groq) sur une infrastructure sécurisée. Aucun PDF n’est partagé avec un modèle public. Authentification : Supabase. Paiements : Stripe.
           Consultez leurs politiques respectives.
         </p>
       </section>

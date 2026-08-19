@@ -19,12 +19,12 @@ export function LandingHero() {
           {siteConfig.name}
         </p>
         <h1 className="landing-reveal landing-reveal-delay-1 mt-5 max-w-2xl text-balance text-2xl font-medium leading-snug text-[var(--foreground)] sm:text-3xl">
-          Vos contrats et factures, lus en local — risques, échéances, actions.
+          Vos contrats et factures, analysés en privé — risques, échéances, actions.
         </h1>
         <p className="landing-reveal landing-reveal-delay-2 mt-4 max-w-xl text-pretty text-base leading-relaxed text-[var(--muted)] sm:text-lg">
           Pas un chat généraliste : une mémoire documentaire française qui
           extrait les faits, alerte avant un renouvellement, et prépare le
-          courrier — sans envoyer vos PDF à ChatGPT.
+          courrier — sans coller vos PDF dans ChatGPT.
         </p>
         <div className="landing-reveal landing-reveal-delay-3 mt-8 flex flex-wrap items-center gap-3">
           <Link
@@ -41,7 +41,7 @@ export function LandingHero() {
           </a>
         </div>
         <p className="landing-reveal landing-reveal-delay-3 mt-4 text-sm text-[var(--muted)]">
-          Gratuit pour démarrer · Sans carte bancaire · Analyse via Ollama local
+          Gratuit pour démarrer · Sans carte bancaire · Analyse IA privée par compte
         </p>
       </div>
     </section>

@@ -12,7 +12,7 @@ export function LandingFooter() {
               {siteConfig.name}
             </p>
             <p className="mt-2 max-w-sm text-sm leading-relaxed text-[var(--muted)]">
-              Analyse documentaire locale. Privée. Actionnable.
+              Analyse documentaire privée. Structurée. Actionnable.
             </p>
           </div>
 

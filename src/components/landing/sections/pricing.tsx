@@ -13,7 +13,7 @@ const LANDING_PLANS = [
     period: null as string | null,
     description: "Pour analyser vos premiers PDF et constituer votre mémoire.",
     features: [
-      "Analyses PDF en local",
+      "Analyses PDF privées",
       "Mémoire documentaire & recherche",
       "Alertes échéances / risques",
       "Bibliothèque de documents",
