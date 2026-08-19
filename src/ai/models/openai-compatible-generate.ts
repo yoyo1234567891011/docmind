@@ -45,13 +45,11 @@ export async function generateWithOpenAiCompatible(
   if (typeof input.maxTokens === "number" && input.maxTokens > 0) {
     body.max_tokens = input.maxTokens;
   }
-  // Groq thinking-models (qwen3…) coupent leur réponse avant le JSON
-  // (finish_reason=length sur le bloc <think>). On désactive json_object
-  // uniquement pour ces modèles ; les autres (gpt-oss-*) l'acceptent.
-  const isThinkingModel =
-    /qwen.*3|compound/i.test(input.model) &&
-    input.cloud.baseUrl.includes("groq.com");
-  if (input.formatJson !== false && !isThinkingModel) {
+  // Groq ne garantit pas json_object fiable sur ses modèles free
+  // (json_validate_failed sporadique, thinking models tronqués).
+  // On laisse le modèle répondre librement ; tryParseJsonObject extrait le JSON.
+  const isGroq = input.cloud.baseUrl.includes("groq.com");
+  if (input.formatJson !== false && !isGroq) {
     body.response_format = { type: "json_object" };
   }
 
