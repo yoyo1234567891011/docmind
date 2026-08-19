@@ -42,18 +42,13 @@ export default function MentionsLegalesPage() {
             {legalContactEmail()}
           </a>
         </p>
-        <p className="text-[var(--muted)]">
-          Complétez SIRET, forme juridique et directeur de publication via les
-          variables d’environnement légales avant ouverture au public.
-        </p>
+
       </section>
 
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Hébergement</h2>
         <p>
-          Application web hébergée par l’infrastructure choisie par l’éditeur
-          (à préciser : hébergeur, adresse). Authentification : Supabase.
-          Paiements : Stripe.
+          Application web hébergée par Vercel Inc. (340 S Lemon Ave #4133, Walnut, CA 91789, États-Unis). Base de données et authentification : Supabase (supabase.com). Paiements : Stripe (stripe.com).
         </p>
       </section>
 
