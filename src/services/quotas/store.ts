@@ -6,6 +6,7 @@ import { usePersistentStorage } from "@/config/persistence";
 import { userDataDir } from "@/config/paths";
 import { withKeyedLock } from "@/lib/keyed-lock";
 import {
+  pgDecrementUserUsage,
   pgGetUserUsage,
   pgIncrementUserUsage,
 } from "@/services/persistence/usage-pg";
@@ -89,6 +90,31 @@ export async function incrementUserUsage(
     const next: UserUsageMonth = {
       ...current,
       [metric]: used + by,
+      updatedAt: new Date().toISOString(),
+    };
+    await mkdir(path.dirname(usageFile(userId)), { recursive: true });
+    await writeFile(usageFile(userId), JSON.stringify(next, null, 2), "utf8");
+    return next;
+  });
+}
+
+/** Rembourse N unités (plancher 0). */
+export async function decrementUserUsage(
+  userId: string,
+  metric: QuotaMetric,
+  by = 1,
+): Promise<UserUsageMonth | null> {
+  const month = currentUsageMonth();
+  if (usePersistentStorage()) {
+    return pgDecrementUserUsage(userId, month, metric, by);
+  }
+
+  return withKeyedLock(`quota:${userId}:${month}`, async () => {
+    const current = await getUserUsage(userId);
+    const used = current[metric] ?? 0;
+    const next: UserUsageMonth = {
+      ...current,
+      [metric]: Math.max(0, used - by),
       updatedAt: new Date().toISOString(),
     };
     await mkdir(path.dirname(usageFile(userId)), { recursive: true });

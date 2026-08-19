@@ -89,3 +89,31 @@ export async function pgIncrementUserUsage(
   );
   return updated.rows[0]?.data ?? null;
 }
+
+/** Décrémente sans passer sous 0 (remboursement après échec). */
+export async function pgDecrementUserUsage(
+  userId: string,
+  month: string,
+  metric: QuotaMetric,
+  by = 1,
+): Promise<UserUsageMonth | null> {
+  const updated = await query<{ data: UserUsageMonth }>(
+    `update public.app_usage
+     set data = jsonb_set(
+           jsonb_set(
+             data,
+             array[$3]::text[],
+             to_jsonb(greatest(0, coalesce((data->>$3)::int, 0) - $4::int)),
+             true
+           ),
+           '{updatedAt}',
+           to_jsonb(timezone('utc', now())::text),
+           true
+         ),
+         updated_at = timezone('utc', now())
+     where user_id = $1 and month = $2
+     returning data`,
+    [userId, month, metric, by],
+  );
+  return updated.rows[0]?.data ?? null;
+}
