@@ -45,11 +45,13 @@ export async function generateWithOpenAiCompatible(
   if (typeof input.maxTokens === "number" && input.maxTokens > 0) {
     body.max_tokens = input.maxTokens;
   }
-  // Groq ne garantit pas json_object fiable sur ses modèles free
-  // (json_validate_failed sporadique, thinking models tronqués).
-  // On laisse le modèle répondre librement ; tryParseJsonObject extrait le JSON.
-  const isGroq = input.cloud.baseUrl.includes("groq.com");
-  if (input.formatJson !== false && !isGroq) {
+  // Groq thinking-models (qwen3, compound) génèrent un bloc <think> qui
+  // dépasse la limite de tokens avant d'atteindre le JSON → on désactive
+  // response_format pour ces modèles seulement. Les autres (gpt-oss-*) l'acceptent.
+  const isThinkingGroq =
+    input.cloud.baseUrl.includes("groq.com") &&
+    /qwen|compound/i.test(model);
+  if (input.formatJson !== false && !isThinkingGroq) {
     body.response_format = { type: "json_object" };
   }
 
