@@ -103,15 +103,7 @@ export async function resumePremiumSubscription(userId: string): Promise<void> {
     });
   }
 
-  const cancelAt = updated.cancel_at;
-  const hasScheduledCancelAt =
-    cancelAt != null &&
-    cancelAt !== "" &&
-    (typeof cancelAt === "number"
-      ? cancelAt > 0
-      : typeof cancelAt === "string");
-
-  if (hasScheduledCancelAt) {
+  if (updated.cancel_at != null && !updated.cancel_at_period_end) {
     updated = await stripe.subscriptions.update(sub.stripeSubscriptionId, {
       cancel_at: "",
     });
