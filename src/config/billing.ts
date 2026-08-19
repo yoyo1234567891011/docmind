@@ -27,7 +27,7 @@ export const BILLING_PLANS: Record<"free" | "premium", BillingPlanDefinition> = 
     stripe: false,
     entitlements: FREE_ENTITLEMENTS,
     features: [
-      "Analyses PDF en local",
+      "20 analyses PDF par mois",
       "Mémoire documentaire & recherche",
       "Alertes échéances / risques",
       "Gestionnaire de documents",
@@ -43,6 +43,7 @@ export const BILLING_PLANS: Record<"free" | "premium", BillingPlanDefinition> = 
     entitlements: PREMIUM_ENTITLEMENTS,
     features: [
       "Tout l’offre Gratuite",
+      "200 analyses PDF par mois",
       "Agent courrier (résiliation, contestation…)",
       "Portail facturation Stripe",
       "Support prioritaire",

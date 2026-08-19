@@ -1,6 +1,10 @@
 /**
  * Tests des 5 points audit prod : export, backup, cache versionné, quotas, monitoring.
  */
+import { loadEnvFiles } from "./lib/load-env-files";
+
+loadEnvFiles();
+
 import assert from "assert";
 import { mkdir, writeFile, rm } from "fs/promises";
 import path from "path";
@@ -155,7 +159,7 @@ async function testQuotas() {
         await consumeQuota(userId, "analyze");
       } catch (error) {
         assert.ok(error instanceof AppError);
-        assert.equal(error.code, "FORBIDDEN");
+        assert.equal(error.code, "QUOTA_EXCEEDED");
         blocked = true;
       }
       assert.ok(blocked, "3e analyse Free doit être bloquée");

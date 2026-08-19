@@ -23,6 +23,9 @@ interface PdfDropzoneProps {
   onUploaded?: (result: UploadPdfResult) => void;
   onCleared?: () => void;
   onStatusChange?: (status: UploadStatus) => void;
+  /** Bloque l’upload (ex. quota analyses épuisé). */
+  disabled?: boolean;
+  disabledMessage?: string;
   className?: string;
 }
 
@@ -30,6 +33,8 @@ export function PdfDropzone({
   onUploaded,
   onCleared,
   onStatusChange,
+  disabled = false,
+  disabledMessage,
   className,
 }: PdfDropzoneProps) {
   const inputId = useId();
@@ -90,6 +95,7 @@ export function PdfDropzone({
 
   const applyFile = useCallback(
     (file: File | undefined) => {
+      if (disabled) return;
       const result = validatePdfFile(file);
 
       if (!result.ok) {
@@ -102,13 +108,16 @@ export function PdfDropzone({
 
       void uploadFile(result.file);
     },
-    [uploadFile, updateStatus],
+    [disabled, uploadFile, updateStatus],
   );
+
+  const isUploading = status === "uploading";
+  const blocked = disabled || isUploading;
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (status === "uploading") return;
+    if (blocked) return;
     setIsDragging(true);
   };
 
@@ -122,12 +131,12 @@ export function PdfDropzone({
     event.preventDefault();
     event.stopPropagation();
     setIsDragging(false);
-    if (status === "uploading") return;
+    if (blocked) return;
     applyFile(event.dataTransfer.files?.[0]);
   };
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (status === "uploading") return;
+    if (blocked) return;
     applyFile(event.target.files?.[0]);
     event.target.value = "";
   };
@@ -142,20 +151,23 @@ export function PdfDropzone({
     onCleared?.();
   };
 
-  const isUploading = status === "uploading";
-
   return (
     <div className={cn("w-full", className)}>
+      {disabled && disabledMessage ? (
+        <p className="mb-3 text-center text-sm text-[var(--muted)]">
+          {disabledMessage}
+        </p>
+      ) : null}
       <div
         role="button"
-        tabIndex={isUploading ? -1 : 0}
+        tabIndex={blocked ? -1 : 0}
         aria-controls={inputId}
-        aria-disabled={isUploading}
+        aria-disabled={blocked}
         onClick={() => {
-          if (!isUploading) inputRef.current?.click();
+          if (!blocked) inputRef.current?.click();
         }}
         onKeyDown={(event) => {
-          if (isUploading) return;
+          if (blocked) return;
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             inputRef.current?.click();
@@ -167,7 +179,7 @@ export function PdfDropzone({
         className={cn(
           "group relative overflow-hidden rounded-2xl border border-dashed px-6 py-12 text-center transition-all duration-300 ease-out",
           "bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] backdrop-blur-sm",
-          isUploading ? "cursor-wait" : "cursor-pointer",
+          isUploading ? "cursor-wait" : disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
           isDragging
             ? "scale-[1.01] border-[var(--accent)] bg-[var(--accent-soft)]"
             : "border-[var(--border-strong)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]",
@@ -188,7 +200,7 @@ export function PdfDropzone({
           type="file"
           accept="application/pdf,.pdf"
           className="sr-only"
-          disabled={isUploading}
+          disabled={blocked}
           onChange={handleInputChange}
         />
 

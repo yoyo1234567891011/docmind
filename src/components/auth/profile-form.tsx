@@ -17,6 +17,7 @@ import {
 } from "@/lib/client";
 import { createClient } from "@/lib/supabase/client";
 import { QUOTA_METRIC_LABELS } from "@/config/quotas";
+import { formatAnalyzeQuotaRemaining } from "@/lib/quotas/display";
 
 interface ProfileFormProps {
   email: string;
@@ -176,12 +177,23 @@ export function ProfileForm({ email, fullName: initialName }: ProfileFormProps) 
             {quotas.month}
           </p>
           <ul className="mt-4 space-y-2">
-            {quotas.items.map((item) => (
+            {[...quotas.items]
+              .sort((a, b) =>
+                a.metric === "analyze" ? -1 : b.metric === "analyze" ? 1 : 0,
+              )
+              .map((item) => (
               <li
                 key={item.metric}
-                className="flex items-center justify-between text-sm"
+                className="flex items-center justify-between gap-4 text-sm"
               >
-                <span>{QUOTA_METRIC_LABELS[item.metric]}</span>
+                <span>
+                  {QUOTA_METRIC_LABELS[item.metric]}
+                  {item.metric === "analyze" && !item.unlimited ? (
+                    <span className="mt-0.5 block text-xs text-[var(--muted)]">
+                      {formatAnalyzeQuotaRemaining(item)}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="tabular-nums text-[var(--muted)]">
                   {item.unlimited
                     ? `${item.used} / ∞`

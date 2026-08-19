@@ -28,14 +28,14 @@ function envInt(key: string, fallback: number): number {
 export function getPlanQuotas(plan: BillingPlanId): PlanQuotaLimits {
   if (plan === "premium") {
     return {
-      analyze: envInt("QUOTA_PREMIUM_ANALYZE", 500),
+      analyze: envInt("QUOTA_PREMIUM_ANALYZE", 200),
       upload: envInt("QUOTA_PREMIUM_UPLOAD", 500),
       letter: envInt("QUOTA_PREMIUM_LETTER", 100),
       search: envInt("QUOTA_PREMIUM_SEARCH", 2_000),
     };
   }
   return {
-    analyze: envInt("QUOTA_FREE_ANALYZE", 30),
+    analyze: envInt("QUOTA_FREE_ANALYZE", 20),
     upload: envInt("QUOTA_FREE_UPLOAD", 40),
     letter: envInt("QUOTA_FREE_LETTER", 0),
     search: envInt("QUOTA_FREE_SEARCH", 200),

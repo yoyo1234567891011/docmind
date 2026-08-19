@@ -60,12 +60,11 @@ export interface AnalyzeDocumentResult {
   sheet?: DocumentSheet;
   /** true si ce résultat vient d’une analyse déjà en cours (single-flight) */
   coalescedFromInFlight?: boolean;
-  /**
-   * Progressive UX :
-   * - preview = extraction locale + résumé rapide (affichage immédiat)
-   * - complete = analyse juridique pleine (arrière-plan)
-   */
+  /** Progressive UX */
   phase?: "preview" | "complete";
+  /** Job durable (mode progressive) */
+  jobId?: string;
+  jobStatus?: "pending" | "processing" | "completed" | "failed";
   /** Origine du résultat P2 — utile analytics / fallback. */
   resultSource?: "agents" | "salvage" | "cache";
   /** Durée totale pipeline (ms), si mesurée. */

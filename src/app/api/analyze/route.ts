@@ -16,177 +16,19 @@ import { AppError } from "@/lib/errors";
 import { checkRateLimitAsync, pruneRateLimitBuckets } from "@/lib/rate-limit";
 import { trackAnalyticsEvent } from "@/services/analytics";
 import { hasEntitlement } from "@/services/billing/entitlements";
-import {
-  saveHistoryRecord,
-  updateHistoryRecord,
-} from "@/services/history";
+import { saveHistoryRecord } from "@/services/history";
 import { attachHistoryIdToLatestLog } from "@/services/logs";
 import { appendMonitoringEvent } from "@/services/monitoring/store";
-import {
-  notifyAnalysisReady,
-  notifyForHistoryRecord,
-} from "@/services/notifications";
+import { notifyForHistoryRecord } from "@/services/notifications";
 import { consumeQuota } from "@/services/quotas/enforce";
 
 export const runtime = "nodejs";
+/** Hobby Vercel ≤ 300s ; Pro peut remonter à 480. */
 export const maxDuration = 300;
 
 /** Limite texte analysé (défense DoS) — ~upload PDF 10 Mo. */
 const MAX_ANALYZE_TEXT_CHARS = 1_500_000;
 const MAX_ANALYZE_PAGES = 200;
-
-async function runFullAnalysisInBackground(input: {
-  userId: string;
-  userEmail?: string | null;
-  historyId: string;
-  documentId: string;
-  text: string;
-  pages?: string[];
-  fileName: string;
-  skipReadyReply: boolean;
-  p1DurationMs?: number;
-}): Promise<void> {
-  const p2Started = Date.now();
-  try {
-    const full = await analyzeDocumentText({
-      userId: input.userId,
-      documentId: input.documentId,
-      text: input.text,
-      pages: input.pages,
-      fileName: input.fileName,
-      skipReadyReply: input.skipReadyReply,
-    });
-
-    const p2DurationMs = full.durationMs ?? Date.now() - p2Started;
-    const estimatedCostEur = estimateAnalysisCostEur({
-      durationMs: p2DurationMs,
-      totalTokens: full.totalTokens,
-    });
-
-    await trackAnalyticsEvent({
-      name: "analysis.p2",
-      userId: input.userId,
-      meta: {
-        historyId: input.historyId,
-        documentId: input.documentId,
-        durationMs: p2DurationMs,
-        resultSource: full.resultSource ?? "agents",
-        documentType: full.analysis.document_type,
-        category: full.classification.category,
-        categoryLabel: full.classification.label,
-        totalTokens: full.totalTokens ?? 0,
-        estimatedCostEur,
-        ok: true,
-      },
-    });
-
-    if (full.resultSource === "salvage") {
-      await trackAnalyticsEvent({
-        name: "analysis.fallback",
-        userId: input.userId,
-        meta: {
-          historyId: input.historyId,
-          documentId: input.documentId,
-          durationMs: p2DurationMs,
-          documentType: full.analysis.document_type,
-        },
-      });
-    }
-
-    const totalDurationMs =
-      (input.p1DurationMs ?? 0) + p2DurationMs;
-    await trackAnalyticsEvent({
-      name: "analysis.completed",
-      userId: input.userId,
-      meta: {
-        historyId: input.historyId,
-        documentId: input.documentId,
-        durationMs: totalDurationMs,
-        p1DurationMs: input.p1DurationMs ?? 0,
-        p2DurationMs,
-        resultSource: full.resultSource ?? "agents",
-        documentType: full.analysis.document_type,
-        category: full.classification.category,
-        estimatedCostEur,
-        mode: "progressive",
-      },
-    });
-
-    const updated = await updateHistoryRecord(input.userId, input.historyId, {
-      classification: full.classification,
-      analysis: full.analysis,
-      readyReply: full.readyReply,
-      model: full.model,
-      analyzedAt: full.analyzedAt,
-      promptsUsed: full.promptsUsed,
-      sheet: full.sheet
-        ? {
-            ...full.sheet,
-            historyId: input.historyId,
-            documentId: input.documentId,
-            fileName: input.fileName,
-            analyzedAt: full.analyzedAt,
-          }
-        : undefined,
-      analysisPhase: "complete",
-    });
-
-    await attachHistoryIdToLatestLog(
-      input.userId,
-      input.documentId,
-      input.historyId,
-    ).catch(() => undefined);
-
-    await notifyAnalysisReady(input.userId, updated, {
-      userEmail: input.userEmail,
-    }).catch(() => undefined);
-
-    await notifyForHistoryRecord(input.userId, updated, {
-      userEmail: input.userEmail,
-    }).catch(() => undefined);
-
-    await appendMonitoringEvent({
-      name: "analysis.ok",
-      userId: input.userId,
-      meta: {
-        historyId: input.historyId,
-        documentId: input.documentId,
-        durationMs: p2DurationMs,
-        mode: "progressive",
-      },
-    }).catch(() => undefined);
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Erreur P2 inconnue";
-    await trackAnalyticsEvent({
-      name: "analysis.error",
-      userId: input.userId,
-      meta: {
-        historyId: input.historyId,
-        documentId: input.documentId,
-        phase: "p2",
-        durationMs: Date.now() - p2Started,
-        errorCode:
-          error instanceof AppError ? error.code : "ANALYSIS_FAILED",
-        message: message.slice(0, 200),
-      },
-    });
-    await appendMonitoringEvent({
-      name: "analysis.error",
-      userId: input.userId,
-      meta: {
-        historyId: input.historyId,
-        documentId: input.documentId,
-        phase: "p2",
-        message: message.slice(0, 200),
-      },
-    }).catch(() => undefined);
-    await updateHistoryRecord(input.userId, input.historyId, {
-      analysisPhase: "failed",
-    }).catch(() => undefined);
-    throw error;
-  }
-}
 
 export async function POST(request: Request) {
   try {
@@ -236,6 +78,16 @@ export async function POST(request: Request) {
       );
     }
     const text = body.text;
+
+    const { hasSufficientExtractableText, NO_EXTRACTABLE_TEXT_MESSAGE } =
+      await import("@/services/pdf/text-sufficiency");
+    if (!hasSufficientExtractableText(text)) {
+      throw new AppError(
+        "UNSUPPORTED_FILE",
+        NO_EXTRACTABLE_TEXT_MESSAGE,
+        422,
+      );
+    }
 
     const fileName =
       typeof body.fileName === "string" && body.fileName.trim()
@@ -290,11 +142,13 @@ export async function POST(request: Request) {
     });
 
     const flightKey = documentAnalysisLockKey(user.id, documentId);
+    /** Clé distincte de P2 : sinon Redis republie le payload progressive et le worker coalesce un faux résultat. */
+    const progressiveFlightKey = `${flightKey}:progressive`;
 
     if (progressive) {
       // Single-flight + quota leader-only : évite double historique / double quota.
       const { result: progressivePayload } =
-        await withDocumentAnalysisSingleFlight(flightKey, async () => {
+        await withDocumentAnalysisSingleFlight(progressiveFlightKey, async () => {
           await consumeQuota(user.id, "analyze");
 
           const p1Started = Date.now();
@@ -336,33 +190,38 @@ export async function POST(request: Request) {
               extractedText: text,
             });
 
+            const { enqueueAnalysisJob, scheduleAnalysisDrainKick } =
+              await import("@/services/analysis-jobs");
+            const job = await enqueueAnalysisJob({
+              userId: user.id,
+              documentId,
+              historyId: historyRecord.id,
+              fileName,
+              skipReadyReply: skipReadyReply ?? true,
+              p1DurationMs,
+              userEmail: user.email,
+              pages,
+            });
+
+            // Kick opportuniste — cron watchdog + polls GET relancent aussi le drain.
             after(() => {
-              void runFullAnalysisInBackground({
-                userId: user.id,
-                userEmail: user.email,
-                historyId: historyRecord.id,
-                documentId,
-                text,
-                pages,
-                fileName,
-                skipReadyReply: skipReadyReply ?? true,
-                p1DurationMs,
-              }).catch((error) => {
-                console.error(
-                  `[analyze] progressive background failed historyId=${historyRecord.id}`,
-                  error instanceof Error ? error.message : error,
-                );
-              });
+              scheduleAnalysisDrainKick(2);
             });
 
             return {
               kind: "with-history" as const,
               preview,
               historyId: historyRecord.id,
+              jobId: job.id,
+              jobStatus: job.status,
               sheet: historyRecord.sheet,
               p1DurationMs,
             };
-          } catch {
+          } catch (error) {
+            console.error(
+              "[analyze] progressive history/enqueue failed",
+              error instanceof Error ? error.message : error,
+            );
             return {
               kind: "preview-only" as const,
               preview,
@@ -375,6 +234,8 @@ export async function POST(request: Request) {
         return apiSuccess({
           ...progressivePayload.preview,
           historyId: progressivePayload.historyId,
+          jobId: progressivePayload.jobId,
+          jobStatus: progressivePayload.jobStatus,
           sheet: progressivePayload.sheet,
           notificationsCreated: 0,
           durationMs: progressivePayload.p1DurationMs,

@@ -63,6 +63,7 @@ export type {
 } from "./relations";
 export { fetchQuotas } from "./quotas";
 export type { QuotaStatus } from "./quotas";
+export { ClientApiError, isQuotaExceededError } from "./api-error";
 export { trackClientAnalytics } from "./analytics";
 export {
   fetchBilling,

@@ -4,6 +4,7 @@ import { entitlementsFailOpen } from "@/services/billing/entitlements";
 import { hasPremiumAccess } from "@/services/billing/access";
 import { getUserSubscription } from "@/services/billing/store";
 import {
+  decrementUserUsage,
   getUserUsage,
   incrementUserUsage,
   type UserUsageMonth,
@@ -34,6 +35,44 @@ function resolvePlan(
   return hasPremiumAccess(subscriptionPlan, status, { currentPeriodEnd })
     ? "premium"
     : "free";
+}
+
+export function pickQuotaItem(
+  status: QuotaStatus,
+  metric: QuotaMetric,
+): QuotaStatusItem | undefined {
+  return status.items.find((i) => i.metric === metric);
+}
+
+/** Message utilisateur quand le plafond mensuel est atteint. */
+export function quotaExceededMessage(
+  status: QuotaStatus,
+  metric: QuotaMetric,
+): string {
+  const item = pickQuotaItem(status, metric);
+  if (!item) return "Quota mensuel atteint.";
+
+  if (metric === "analyze") {
+    if (status.plan === "free") {
+      return `Vous avez utilisé vos ${item.limit} analyses du mois. Passez Premium pour continuer.`;
+    }
+    return `Quota Premium atteint pour ce mois (${item.limit} analyses). Réessayez le mois prochain.`;
+  }
+
+  return status.plan === "free"
+    ? `Quota mensuel atteint (${item.used}/${item.limit}). Passez Premium ou attendez le mois prochain.`
+    : `Quota mensuel atteint (${item.used}/${item.limit}). Réessayez le mois prochain.`;
+}
+
+function quotaExceededError(
+  status: QuotaStatus,
+  metric: QuotaMetric,
+): AppError {
+  return new AppError(
+    "QUOTA_EXCEEDED",
+    quotaExceededMessage(status, metric),
+    403,
+  );
 }
 
 export async function getQuotaStatus(userId: string): Promise<QuotaStatus> {
@@ -77,15 +116,7 @@ export async function consumeQuota(
   const limit = item.unlimited ? -1 : item.limit;
   const next = await incrementUserUsage(userId, metric, 1, limit);
   if (!next) {
-    throw new AppError(
-      "FORBIDDEN",
-      `Quota ${metric} mensuel atteint (${item.used}/${item.limit}). ${
-        status.plan === "free"
-          ? "Passez à Premium ou attendez le mois prochain."
-          : "Contactez le support si besoin d’un plafond plus élevé."
-      }`,
-      403,
-    );
+    throw quotaExceededError(status, metric);
   }
   return next;
 }
@@ -99,10 +130,14 @@ export async function assertQuotaAvailable(
   const item = status.items.find((i) => i.metric === metric);
   if (!item) return;
   if (!item.unlimited && item.used >= item.limit) {
-    throw new AppError(
-      "FORBIDDEN",
-      `Quota ${metric} mensuel atteint (${item.used}/${item.limit}).`,
-      403,
-    );
+    throw quotaExceededError(status, metric);
   }
+}
+
+/** Rembourse 1 unité après échec d’opération (best-effort). */
+export async function refundQuota(
+  userId: string,
+  metric: QuotaMetric,
+): Promise<void> {
+  await decrementUserUsage(userId, metric, 1);
 }

@@ -1,5 +1,6 @@
 import type { AnalyzeDocumentResult, ApiResponse } from "@/types";
 
+import { ClientApiError } from "@/lib/client/api-error";
 import { csrfHeaders } from "@/lib/client/csrf";
 
 /** Progressive (P1) doit répondre vite ; full peut aller jusqu’à ~5 min. */
@@ -68,7 +69,7 @@ export async function analyzeDocument(
   }
 
   if (!payload.success) {
-    throw new Error(payload.error.message);
+    throw new ClientApiError(payload.error.code, payload.error.message);
   }
 
   return payload.data;

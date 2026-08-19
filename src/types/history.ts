@@ -80,6 +80,10 @@ export interface HistoryListItem {
   replyRequired: boolean;
   needsAction: boolean;
   folderId: string | null;
+  /**
+   * Progressive UX : preview / failed affichés en liste ; absent = complete.
+   */
+  analysisPhase?: "preview" | "complete" | "failed";
 }
 
 export interface HistoryQuery {

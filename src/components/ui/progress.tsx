@@ -83,6 +83,7 @@ export function AnalysisProgress({
 }: AnalysisProgressProps) {
   const activeIndex = stepIndex(currentStep);
   const percent = ((activeIndex + 1) / STEPS.length) * 100;
+  const isAnalyzing = currentStep === "analyze";
 
   return (
     <div
@@ -92,10 +93,17 @@ export function AnalysisProgress({
       )}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-[var(--foreground)]">
-          Traitement en cours
-        </p>
-        <p className="text-xs text-[var(--muted)]">
+        <div>
+          <p className="text-sm font-medium text-[var(--foreground)]">
+            {isAnalyzing ? "Analyse en cours…" : "Traitement en cours"}
+          </p>
+          {isAnalyzing ? (
+            <p className="mt-0.5 text-xs text-[var(--muted)]">
+              Cela peut prendre 1 à 3 minutes — ce n’est pas bloqué.
+            </p>
+          ) : null}
+        </div>
+        <p className="shrink-0 text-xs text-[var(--muted)]">
           {STEPS[activeIndex]?.label}
         </p>
       </div>
