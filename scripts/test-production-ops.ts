@@ -1,10 +1,6 @@
 /**
  * Tests des 5 points audit prod : export, backup, cache versionné, quotas, monitoring.
  */
-import { loadEnvFiles } from "./lib/load-env-files";
-
-loadEnvFiles();
-
 import assert from "assert";
 import { mkdir, writeFile, rm } from "fs/promises";
 import path from "path";
