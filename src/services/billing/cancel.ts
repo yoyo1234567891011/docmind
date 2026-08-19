@@ -94,11 +94,28 @@ export async function resumePremiumSubscription(userId: string): Promise<void> {
   }
 
   const stripe = getStripe();
-  // clear cancel_at_period_end ET cancel_at (portail Stripe utilise souvent cancel_at)
-  const updated = await stripe.subscriptions.update(sub.stripeSubscriptionId, {
-    cancel_at_period_end: false,
-    cancel_at: "",
-  });
+  let updated = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
+
+  // Stripe interdit cancel_at_period_end + cancel_at dans la même requête.
+  if (updated.cancel_at_period_end) {
+    updated = await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+      cancel_at_period_end: false,
+    });
+  }
+
+  const cancelAt = updated.cancel_at;
+  const hasScheduledCancelAt =
+    cancelAt != null &&
+    cancelAt !== "" &&
+    (typeof cancelAt === "number"
+      ? cancelAt > 0
+      : typeof cancelAt === "string");
+
+  if (hasScheduledCancelAt) {
+    updated = await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+      cancel_at: "",
+    });
+  }
 
   await applyStripeSubscription(userId, updated, {
     id: `resume_${updated.id}`,
