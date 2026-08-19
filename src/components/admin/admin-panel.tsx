@@ -747,7 +747,9 @@ export function AdminPanel() {
         <section className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-[var(--muted)]">
-              Santé production (24h) — analyses, file Ollama, GPU, erreurs 5xx.
+              Santé production (24h) — analyses, file LLM
+              {data?.llmRuntime?.cloudEnabled ? " (Groq cloud)" : " (Ollama)"},
+              erreurs 5xx.
             </p>
             <Button
               type="button"
@@ -812,7 +814,7 @@ export function AdminPanel() {
                 />
               </div>
               <p className="text-xs text-[var(--muted)]">
-                Workers: Ollama{" "}
+                LLM {data?.llmRuntime?.cloudEnabled ? "cloud" : "Ollama"}{" "}
                 {monitoring.snapshot.workers.ollamaUp ? "up" : "down"} · gén.
                 actives {monitoring.snapshot.workers.activeGenerations}
                 {monitoring.snapshot.gpu.model

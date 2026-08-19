@@ -60,7 +60,18 @@ export interface MonitoringSnapshot {
 const MAX_EVENTS = 5_000;
 const MAX_ALERTS = 500;
 
+let memoryEvents: MonitoringEvent[] = [];
+let memoryAlerts: MonitoringAlert[] = [];
+let memorySnapshot: MonitoringSnapshot | null = null;
+
+async function monitoringFsEnabled(): Promise<boolean> {
+  const { usePersistentStorage } = await import("@/config/persistence");
+  const { isDeployedEnv } = await import("@/lib/env-validate");
+  return !usePersistentStorage() && !isDeployedEnv();
+}
+
 async function ensureDir(): Promise<void> {
+  if (!(await monitoringFsEnabled())) return;
   await mkdir(MONITORING_DIR, { recursive: true });
 }
 
@@ -90,7 +101,11 @@ export async function appendMonitoringEvent(
   if (file.events.length > MAX_EVENTS) {
     file.events = file.events.slice(-MAX_EVENTS);
   }
-  await writeFile(MONITORING_EVENTS_FILE, JSON.stringify(file, null, 2), "utf8");
+  if (await monitoringFsEnabled()) {
+    await writeFile(MONITORING_EVENTS_FILE, JSON.stringify(file, null, 2), "utf8");
+  } else {
+    memoryEvents = file.events;
+  }
 }
 
 /** RGPD Art. 17 — retire userId des événements monitoring. */
@@ -110,11 +125,15 @@ export async function anonymizeMonitoringForUser(
     }
   }
   if (updated > 0) {
-    await writeFile(
-      MONITORING_EVENTS_FILE,
-      JSON.stringify(file, null, 2),
-      "utf8",
-    );
+    if (await monitoringFsEnabled()) {
+      await writeFile(
+        MONITORING_EVENTS_FILE,
+        JSON.stringify(file, null, 2),
+        "utf8",
+      );
+    } else {
+      memoryEvents = file.events;
+    }
   }
   return { updated };
 }
@@ -136,22 +155,30 @@ export async function appendMonitoringAlert(
   if (file.alerts.length > MAX_ALERTS) {
     file.alerts = file.alerts.slice(-MAX_ALERTS);
   }
-  await writeFile(MONITORING_ALERTS_FILE, JSON.stringify(file, null, 2), "utf8");
+  if (await monitoringFsEnabled()) {
+    await writeFile(MONITORING_ALERTS_FILE, JSON.stringify(file, null, 2), "utf8");
+  } else {
+    memoryAlerts = file.alerts;
+  }
   return entry;
 }
 
 export async function listMonitoringEvents(
   sinceMs = 24 * 60 * 60 * 1000,
 ): Promise<MonitoringEvent[]> {
-  const file = await readJson<{ events: MonitoringEvent[] }>(
-    MONITORING_EVENTS_FILE,
-    { events: [] },
-  );
+  const events = (await monitoringFsEnabled())
+    ? (
+        await readJson<{ events: MonitoringEvent[] }>(MONITORING_EVENTS_FILE, {
+          events: [],
+        })
+      ).events
+    : memoryEvents;
   const cutoff = Date.now() - sinceMs;
-  return file.events.filter((e) => Date.parse(e.at) >= cutoff);
+  return events.filter((e) => Date.parse(e.at) >= cutoff);
 }
 
 export async function listMonitoringAlerts(): Promise<MonitoringAlert[]> {
+  if (!(await monitoringFsEnabled())) return memoryAlerts;
   const file = await readJson<{ alerts: MonitoringAlert[] }>(
     MONITORING_ALERTS_FILE,
     { alerts: [] },
@@ -162,15 +189,20 @@ export async function listMonitoringAlerts(): Promise<MonitoringAlert[]> {
 export async function saveMonitoringSnapshot(
   snapshot: MonitoringSnapshot,
 ): Promise<void> {
-  await ensureDir();
-  await writeFile(
-    MONITORING_SNAPSHOT_FILE,
-    JSON.stringify(snapshot, null, 2),
-    "utf8",
-  );
+  if (await monitoringFsEnabled()) {
+    await ensureDir();
+    await writeFile(
+      MONITORING_SNAPSHOT_FILE,
+      JSON.stringify(snapshot, null, 2),
+      "utf8",
+    );
+  } else {
+    memorySnapshot = snapshot;
+  }
 }
 
 export async function readMonitoringSnapshot(): Promise<MonitoringSnapshot | null> {
+  if (!(await monitoringFsEnabled())) return memorySnapshot;
   try {
     return JSON.parse(
       await readFile(MONITORING_SNAPSHOT_FILE, "utf8"),

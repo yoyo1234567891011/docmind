@@ -1,5 +1,10 @@
 import { getOllamaBaseUrl } from "@/ai/models/config";
 import { getOllamaGenerateLockState } from "@/ai/models/generate-lock";
+import { pingOpenAiCompatible } from "@/ai/models/openai-compatible-generate";
+import {
+  getLlmProviderConfig,
+  isCloudLlmEnabled,
+} from "@/ai/models/llm-provider";
 import { normalizeOllamaBaseUrl } from "@/ai/models/ollama-http";
 import {
   appendMonitoringAlert,
@@ -16,6 +21,21 @@ function percentile(sorted: number[], p: number): number {
     Math.max(0, Math.ceil((p / 100) * sorted.length) - 1),
   );
   return sorted[idx] ?? 0;
+}
+
+async function probeLlmBackend(): Promise<{
+  up: boolean;
+  gpuUtil: number | null;
+  model: string | null;
+}> {
+  if (isCloudLlmEnabled()) {
+    const cfg = getLlmProviderConfig();
+    if (cfg.kind === "openai_compatible") {
+      const up = await pingOpenAiCompatible(cfg);
+      return { up, gpuUtil: null, model: cfg.model };
+    }
+  }
+  return probeOllama();
 }
 
 async function probeOllama(): Promise<{
@@ -86,7 +106,7 @@ export async function buildMonitoringSnapshot(
 
   const total = analysisOk.length + analysisErr.length;
   const lock = getOllamaGenerateLockState();
-  const ollama = await probeOllama();
+  const llm = await probeLlmBackend();
   const alerts = await listMonitoringAlerts();
   const openAlerts = alerts.filter((a) => !a.resolved).length;
 
@@ -110,14 +130,14 @@ export async function buildMonitoringSnapshot(
           : Math.round(waits.reduce((a, b) => a + b, 0) / waits.length),
     },
     workers: {
-      ollamaUp: ollama.up,
+      ollamaUp: llm.up,
       activeGenerations: lock.activeCount,
       activeKey: lock.activeKey,
     },
     gpu: {
-      available: ollama.up,
-      utilizationPercent: ollama.gpuUtil,
-      model: ollama.model,
+      available: llm.up,
+      utilizationPercent: llm.gpuUtil,
+      model: llm.model,
     },
     serverErrors24h: serverErrors.length,
     alertsOpen: openAlerts,
@@ -136,7 +156,8 @@ export function defaultThresholds(): MonitoringThresholds {
     minSuccessRate: Number(process.env.MONITOR_MIN_SUCCESS_RATE ?? "0.5"),
     maxAvgDurationMs: Number(process.env.MONITOR_MAX_AVG_DURATION_MS ?? "300000"),
     maxAvgWaitMs: Number(process.env.MONITOR_MAX_AVG_WAIT_MS ?? "120000"),
-    requireOllama: process.env.MONITOR_REQUIRE_OLLAMA !== "0",
+    requireOllama:
+      process.env.MONITOR_REQUIRE_OLLAMA !== "0" && !isCloudLlmEnabled(),
   };
 }
 
@@ -155,8 +176,10 @@ export async function runMonitoringCheck(): Promise<{
   if (thresholds.requireOllama && !snapshot.workers.ollamaUp) {
     const a = await appendMonitoringAlert({
       severity: "critical",
-      code: "OLLAMA_DOWN",
-      message: "Ollama inaccessible — analyses impossibles.",
+      code: isCloudLlmEnabled() ? "LLM_DOWN" : "OLLAMA_DOWN",
+      message: isCloudLlmEnabled()
+        ? "API LLM cloud injoignable — analyses impossibles."
+        : "Ollama inaccessible — analyses impossibles.",
     });
     newAlerts.push(a.code);
   }
