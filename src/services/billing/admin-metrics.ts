@@ -57,7 +57,7 @@ async function listFromFilesystem(): Promise<UserSubscriptionRecord[]> {
 
 /** Agrégats abonnements pour MRR / Premium actifs. */
 export async function collectBillingAdminRollup(): Promise<BillingAdminRollup> {
-  const priceMonthlyEur = BILLING_PLANS.premium.priceMonthlyEur ?? 19;
+  const priceMonthlyEur = BILLING_PLANS.premium.priceMonthlyEur ?? 10;
   let subs: UserSubscriptionRecord[] = [];
   let source: BillingAdminRollup["source"] = "none";
 

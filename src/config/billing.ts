@@ -38,7 +38,7 @@ export const BILLING_PLANS: Record<"free" | "premium", BillingPlanDefinition> = 
     id: "premium",
     name: "Premium",
     description: "Courriers IA, support prioritaire et facturation Stripe.",
-    priceMonthlyEur: 19,
+    priceMonthlyEur: 10,
     stripe: true,
     entitlements: PREMIUM_ENTITLEMENTS,
     features: [
