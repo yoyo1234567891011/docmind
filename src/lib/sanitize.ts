@@ -39,20 +39,76 @@ export function sanitizeErrorMessage(input: unknown): string {
   return "Erreur inconnue";
 }
 
+/** Erreurs LLM / jobs : pas de JSON Groq brut dans l’UI. */
+export function sanitizeAnalysisFailureMessage(input: unknown): string {
+  const raw =
+    input instanceof Error
+      ? input.message
+      : typeof input === "string"
+        ? input
+        : "";
+  if (isTransientLlmSaturationError(raw)) {
+    return LLM_SATURATION_USER_MESSAGE;
+  }
+  if (raw.trim().startsWith("{") && /"error"|rate_limit/i.test(raw)) {
+    return "Le service d’analyse est temporairement indisponible. Réessayez dans un instant — le document uploadé est conservé.";
+  }
+  if (raw.trim()) return sanitizeUserText(raw, 280);
+  return "L’analyse approfondie a échoué. Réessayez — le document uploadé est conservé.";
+}
+
+/** Message UI pour saturation TPM / file GPU. */
+export const LLM_SATURATION_USER_MESSAGE =
+  "Le service d’analyse est temporairement saturé (limite de débit). Réessayez dans environ une minute — le document uploadé est conservé.";
+
+/** Message quand le job est remis en file (pas un échec définitif). */
+export const LLM_SATURATION_REQUEUE_MESSAGE =
+  "Analyse en file d’attente : le service est saturé. Nouvelle tentative automatique sous peu.";
+
+/**
+ * 429 / TPM / verrou génération — à requeue plutôt qu’à échouer.
+ */
+export function isTransientLlmSaturationError(input: unknown): boolean {
+  const raw =
+    input instanceof Error
+      ? input.message
+      : typeof input === "string"
+        ? input
+        : "";
+  return /rate_limit|tokens per minute|\bTPM\b|limite de débit|saturé|file d['’]attente GPU|verrou GPU/i.test(
+    raw,
+  );
+}
+
 /** Mapping codes techniques → messages FR actionnables (UI bêta). */
 export function friendlyErrorMessage(
   code: string | null | undefined,
   fallback?: string | null,
 ): string {
+  const fallbackSafe = fallback?.trim()
+    ? sanitizeAnalysisFailureMessage(fallback)
+    : null;
   switch (code) {
     case "OLLAMA_UNAVAILABLE":
-      return "L'analyse locale est indisponible. Vérifiez qu'Ollama est démarré, puis réessayez.";
+      if (
+        fallback &&
+        /rate_limit|TPM|saturé|limite de débit|temporairement/i.test(fallback)
+      ) {
+        return fallbackSafe ?? sanitizeAnalysisFailureMessage(fallback);
+      }
+      return isCloudHint(fallback)
+        ? fallbackSafe ||
+            "Le service d’analyse est temporairement indisponible. Réessayez dans un instant."
+        : "L'analyse locale est indisponible. Vérifiez qu'Ollama est démarré, puis réessayez.";
     case "UNSUPPORTED_FILE":
       return "Ce fichier n'est pas un PDF valide.";
     case "EXTRACTION_FAILED":
       return "Impossible de lire le texte de ce PDF.";
     case "ANALYSIS_FAILED":
-      return "L'analyse n'a pas pu aboutir. Réessayez ou signalez le problème.";
+      return (
+        fallbackSafe ||
+        "L'analyse n'a pas pu aboutir. Réessayez ou signalez le problème."
+      );
     case "UNAUTHORIZED":
       return "Connexion requise.";
     case "FORBIDDEN":
@@ -60,12 +116,16 @@ export function friendlyErrorMessage(
     case "SERVICE_UNAVAILABLE":
       return "Service temporairement indisponible (maintenance).";
     case "BAD_REQUEST":
-      return fallback?.trim()
-        ? sanitizeUserText(fallback, 240)
-        : "Requête invalide.";
+      return fallbackSafe || "Requête invalide.";
     default:
-      return fallback?.trim()
-        ? sanitizeUserText(fallback, 240)
-        : "Une erreur est survenue. Réessayez ou envoyez un signalement.";
+      return (
+        fallbackSafe ||
+        "Une erreur est survenue. Réessayez ou envoyez un signalement."
+      );
   }
+}
+
+function isCloudHint(fallback?: string | null): boolean {
+  if (!fallback) return false;
+  return /API LLM|Groq|openai|saturé|débit|temporairement/i.test(fallback);
 }

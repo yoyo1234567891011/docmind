@@ -26,21 +26,41 @@ import {
   completeAnalysisJob,
   failAnalysisJob,
   heartbeatAnalysisJob,
+  requeueAnalysisJob,
+  ANALYSIS_MAX_TRANSIENT_ATTEMPTS,
+  ANALYSIS_RATE_LIMIT_DEFER_MS,
 } from "./store";
 import {
   createAnalysisTimingBucket,
   runWithAnalysisTiming,
 } from "./timing";
 import type { AnalysisJob, AnalysisJobMetrics } from "./types";
+import { scheduleAnalysisDrainKick } from "./kick";
+import {
+  noteP2RateLimitHit,
+  noteP2Success,
+} from "./p2-concurrency";
+import {
+  isTransientLlmSaturationError,
+  LLM_SATURATION_REQUEUE_MESSAGE,
+  sanitizeAnalysisFailureMessage,
+} from "@/lib/sanitize";
 
 export type AnalysisJobWorkerDeps = {
   claimNext?: typeof claimNextAnalysisJob;
   complete?: typeof completeAnalysisJob;
   fail?: typeof failAnalysisJob;
+  requeue?: typeof requeueAnalysisJob;
   heartbeat?: typeof heartbeatAnalysisJob;
   runP2?: (job: AnalysisJob) => Promise<Omit<AnalysisJobMetrics, "totalMs"> | void>;
   workerId?: string;
 };
+
+export type ProcessAnalysisJobOutcome =
+  | "idle"
+  | "completed"
+  | "failed"
+  | "requeued";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -280,21 +300,21 @@ async function defaultRunP2(
 }
 
 /**
- * Traite au plus un job (claim → P2 → complete/fail).
- * @returns true si un job a été claimé
+ * Traite au plus un job (claim → P2 → complete / requeue / fail).
  */
 export async function processOneAnalysisJob(
   deps: AnalysisJobWorkerDeps = {},
-): Promise<boolean> {
+): Promise<ProcessAnalysisJobOutcome> {
   const workerId = deps.workerId ?? `w-${randomUUID().slice(0, 8)}`;
   const claim = deps.claimNext ?? claimNextAnalysisJob;
   const complete = deps.complete ?? completeAnalysisJob;
   const fail = deps.fail ?? failAnalysisJob;
+  const requeue = deps.requeue ?? requeueAnalysisJob;
   const heartbeat = deps.heartbeat ?? heartbeatAnalysisJob;
   const runP2 = deps.runP2 ?? defaultRunP2;
 
   const job = await claim(workerId);
-  if (!job) return false;
+  if (!job) return "idle";
 
   const beat = setInterval(() => {
     void heartbeat(job.id, workerId).catch(() => undefined);
@@ -309,16 +329,17 @@ export async function processOneAnalysisJob(
           totalMs: Date.now() - wallStarted + (partial.queueWaitMs || 0),
         }
       : undefined;
-    // totalMs = queue wait + processing wall (claim → complete)
     if (metrics) {
       metrics.totalMs =
         metrics.queueWaitMs + Math.max(0, Date.now() - wallStarted);
     }
     await complete(job.id, metrics);
-    return true;
+    await noteP2Success().catch(() => undefined);
+    return "completed";
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Erreur P2 inconnue";
+    const message = sanitizeAnalysisFailureMessage(
+      error instanceof Error ? error.message : "Erreur P2 inconnue",
+    );
     const attached = (
       error as { analysisJobMetrics?: Omit<AnalysisJobMetrics, "totalMs"> }
     )?.analysisJobMetrics;
@@ -340,6 +361,37 @@ export async function processOneAnalysisJob(
           memoryMs: null,
           totalMs: Math.max(0, Date.now() - wallStarted),
         };
+
+    const transient = isTransientLlmSaturationError(error);
+    if (transient && job.attempts < ANALYSIS_MAX_TRANSIENT_ATTEMPTS) {
+      console.warn(
+        `[analysis-jobs] requeue after saturation job=${job.id} attempts=${job.attempts}`,
+      );
+      await noteP2RateLimitHit().catch(() => undefined);
+      await requeue(
+        job.id,
+        LLM_SATURATION_REQUEUE_MESSAGE,
+        ANALYSIS_RATE_LIMIT_DEFER_MS,
+      );
+      await trackAnalyticsEvent({
+        name: "analysis.error",
+        userId: job.userId,
+        meta: {
+          historyId: job.historyId,
+          documentId: job.documentId,
+          jobId: job.id,
+          phase: "p2",
+          errorCode: "OLLAMA_UNAVAILABLE",
+          message: "requeued_rate_limit",
+          attempts: job.attempts,
+          ...failMetrics,
+        },
+      }).catch(() => undefined);
+      // Cron / prochain drain après cooldown — pas d’échec UI.
+      scheduleAnalysisDrainKick(1);
+      return "requeued";
+    }
+
     await trackAnalyticsEvent({
       name: "analysis.error",
       userId: job.userId,
@@ -359,14 +411,15 @@ export async function processOneAnalysisJob(
     }).catch(() => undefined);
 
     await fail(job.id, message, failMetrics);
-    return true;
+    return "failed";
   } finally {
     clearInterval(beat);
   }
 }
 
 /**
- * Drain limité — appelé via after() après enqueue.
+ * Drain limité — claim respecte la concurrence effective (max 3, throttle 1).
+ * Stoppe après un requeue (cooldown TPM) pour laisser respirer Groq.
  */
 export async function drainAnalysisJobs(
   maxJobs = 3,
@@ -374,8 +427,9 @@ export async function drainAnalysisJobs(
 ): Promise<number> {
   let n = 0;
   for (let i = 0; i < maxJobs; i += 1) {
-    const did = await processOneAnalysisJob(deps);
-    if (!did) break;
+    const outcome = await processOneAnalysisJob(deps);
+    if (outcome === "idle") break;
+    if (outcome === "requeued") break;
     n += 1;
   }
   return n;

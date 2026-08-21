@@ -8,9 +8,11 @@ import {
   analysisJobPollTimeoutMessage,
   analysisJobProcessingHint,
   analysisJobQueuePositionLine,
+  analysisJobSaturationWaitHint,
   analysisJobStatusBody,
   analysisJobStatusTitle,
   analysisLoadingShortMessage,
+  isAnalysisJobSaturationHint,
 } from "@/components/documents/analysis-job-status-copy";
 import { AnalysisQuotaBanner } from "@/components/documents/analysis-quota-banner";
 import { ExtractedTextPanel } from "@/components/documents/extracted-text-panel";
@@ -45,7 +47,11 @@ import {
   readPendingAnalysis,
   savePendingAnalysis,
 } from "@/lib/client/pending-analysis";
-import { NO_EXTRACTABLE_TEXT_MESSAGE, hasSufficientExtractableText } from "@/services/pdf/text-sufficiency";
+import {
+  classifyExtractedTextQuality,
+  extractionQualityMessage,
+  NO_EXTRACTABLE_TEXT_MESSAGE,
+} from "@/services/pdf/text-sufficiency";
 import type { AnalyzeDocumentResult, HistoryRecord, UploadPdfResult } from "@/types";
 
 function resultFromHistory(
@@ -84,6 +90,7 @@ export function HomeUploadSection() {
     "pending" | "processing" | "completed" | "failed" | null
   >(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [saturationWait, setSaturationWait] = useState(false);
   const [quotas, setQuotas] = useState<QuotaStatus | null>(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -228,14 +235,20 @@ export function HomeUploadSection() {
             setQueuePosition(
               job.status === "pending" ? job.queuePosition : null,
             );
+            setSaturationWait(
+              (job.status === "pending" || job.status === "processing") &&
+                isAnalysisJobSaturationHint(job.lastError),
+            );
 
             if (job.status === "completed") {
               finishPending();
+              setSaturationWait(false);
               await applyCompletedHistory(job.historyId || input.historyId);
               return;
             }
             if (job.status === "failed") {
               finishPending();
+              setSaturationWait(false);
               pendingHistoryRef.current = null;
               pendingJobRef.current = null;
               clearPendingAnalysis();
@@ -361,9 +374,15 @@ export function HomeUploadSection() {
     setBackgroundPending(false);
     stopPolling();
 
-    if (!hasSufficientExtractableText(result.extraction.text)) {
+    const textQuality =
+      result.extraction.textQuality ??
+      classifyExtractedTextQuality(
+        result.extraction.text,
+        result.extraction.pageCount,
+      );
+    if (textQuality !== "ok") {
       setAnalysisStatus("error");
-      setAnalysisError(NO_EXTRACTABLE_TEXT_MESSAGE);
+      setAnalysisError(extractionQualityMessage(textQuality));
       clearPendingAnalysis();
       return;
     }
@@ -574,6 +593,11 @@ export function HomeUploadSection() {
                       {analysisJobQueuePositionLine(queuePosition)}
                     </p>
                   ) : null}
+                  {saturationWait ? (
+                    <p className="text-sm opacity-90">
+                      {analysisJobSaturationWaitHint()}
+                    </p>
+                  ) : null}
                   {jobUiStatus === "processing" ? (
                     <p className="text-sm opacity-90">
                       {analysisJobProcessingHint()}
@@ -619,6 +643,7 @@ export function HomeUploadSection() {
             historyId={analysisResult.historyId}
             documentId={analysisResult.documentId}
             phase={analysisResult.phase === "preview" ? "preview" : "complete"}
+            backgroundPending={backgroundPending}
             onLetterDrafted={(letter) => {
               setAnalysisResult((current) =>
                 current ? { ...current, readyReply: letter } : current,

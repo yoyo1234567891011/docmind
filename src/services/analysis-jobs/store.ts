@@ -9,7 +9,15 @@ import path from "path";
 
 import { usePersistentStorage } from "@/config/persistence";
 import { SYSTEM_DIR } from "@/config/paths";
-import { query } from "@/lib/db/pool";
+import { getPool, query } from "@/lib/db/pool";
+import {
+  LLM_SATURATION_REQUEUE_MESSAGE,
+  sanitizeAnalysisFailureMessage,
+} from "@/lib/sanitize";
+import {
+  ANALYSIS_P2_MAX_CONCURRENCY,
+  getEffectiveP2Concurrency,
+} from "./p2-concurrency";
 
 import type {
   AnalysisJob,
@@ -18,6 +26,24 @@ import type {
 } from "./types";
 
 const FS_JOBS_FILE = path.join(SYSTEM_DIR, "analysis-jobs.json");
+
+/** Lease job processing (heartbeat). */
+export const ANALYSIS_JOB_LEASE_MS = 180_000;
+
+/**
+ * @deprecated utiliser ANALYSIS_P2_MAX_CONCURRENCY (plafond) + getEffectiveP2Concurrency().
+ * Conservé pour imports existants — vaut le plafond (3).
+ */
+export const ANALYSIS_P2_GLOBAL_CONCURRENCY = ANALYSIS_P2_MAX_CONCURRENCY;
+
+/** Remise en file après saturation : ne pas reclamer tout de suite. */
+export const ANALYSIS_RATE_LIMIT_DEFER_MS = 60_000;
+
+/** Au-delà → échec définitif (évite boucle infinie). */
+export const ANALYSIS_MAX_TRANSIENT_ATTEMPTS = 6;
+
+/** Advisory lock PG pour claim mono-global (évite course multi-instance). */
+const P2_CLAIM_ADVISORY_LOCK = 87_236_401;
 
 /** Sérialise les claims FS (pas de SKIP LOCKED sans PG). */
 let fsClaimChain: Promise<unknown> = Promise.resolve();
@@ -30,9 +56,6 @@ function withFsClaimLock<T>(fn: () => Promise<T>): Promise<T> {
   );
   return run;
 }
-
-/** Lease worker (heartbeat) — jobs processing expirés = reclaimables. */
-export const ANALYSIS_JOB_LEASE_MS = 120_000;
 
 type FsFile = { jobs: AnalysisJob[] };
 
@@ -354,75 +377,125 @@ export async function getAnalysisJobQueuePosition(
 }
 
 /**
- * Claim atomique : pending OU processing avec lease expirée.
- * Deux workers concurrents → un seul gagnant (SKIP LOCKED / mutex FS).
+ * Claim atomique : jusqu’à N jobs processing (N = concurrence effective ≤ MAX).
+ * - pending claimable si lease_expires_at null ou passée (cooldown rate-limit)
+ * - processing reclaimable si lease expirée
+ * PG : advisory lock pour sérialiser le compteur busy multi-instance.
  */
 export async function claimNextAnalysisJob(
   workerId: string,
   leaseMs = ANALYSIS_JOB_LEASE_MS,
 ): Promise<AnalysisJob | null> {
   const leaseIso = new Date(Date.now() + leaseMs).toISOString();
+  const limit = await getEffectiveP2Concurrency();
 
   if (usePersistentStorage()) {
-    const result = await query<{
-      id: string;
-      user_id: string;
-      document_id: string;
-      history_id: string;
-      file_name: string;
-      status: AnalysisJobStatus;
-      attempts: number;
-      last_error: string | null;
-      claimed_at: Date | null;
-      claimed_by: string | null;
-      lease_expires_at: Date | null;
-      started_at: Date | null;
-      completed_at: Date | null;
-      skip_ready_reply: boolean;
-      p1_duration_ms: number | null;
-      user_email: string | null;
-      pages: unknown;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      `with next as (
-         select id from public.app_analysis_jobs
-         where status = 'pending'
-            or (status = 'processing' and lease_expires_at is not null
-                and lease_expires_at < timezone('utc', now()))
-         order by created_at asc
-         for update skip locked
-         limit 1
-       )
-       update public.app_analysis_jobs j
-       set status = 'processing',
-           attempts = j.attempts + 1,
-           claimed_at = timezone('utc', now()),
-           claimed_by = $1,
-           lease_expires_at = $2::timestamptz,
-           started_at = coalesce(j.started_at, timezone('utc', now())),
-           updated_at = timezone('utc', now()),
-           last_error = case
-             when j.status = 'processing' then coalesce(j.last_error, 'reclaimed_stale_lease')
-             else j.last_error
-           end
-       from next
-       where j.id = next.id
-       returning j.*`,
-      [workerId, leaseIso],
-    );
-    const row = result.rows[0];
-    return row ? rowToJob(row) : null;
+    const client = await getPool().connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock($1)", [
+        P2_CLAIM_ADVISORY_LOCK,
+      ]);
+
+      const busy = await client.query<{ n: string }>(
+        `select count(*)::text as n from public.app_analysis_jobs
+         where status = 'processing'
+           and lease_expires_at is not null
+           and lease_expires_at >= timezone('utc', now())`,
+      );
+      const busyCount = Number(busy.rows[0]?.n ?? 0);
+      if (busyCount >= limit) {
+        await client.query("COMMIT");
+        return null;
+      }
+
+      const result = await client.query<{
+        id: string;
+        user_id: string;
+        document_id: string;
+        history_id: string;
+        file_name: string;
+        status: AnalysisJobStatus;
+        attempts: number;
+        last_error: string | null;
+        claimed_at: Date | null;
+        claimed_by: string | null;
+        lease_expires_at: Date | null;
+        started_at: Date | null;
+        completed_at: Date | null;
+        skip_ready_reply: boolean;
+        p1_duration_ms: number | null;
+        user_email: string | null;
+        pages: unknown;
+        created_at: Date;
+        updated_at: Date;
+      }>(
+        `with next as (
+           select id from public.app_analysis_jobs
+           where (
+             status = 'pending'
+             and (lease_expires_at is null
+                  or lease_expires_at < timezone('utc', now()))
+           )
+           or (
+             status = 'processing'
+             and lease_expires_at is not null
+             and lease_expires_at < timezone('utc', now())
+           )
+           order by created_at asc
+           for update skip locked
+           limit 1
+         )
+         update public.app_analysis_jobs j
+         set status = 'processing',
+             attempts = j.attempts + 1,
+             claimed_at = timezone('utc', now()),
+             claimed_by = $1,
+             lease_expires_at = $2::timestamptz,
+             started_at = coalesce(j.started_at, timezone('utc', now())),
+             updated_at = timezone('utc', now()),
+             last_error = case
+               when j.status = 'processing' then coalesce(j.last_error, 'reclaimed_stale_lease')
+               else j.last_error
+             end
+         from next
+         where j.id = next.id
+         returning j.*`,
+        [workerId, leaseIso],
+      );
+      await client.query("COMMIT");
+      const row = result.rows[0];
+      return row ? rowToJob(row) : null;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
-  // FS : claim mono-process via rewrite + mutex (équiv. SKIP LOCKED local)
+  // FS : claim mono-process + plafond concurrence effective
   return withFsClaimLock(async () => {
     const jobs = await readFsJobs();
     const now = Date.now();
+
+    const busyCount = jobs.filter(
+      (j) =>
+        j.status === "processing" &&
+        j.leaseExpiresAt &&
+        Date.parse(j.leaseExpiresAt) >= now,
+    ).length;
+    if (busyCount >= limit) {
+      return null;
+    }
+
     const sortedPending = jobs
       .map((j, i) => ({ j, i }))
       .filter(({ j }) => {
-        if (j.status === "pending") return true;
+        if (j.status === "pending") {
+          if (!j.leaseExpiresAt) return true;
+          return Date.parse(j.leaseExpiresAt) < now;
+        }
         if (j.status === "processing" && j.leaseExpiresAt) {
           return Date.parse(j.leaseExpiresAt) < now;
         }
@@ -451,6 +524,57 @@ export async function claimNextAnalysisJob(
     await writeFsJobs(jobs);
     return updated;
   });
+}
+
+/**
+ * Remet un job en pending après saturation temporaire (429 / TPM).
+ * `lease_expires_at` sert de cooldown avant le prochain claim.
+ */
+export async function requeueAnalysisJob(
+  jobId: string,
+  errorMessage?: string,
+  deferMs = ANALYSIS_RATE_LIMIT_DEFER_MS,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const deferIso = new Date(Date.now() + Math.max(5_000, deferMs)).toISOString();
+  let msg = (errorMessage?.trim() || LLM_SATURATION_REQUEUE_MESSAGE).slice(0, 500);
+  if (msg.trim().startsWith("{") || /rate_limit_exceeded|"error"/i.test(msg)) {
+    msg = LLM_SATURATION_REQUEUE_MESSAGE;
+  } else if (/rate_limit|tokens per minute|\bTPM\b/i.test(msg)) {
+    msg = LLM_SATURATION_REQUEUE_MESSAGE;
+  }
+
+  if (usePersistentStorage()) {
+    await query(
+      `update public.app_analysis_jobs
+       set status = 'pending',
+           claimed_at = null,
+           claimed_by = null,
+           lease_expires_at = $2::timestamptz,
+           completed_at = null,
+           last_error = $3,
+           updated_at = timezone('utc', now())
+       where id = $1 and status = 'processing'`,
+      [jobId, deferIso, msg],
+    );
+    return;
+  }
+
+  const jobs = await readFsJobs();
+  const idx = jobs.findIndex((j) => j.id === jobId);
+  if (idx < 0) return;
+  if (jobs[idx]!.status !== "processing") return;
+  jobs[idx] = {
+    ...jobs[idx]!,
+    status: "pending",
+    claimedAt: undefined,
+    claimedBy: undefined,
+    leaseExpiresAt: deferIso,
+    completedAt: undefined,
+    lastError: msg,
+    updatedAt: now,
+  };
+  await writeFsJobs(jobs);
 }
 
 export async function heartbeatAnalysisJob(
@@ -523,7 +647,7 @@ export async function failAnalysisJob(
   metrics?: AnalysisJobMetrics,
 ): Promise<void> {
   const now = new Date().toISOString();
-  const msg = errorMessage.slice(0, 500);
+  const msg = sanitizeAnalysisFailureMessage(errorMessage).slice(0, 500);
   if (usePersistentStorage()) {
     await query(
       `update public.app_analysis_jobs

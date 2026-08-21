@@ -7,11 +7,15 @@ export { ANALYSIS_JOB_STATUSES } from "./types";
 
 export {
   ANALYSIS_JOB_LEASE_MS,
+  ANALYSIS_MAX_TRANSIENT_ATTEMPTS,
+  ANALYSIS_P2_GLOBAL_CONCURRENCY,
+  ANALYSIS_RATE_LIMIT_DEFER_MS,
   __resetAnalysisJobsFsForTests,
   claimNextAnalysisJob,
   completeAnalysisJob,
   enqueueAnalysisJob,
   failAnalysisJob,
+  requeueAnalysisJob,
   findActiveAnalysisJob,
   findAnalysisJobByHistoryId,
   deleteAnalysisJobsForHistory,
@@ -23,9 +27,19 @@ export {
 export type { AnalysisJobStats } from "./store";
 
 export {
+  ANALYSIS_P2_MAX_CONCURRENCY,
+  ANALYSIS_P2_THROTTLE_FLOOR,
+  getEffectiveP2Concurrency,
+  noteP2RateLimitHit,
+  noteP2Success,
+  __resetP2ConcurrencyForTests,
+} from "./p2-concurrency";
+
+export {
   drainAnalysisJobs,
   processOneAnalysisJob,
   type AnalysisJobWorkerDeps,
+  type ProcessAnalysisJobOutcome,
 } from "./worker";
 
 export {

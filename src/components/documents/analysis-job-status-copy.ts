@@ -24,6 +24,18 @@ export function analysisJobProcessingHint(): string {
   return "L’IA lit encore le document — merci de patienter, ce n’est pas bloqué.";
 }
 
+/** Job remis en file après saturation Groq (pas un échec). */
+export function analysisJobSaturationWaitHint(): string {
+  return "Le service d’analyse est temporairement saturé. Votre document reste en file — nouvelle tentative automatique sous peu.";
+}
+
+export function isAnalysisJobSaturationHint(lastError?: string | null): boolean {
+  if (!lastError?.trim()) return false;
+  return /satur|file d['’]attente|limite de débit|rate.?limit|TPM/i.test(
+    lastError,
+  );
+}
+
 export function analysisJobPollTimeoutMessage(): string {
   return "Le suivi à l’écran s’est arrêté, mais l’analyse continue côté serveur. Rouvrez ce document depuis l’historique dans quelques minutes — l’aperçu reste disponible.";
 }

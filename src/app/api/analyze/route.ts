@@ -79,12 +79,18 @@ export async function POST(request: Request) {
     }
     const text = body.text;
 
-    const { hasSufficientExtractableText, NO_EXTRACTABLE_TEXT_MESSAGE } =
+    const { hasSufficientExtractableText, extractionQualityMessage, classifyExtractedTextQuality } =
       await import("@/services/pdf/text-sufficiency");
-    if (!hasSufficientExtractableText(text)) {
+    const pageCount = Array.isArray(body.pages)
+      ? body.pages.filter(
+          (p): p is string => typeof p === "string" && p.trim().length > 0,
+        ).length
+      : 0;
+    const textQuality = classifyExtractedTextQuality(text, pageCount || 1);
+    if (!hasSufficientExtractableText(text) || textQuality === "likely_scan") {
       throw new AppError(
         "UNSUPPORTED_FILE",
-        NO_EXTRACTABLE_TEXT_MESSAGE,
+        extractionQualityMessage(textQuality),
         422,
       );
     }
@@ -190,7 +196,7 @@ export async function POST(request: Request) {
               extractedText: text,
             });
 
-            const { enqueueAnalysisJob, scheduleAnalysisDrainKick } =
+            const { enqueueAnalysisJob, drainAnalysisJobs, scheduleAnalysisDrainKick } =
               await import("@/services/analysis-jobs");
             const job = await enqueueAnalysisJob({
               userId: user.id,
@@ -203,9 +209,17 @@ export async function POST(request: Request) {
               pages,
             });
 
-            // Kick opportuniste — cron watchdog + polls GET relancent aussi le drain.
-            after(() => {
-              scheduleAnalysisDrainKick(2);
+            // Drain inline + kick HTTP — double filet si cron externe down.
+            after(async () => {
+              try {
+                await drainAnalysisJobs(3);
+              } catch (drainError) {
+                console.error(
+                  "[analyze] inline drain after enqueue failed",
+                  drainError instanceof Error ? drainError.message : drainError,
+                );
+              }
+              scheduleAnalysisDrainKick(3);
             });
 
             return {
@@ -222,11 +236,11 @@ export async function POST(request: Request) {
               "[analyze] progressive history/enqueue failed",
               error instanceof Error ? error.message : error,
             );
-            return {
-              kind: "preview-only" as const,
-              preview,
-              p1DurationMs,
-            };
+            throw new AppError(
+              "INTERNAL_ERROR",
+              "Impossible de planifier l’analyse approfondie. Réessayez dans un instant.",
+              503,
+            );
           }
         });
 

@@ -4,6 +4,7 @@ import { apiFromUnknownError, apiSuccess } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
 import {
+  drainAnalysisJobs,
   getAnalysisJobPublicStatus,
   scheduleAnalysisDrainKick,
 } from "@/services/analysis-jobs";
@@ -32,7 +33,16 @@ export async function GET(
     }
 
     if (status.status === "pending" || status.status === "processing") {
-      after(() => {
+      after(async () => {
+        // Drain inline : ne dépend pas du cron externe ni du kick HTTP.
+        try {
+          await drainAnalysisJobs(1);
+        } catch (error) {
+          console.error(
+            "[analysis-jobs] inline drain failed",
+            error instanceof Error ? error.message : error,
+          );
+        }
         scheduleAnalysisDrainKick(1);
       });
     }
