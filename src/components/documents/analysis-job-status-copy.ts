@@ -50,7 +50,7 @@ export function analysisJobLongWaitHint(attempts: number): string | null {
 
 /** Message d’échec définitif après saturation TPM ou timeout job. */
 export function analysisJobSaturationFailMessage(): string {
-  return ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE;
+  return "Le service d’analyse est temporairement saturé. Réessayez dans quelques minutes — votre document reste disponible.";
 }
 
 /** Message pendant l’appel initial (P1 / démarrage P2). */
