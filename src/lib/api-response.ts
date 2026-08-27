@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import type { ApiErrorCode, ApiResponse } from "@/types";
-import { AppError, isStripeWebhookSignatureError, toApiErrorResponse } from "@/lib/errors";
+import {
+  isAppError,
+  isStripeWebhookSignatureError,
+  toApiErrorResponse,
+} from "@/lib/errors";
 
 export function apiSuccess<T>(data: T, status = 200) {
   const body: ApiResponse<T> = {
@@ -28,7 +32,7 @@ export function apiError(
 
 export function apiFromUnknownError(error: unknown) {
   const payload = toApiErrorResponse(error);
-  let status = error instanceof AppError ? error.status : 500;
+  let status = isAppError(error) ? error.status : 500;
   if (isStripeWebhookSignatureError(error)) {
     status = 400;
   }
@@ -36,8 +40,7 @@ export function apiFromUnknownError(error: unknown) {
   if (status >= 500) {
     const message =
       error instanceof Error ? error.message.slice(0, 200) : "Unknown error";
-    const code =
-      error instanceof AppError ? error.code : "INTERNAL_ERROR";
+    const code = isAppError(error) ? error.code : "INTERNAL_ERROR";
     void import("@/services/monitoring/store")
       .then(({ appendMonitoringEvent }) =>
         appendMonitoringEvent({

@@ -4,9 +4,10 @@ import path from "path";
 import { usePersistentStorage } from "@/config/persistence";
 import { assertSafeResourceId, userUploadsDir } from "@/config/paths";
 import { chaosGate } from "@/lib/chaos";
-import { AppError } from "@/lib/errors";
-import { putPdfObject } from "@/lib/storage/s3";
+import { AppError, isAppError } from "@/lib/errors";
+import { deletePdfObject, putPdfObject } from "@/lib/storage/s3";
 import { pgUpsertDocumentMeta } from "@/services/persistence/history-pg";
+import { persistPdfToS3AndPostgres } from "@/services/storage/persist-pdf";
 
 export interface StoredFile {
   id: string;
@@ -26,18 +27,19 @@ export async function savePdfToUploads(
     await chaosGate("upload_interrupted");
 
     if (usePersistentStorage()) {
-      const { key } = await putPdfObject(userId, safeId, bytes);
-      await pgUpsertDocumentMeta({
-        userId,
-        documentId: safeId,
-        storageKey: key,
-        sizeBytes: bytes.byteLength,
-      });
+      const persisted = await persistPdfToS3AndPostgres(
+        { userId, documentId: safeId, bytes },
+        {
+          putObject: putPdfObject,
+          upsertMeta: pgUpsertDocumentMeta,
+          deleteObject: deletePdfObject,
+        },
+      );
       return {
         id: safeId,
-        absolutePath: `s3://${key}`,
-        relativePath: key,
-        storageKey: key,
+        absolutePath: `s3://${persisted.storageKey}`,
+        relativePath: persisted.storageKey,
+        storageKey: persisted.storageKey,
       };
     }
 
@@ -55,7 +57,10 @@ export async function savePdfToUploads(
       relativePath: path.join("uploads", userId, fileName),
     };
   } catch (error) {
-    if (error instanceof AppError) throw error;
+    if (isAppError(error)) throw error;
+    const detail =
+      error instanceof Error ? error.message.slice(0, 180) : String(error);
+    console.error(`[upload] savePdfToUploads failed: ${detail}`);
     throw new AppError(
       "UPLOAD_FAILED",
       "Impossible d'enregistrer le fichier sur le serveur.",

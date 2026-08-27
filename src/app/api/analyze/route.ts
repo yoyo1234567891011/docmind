@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     if (pages && pages.length > MAX_ANALYZE_PAGES) {
       throw new AppError(
         "BAD_REQUEST",
-        `Ce document dépasse la limite de ${MAX_ANALYZE_PAGES} pages. Réduisez le PDF ou scindez-le.`,
+        `Ce document dépasse la limite de ${MAX_ANALYZE_PAGES} pages (${pages.length} pages). Réduisez le PDF ou scindez-le.`,
         413,
       );
     }

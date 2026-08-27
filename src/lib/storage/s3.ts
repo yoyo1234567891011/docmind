@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-s3";
 
 import { chaosGate } from "@/lib/chaos";
-import { AppError } from "@/lib/errors";
+import { AppError, isAppError } from "@/lib/errors";
 
 type S3Global = typeof globalThis & {
   __docmindS3Client?: S3Client | null;
@@ -38,6 +38,7 @@ export function getS3Client(): S3Client {
     process.env.AWS_REGION?.trim() ||
     "auto";
 
+  const sessionToken = process.env.S3_SESSION_TOKEN?.trim();
   g.__docmindS3Client = new S3Client({
     region,
     endpoint: endpoint || undefined,
@@ -45,6 +46,7 @@ export function getS3Client(): S3Client {
     credentials: {
       accessKeyId: requireEnv("S3_ACCESS_KEY_ID"),
       secretAccessKey: requireEnv("S3_SECRET_ACCESS_KEY"),
+      ...(sessionToken ? { sessionToken } : {}),
     },
   });
   return g.__docmindS3Client;
@@ -61,14 +63,36 @@ export async function putPdfObject(
 ): Promise<{ key: string }> {
   await chaosGate("s3_down");
   const key = pdfObjectKey(userId, documentId);
-  await getS3Client().send(
-    new PutObjectCommand({
-      Bucket: getS3Bucket(),
-      Key: key,
-      Body: bytes,
-      ContentType: "application/pdf",
-    }),
-  );
+  try {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: key,
+        Body: bytes,
+        ContentType: "application/pdf",
+      }),
+    );
+  } catch (error) {
+    if (isAppError(error)) throw error;
+    const name = (error as { name?: string }).name;
+    const code = (error as { Code?: string }).Code;
+    const status = (error as { $metadata?: { httpStatusCode?: number } })
+      .$metadata?.httpStatusCode;
+    const message =
+      error instanceof Error ? error.message.slice(0, 240) : String(error);
+    console.error(
+      `[s3] PutObject failed key=${key} name=${name || "?"} code=${code || "?"} status=${status || "?"} msg=${message}`,
+    );
+    throw new AppError(
+      "UPLOAD_FAILED",
+      status === 403 || code === "AccessDenied" || name === "AccessDenied"
+        ? "Accès stockage objet refusé (identifiants S3 / droits bucket)."
+        : status === 404 || code === "NoSuchBucket"
+          ? "Bucket de stockage introuvable (S3_BUCKET)."
+          : "Impossible d'enregistrer le fichier sur le stockage objet.",
+      502,
+    );
+  }
   return { key };
 }
 
@@ -92,7 +116,7 @@ export async function getPdfObject(
     const bytes = await stream.transformToByteArray();
     return Buffer.from(bytes);
   } catch (error) {
-    if (error instanceof AppError) throw error;
+    if (isAppError(error)) throw error;
     const name = (error as { name?: string; Code?: string }).name;
     const code = (error as { Code?: string; $metadata?: { httpStatusCode?: number } })
       .Code;

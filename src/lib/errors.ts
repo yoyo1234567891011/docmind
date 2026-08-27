@@ -12,6 +12,19 @@ export class AppError extends Error {
   }
 }
 
+/** Duck-typing : `instanceof` peut échouer avec des bundles Next multi-chunks. */
+export function isAppError(error: unknown): error is AppError {
+  if (error instanceof AppError) return true;
+  if (!error || typeof error !== "object") return false;
+  const e = error as { name?: unknown; code?: unknown; status?: unknown; message?: unknown };
+  return (
+    e.name === "AppError" &&
+    typeof e.code === "string" &&
+    typeof e.message === "string" &&
+    typeof e.status === "number"
+  );
+}
+
 /** Signature Stripe invalide → 400 (pas retry automatique). */
 export function isStripeWebhookSignatureError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -24,7 +37,7 @@ export function isStripeWebhookSignatureError(error: unknown): boolean {
 }
 
 export function toApiErrorResponse(error: unknown): ApiErrorResponse {
-  if (error instanceof AppError) {
+  if (isAppError(error)) {
     return {
       success: false,
       error: {

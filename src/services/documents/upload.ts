@@ -14,13 +14,13 @@ export async function uploadPdfDocument(
   const id = randomUUID();
   const bytes = Buffer.from(await validFile.arrayBuffer());
 
-  await savePdfToUploads(userId, id, bytes);
-
+  // Extraction + limite pages AVANT tout écriture storage (S3/FS).
   const extractStarted = Date.now();
   const extraction = await extractTextFromPdf(id, bytes);
   const durationMs = Date.now() - extractStarted;
-  // OCR non branché : ocrDurationMs reste 0 (champ réservé pour instrumentation future)
   const ocrDurationMs = 0;
+
+  await savePdfToUploads(userId, id, bytes);
 
   await trackAnalyticsEvent({
     name: "extraction.completed",
