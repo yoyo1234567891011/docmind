@@ -712,9 +712,20 @@ export async function tryClaimAnalysisJobQuotaCharge(
       !j.metrics?.quotaCharged,
   );
   if (idx < 0) return false;
+  const prev = jobs[idx]!.metrics;
   jobs[idx] = {
     ...jobs[idx]!,
-    metrics: { ...jobs[idx]!.metrics, quotaCharged: true },
+    metrics: {
+      queueWaitMs: prev?.queueWaitMs ?? 0,
+      lockWaitMs: prev?.lockWaitMs ?? 0,
+      generateMs: prev?.generateMs ?? 0,
+      historyMs: prev?.historyMs ?? 0,
+      memoryMs: prev?.memoryMs ?? null,
+      totalMs: prev?.totalMs ?? 0,
+      totalTokens: prev?.totalTokens,
+      latencyDiag: prev?.latencyDiag,
+      quotaCharged: true,
+    },
     updatedAt: new Date().toISOString(),
   };
   await writeFsJobs(jobs);
