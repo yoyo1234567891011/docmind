@@ -2,6 +2,7 @@
  * Messages UI — file d’analyse (bêta).
  * P1 = aperçu local rapide ; P2 = génération IA (souvent 1 à 3 minutes).
  */
+import { ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE } from "@/lib/sanitize";
 
 export function analysisJobStatusTitle(
   status: "pending" | "processing" | "unknown" = "unknown",
@@ -38,6 +39,19 @@ export function isAnalysisJobSaturationHint(lastError?: string | null): boolean 
 
 export function analysisJobPollTimeoutMessage(): string {
   return "Le suivi à l’écran s’est arrêté, mais l’analyse continue côté serveur. Rouvrez ce document depuis l’historique dans quelques minutes — l’aperçu reste disponible.";
+}
+
+/** Job en retry saturation ou dépassement habituel — rassurer sans masquer l’échec. */
+export function analysisJobLongWaitHint(attempts: number): string | null {
+  if (attempts >= 2) {
+    return "Le service IA est saturé — nouvelle tentative automatique en cours. Si le délai de 3 minutes est dépassé, l’analyse s’arrêtera avec un message clair.";
+  }
+  return null;
+}
+
+/** Message d’échec définitif après saturation TPM ou timeout job. */
+export function analysisJobSaturationFailMessage(): string {
+  return ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE;
 }
 
 /** Message pendant l’appel initial (P1 / démarrage P2). */
