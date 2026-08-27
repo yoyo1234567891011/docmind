@@ -96,7 +96,9 @@ export async function saveHistoryRecord(
   input: SaveHistoryInput,
 ): Promise<HistoryRecord> {
   try {
-    await ensureHistoryDir(userId);
+    if (!usePersistentStorage()) {
+      await ensureHistoryDir(userId);
+    }
 
     const explicitFolder =
       input.folderId !== undefined
