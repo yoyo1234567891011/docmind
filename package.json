@@ -39,6 +39,7 @@
     "test:letter": "tsx --tsconfig tsconfig.json scripts/test-letter-agent.ts",
     "test:manager": "tsx --tsconfig tsconfig.json scripts/test-document-manager.ts",
     "test:auth": "tsx --tsconfig tsconfig.json scripts/test-auth-isolation.ts",
+    "test:llm-health": "tsx --tsconfig tsconfig.json scripts/test-llm-health.ts",
     "test:billing": "tsx --tsconfig tsconfig.json scripts/test-billing.ts",
     "test:production-ops": "tsx --tsconfig tsconfig.json scripts/test-production-ops.ts",
     "test:zero-defect": "tsx --tsconfig tsconfig.json scripts/test-zero-defect-fixes.ts",
