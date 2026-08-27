@@ -49,6 +49,20 @@ import {
   sanitizeAnalysisFailureMessage,
 } from "@/lib/sanitize";
 
+function jobMetricsForAnalytics(
+  metrics: AnalysisJobMetrics,
+): Record<string, string | number | boolean | null | undefined> {
+  return {
+    queueWaitMs: metrics.queueWaitMs,
+    lockWaitMs: metrics.lockWaitMs,
+    generateMs: metrics.generateMs,
+    historyMs: metrics.historyMs,
+    memoryMs: metrics.memoryMs,
+    totalMs: metrics.totalMs,
+    totalTokens: metrics.totalTokens,
+  };
+}
+
 export type AnalysisJobWorkerDeps = {
   claimNext?: typeof claimNextAnalysisJob;
   complete?: typeof completeAnalysisJob;
@@ -405,7 +419,7 @@ export async function processOneAnalysisJob(
           errorCode: "OLLAMA_UNAVAILABLE",
           message: "requeued_rate_limit",
           attempts: job.attempts,
-          ...failMetrics,
+          ...jobMetricsForAnalytics(failMetrics),
         },
       }).catch(() => undefined);
       // Cron / prochain drain après cooldown — pas d’échec UI.
@@ -423,7 +437,7 @@ export async function processOneAnalysisJob(
         phase: "p2",
         errorCode: error instanceof AppError ? error.code : "ANALYSIS_FAILED",
         message: message.slice(0, 200),
-        ...failMetrics,
+        ...jobMetricsForAnalytics(failMetrics),
       },
     }).catch(() => undefined);
 
