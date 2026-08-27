@@ -2,7 +2,7 @@ import { mkdir, readFile, unlink, writeFile, readdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 
-import { usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem, usePersistentStorage } from "@/config/persistence";
 import {
   assertSafeResourceId,
   userHistoryDir,
@@ -49,6 +49,7 @@ function resolveAutoFolderId(record: Pick<
 
 async function ensureHistoryDir(userId: string): Promise<string> {
   const dir = userHistoryDir(userId);
+  if (!canUseLocalFilesystem()) return dir;
   await mkdir(dir, { recursive: true });
   return dir;
 }
@@ -96,7 +97,7 @@ export async function saveHistoryRecord(
   input: SaveHistoryInput,
 ): Promise<HistoryRecord> {
   try {
-    if (!usePersistentStorage()) {
+    if (canUseLocalFilesystem()) {
       await ensureHistoryDir(userId);
     }
 

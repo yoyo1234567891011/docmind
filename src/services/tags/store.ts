@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
-import { usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem, usePersistentStorage } from "@/config/persistence";
 import { userTagsFile } from "@/config/paths";
 import { AppError } from "@/lib/errors";
 import {
@@ -24,6 +24,7 @@ const TAGS_BLOB_KEY = "tags";
 
 async function ensureTagsFile(userId: string): Promise<string> {
   const filePath = userTagsFile(userId);
+  if (!canUseLocalFilesystem()) return filePath;
   await mkdir(path.dirname(filePath), { recursive: true });
   try {
     await readFile(filePath, "utf8");

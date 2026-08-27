@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
-import { usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem, usePersistentStorage } from "@/config/persistence";
 import { userFoldersFile } from "@/config/paths";
 import { AppError } from "@/lib/errors";
 import { listHistoryRecords } from "@/services/history/store";
@@ -39,6 +39,7 @@ function getSystemFolders(): DocumentFolder[] {
 
 async function ensureFoldersFile(userId: string): Promise<string> {
   const filePath = userFoldersFile(userId);
+  if (!canUseLocalFilesystem()) return filePath;
   await mkdir(path.dirname(filePath), { recursive: true });
   try {
     await readFile(filePath, "utf8");

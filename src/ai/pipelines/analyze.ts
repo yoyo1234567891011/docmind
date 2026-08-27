@@ -5,7 +5,6 @@ import {
   setCachedAnalysis,
 } from "@/ai/optimizations";
 import { runMultiAgentAnalysis } from "@/ai/agents";
-import { enrichAnalysisDetailed } from "@/ai/post-processing";
 import {
   documentAnalysisLockKey,
   getDocumentAnalysisInFlight,
@@ -13,9 +12,9 @@ import {
 } from "@/ai/pipelines/document-analysis-lock";
 import { generateReadyReplyWithMeta } from "@/ai/pipelines/reply";
 import { prepareDocumentTextForLlm } from "@/ai/utils/prepare-document-text";
-import { extractDocumentEntities } from "@/ai/extraction";
 import { docmindConfig } from "@/config/docmind";
 import { AppError } from "@/lib/errors";
+import { sanitizeAnalysisFailureMessage } from "@/lib/sanitize";
 import { resolveTaskConfig } from "@/services/admin/config-store";
 import {
   ensureAdminRuntimeLoaded,
@@ -29,8 +28,6 @@ import {
   EMPTY_READY_REPLY,
   type AnalyzeDocumentRequest,
   type AnalyzeDocumentResult,
-  type DocumentAnalysis,
-  type DocumentClassification,
   type ReadyReply,
 } from "@/types";
 import type { OllamaGenerateResult } from "@/ai/models/types";
@@ -54,42 +51,6 @@ function addTokens(
   };
 }
 
-function salvageParsedAnalysis(
-  fileName: string | undefined,
-  classification: DocumentClassification,
-  documentText: string,
-): Omit<
-  DocumentAnalysis,
-  "risk_score" | "risk_level" | "risk_explanation" | "risk_criteria"
-> {
-  const entities = extractDocumentEntities(documentText);
-  const preview = documentText.replace(/\s+/g, " ").trim().slice(0, 280);
-
-  return {
-    document_type: classification.label,
-    title: fileName?.replace(/\.pdf$/i, "") || classification.label,
-    summary: preview
-      ? `Analyse de secours (extraction locale). Extrait : ${preview}${preview.length >= 280 ? "…" : ""}`
-      : "Analyse de secours : pipeline multi-agents indisponible. Montants, dates et risques extraits localement.",
-    date: entities.primaryDate,
-    dates: entities.dates.slice(0, 8),
-    people: [],
-    organizations: [],
-    amounts: entities.amounts.slice(0, 8),
-    deadlines: entities.deadlines.slice(0, 8),
-    important_points: [
-      ...(entities.amounts[0] ? [`Montant détecté : ${entities.amounts[0]}`] : []),
-      ...(entities.deadlines[0]
-        ? [`Échéance détectée : ${entities.deadlines[0]}`]
-        : []),
-    ],
-    risks: [],
-    actions: entities.deadlines[0]
-      ? [`Anticiper l'échéance : ${entities.deadlines[0]}`]
-      : ["Relire le document et relancer une analyse si besoin."],
-  };
-}
-
 /**
  * Pipeline multi-agents :
  * classify → facts → legal → risks → score → actions → verify
@@ -102,7 +63,7 @@ export async function analyzeDocumentText(
   request: AnalyzeDocumentRequest,
 ): Promise<AnalyzeDocumentResult> {
   const key = documentAnalysisLockKey(request.userId, request.documentId);
-  const inFlight = getDocumentAnalysisInFlight(key);
+  const inFlight = await getDocumentAnalysisInFlight(key);
 
   if (inFlight && request.onInFlight === "status") {
     console.info(
@@ -152,7 +113,7 @@ async function analyzeDocumentTextUnlocked(
       "BAD_REQUEST",
       "Aucun texte à analyser. Le PDF semble vide ou non extractible.",
     );
-    await appendAnalysisLog(request.userId, {
+  await appendAnalysisLog(request.userId, {
       documentId: request.documentId,
       fileName: request.fileName,
       category: "autre",
@@ -166,7 +127,7 @@ async function analyzeDocumentTextUnlocked(
       ok: false,
       errorCode: error.code,
       errorMessage: error.message,
-    });
+    }).catch(() => undefined);
     throw error;
   }
 
@@ -391,58 +352,24 @@ async function analyzeDocumentTextUnlocked(
     if (error instanceof AppError && error.code === "BAD_REQUEST") {
       throw error;
     }
+    if (error instanceof AppError && error.code === "ANALYSIS_IN_PROGRESS") {
+      throw error;
+    }
 
-    const message =
-      error instanceof Error ? error.message : "Erreur d'analyse inconnue";
-
-    const classification: DocumentClassification = {
-      category: "autre",
-      label: categoryLabel || "Autre",
-      confidence: 0,
-    };
-    const parsed = salvageParsedAnalysis(
-      request.fileName,
-      classification,
-      text,
+    const message = sanitizeAnalysisFailureMessage(
+      error instanceof Error ? error.message : "Erreur d'analyse inconnue",
     );
-    const { analysis } = enrichAnalysisDetailed(
-      parsed,
-      text,
-      classification,
-    );
+    const errorCode =
+      error instanceof AppError ? error.code : "ANALYSIS_FAILED";
 
     steps.push({
       task: "analyze",
       model,
-      durationMs: 0,
+      durationMs: Date.now() - started,
       tokens: emptyTokens(),
       ok: false,
-      error: `${message} — résultat de secours renvoyé.`,
+      error: message,
     });
-
-    const analyzedAt = new Date().toISOString();
-    const durationMs = Date.now() - started;
-    const sheet = buildDocumentSheetFromAnalysis({
-      documentId: request.documentId,
-      fileName: request.fileName || "document.pdf",
-      classification,
-      analysis,
-      analyzedAt,
-    });
-
-    const result: AnalyzeDocumentResult = {
-      documentId: request.documentId,
-      classification,
-      analysis,
-      readyReply: EMPTY_READY_REPLY,
-      model,
-      analyzedAt,
-      promptsUsed,
-      sheet,
-      resultSource: "salvage",
-      durationMs,
-      totalTokens: tokens.total,
-    };
 
     await appendAnalysisLog(request.userId, {
       documentId: request.documentId,
@@ -451,24 +378,23 @@ async function analyzeDocumentTextUnlocked(
       categoryLabel,
       model,
       promptsUsed,
-      durationMs,
+      durationMs: Date.now() - started,
       tokens,
       steps,
-      result: {
-        title: analysis.title,
-        documentType: analysis.document_type,
-        riskScore: analysis.risk_score,
-        riskLevel: analysis.risk_level,
-        summary: analysis.summary.slice(0, 500),
-        replyRequired: false,
-        actionCount: analysis.actions.length,
-        deadlineCount: analysis.deadlines.length,
-      },
-      ok: true,
-      errorCode: error instanceof AppError ? error.code : "ANALYSIS_FAILED",
+      result: null,
+      ok: false,
+      errorCode,
       errorMessage: message,
     }).catch(() => undefined);
 
-    return result;
+    // Beta contract: never return a silent local salvage as a successful LLM analysis.
+    if (error instanceof AppError) {
+      throw new AppError(error.code, message, error.status);
+    }
+    throw new AppError(
+      "ANALYSIS_FAILED",
+      message,
+      502,
+    );
   }
 }

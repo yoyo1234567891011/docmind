@@ -7,12 +7,15 @@ import { randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
-import { usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem, usePersistentStorage } from "@/config/persistence";
 import { SYSTEM_DIR } from "@/config/paths";
 import { getPool, query } from "@/lib/db/pool";
 import {
   LLM_SATURATION_REQUEUE_MESSAGE,
   sanitizeAnalysisFailureMessage,
+  ANALYSIS_JOB_GLOBAL_TIMEOUT_MESSAGE,
+  LLM_SATURATION_FAIL_MESSAGE,
+  isTransientLlmSaturationError,
 } from "@/lib/sanitize";
 import {
   ANALYSIS_P2_MAX_CONCURRENCY,
@@ -30,6 +33,15 @@ const FS_JOBS_FILE = path.join(SYSTEM_DIR, "analysis-jobs.json");
 /** Lease job processing (heartbeat). */
 export const ANALYSIS_JOB_LEASE_MS = 180_000;
 
+/** Durée max wall-clock P2 (1 claim) — au-delà → échec propre, pas de hang. */
+export const ANALYSIS_P2_WALL_TIMEOUT_MS = 180_000;
+
+/** Budget temps total job (tous attempts + cooldowns) depuis created_at. */
+export const ANALYSIS_JOB_GLOBAL_TIMEOUT_MS = 180_000;
+
+/** Temps restant minimal pour tenter un requeue TPM (sinon fail propre). */
+export const ANALYSIS_REQUEUE_MIN_REMAINING_MS = 45_000;
+
 /**
  * @deprecated utiliser ANALYSIS_P2_MAX_CONCURRENCY (plafond) + getEffectiveP2Concurrency().
  * Conservé pour imports existants — vaut le plafond (3).
@@ -37,10 +49,10 @@ export const ANALYSIS_JOB_LEASE_MS = 180_000;
 export const ANALYSIS_P2_GLOBAL_CONCURRENCY = ANALYSIS_P2_MAX_CONCURRENCY;
 
 /** Remise en file après saturation : ne pas reclamer tout de suite. */
-export const ANALYSIS_RATE_LIMIT_DEFER_MS = 60_000;
+export const ANALYSIS_RATE_LIMIT_DEFER_MS = 45_000;
 
 /** Au-delà → échec définitif (évite boucle infinie). */
-export const ANALYSIS_MAX_TRANSIENT_ATTEMPTS = 6;
+export const ANALYSIS_MAX_TRANSIENT_ATTEMPTS = 4;
 
 /** Advisory lock PG pour claim mono-global (évite course multi-instance). */
 const P2_CLAIM_ADVISORY_LOCK = 87_236_401;
@@ -60,6 +72,7 @@ function withFsClaimLock<T>(fn: () => Promise<T>): Promise<T> {
 type FsFile = { jobs: AnalysisJob[] };
 
 async function readFsJobs(): Promise<AnalysisJob[]> {
+  if (!canUseLocalFilesystem()) return [];
   try {
     const raw = await readFile(FS_JOBS_FILE, "utf8");
     const parsed = JSON.parse(raw) as FsFile;
@@ -70,12 +83,37 @@ async function readFsJobs(): Promise<AnalysisJob[]> {
 }
 
 async function writeFsJobs(jobs: AnalysisJob[]): Promise<void> {
+  if (!canUseLocalFilesystem()) return;
   await mkdir(SYSTEM_DIR, { recursive: true });
   await writeFile(
     FS_JOBS_FILE,
     JSON.stringify({ jobs: jobs.slice(0, 5000) } satisfies FsFile, null, 2),
     "utf8",
   );
+}
+
+export function getAnalysisJobAgeMs(
+  job: Pick<AnalysisJob, "createdAt">,
+): number {
+  return Math.max(0, Date.now() - Date.parse(job.createdAt));
+}
+
+export function getAnalysisJobRemainingMs(
+  job: Pick<AnalysisJob, "createdAt">,
+): number {
+  return Math.max(0, ANALYSIS_JOB_GLOBAL_TIMEOUT_MS - getAnalysisJobAgeMs(job));
+}
+
+export function isAnalysisJobGlobalTimeoutExceeded(
+  job: Pick<AnalysisJob, "createdAt">,
+): boolean {
+  return getAnalysisJobAgeMs(job) >= ANALYSIS_JOB_GLOBAL_TIMEOUT_MS;
+}
+
+function expiredJobFailureMessage(job: Pick<AnalysisJob, "lastError">): string {
+  return isTransientLlmSaturationError(job.lastError)
+    ? LLM_SATURATION_FAIL_MESSAGE
+    : ANALYSIS_JOB_GLOBAL_TIMEOUT_MESSAGE;
 }
 
 function rowToJob(row: {
@@ -654,27 +692,125 @@ export async function failAnalysisJob(
        set status = 'failed',
            completed_at = timezone('utc', now()),
            lease_expires_at = null,
+           claimed_at = null,
+           claimed_by = null,
            last_error = $2,
            metrics = coalesce($3::jsonb, metrics),
            updated_at = timezone('utc', now())
-       where id = $1 and status = 'processing'`,
+       where id = $1 and status in ('pending', 'processing')`,
       [jobId, msg, metrics ? JSON.stringify(metrics) : null],
     );
     return;
   }
   const jobs = await readFsJobs();
-  const idx = jobs.findIndex((j) => j.id === jobId);
+  const idx = jobs.findIndex(
+    (j) =>
+      j.id === jobId &&
+      (j.status === "pending" || j.status === "processing"),
+  );
   if (idx < 0) return;
   jobs[idx] = {
     ...jobs[idx]!,
     status: "failed",
     completedAt: now,
     leaseExpiresAt: undefined,
+    claimedAt: undefined,
+    claimedBy: undefined,
     lastError: msg,
     metrics: metrics ?? jobs[idx]!.metrics,
     updatedAt: now,
   };
   await writeFsJobs(jobs);
+}
+
+/** Échec définitif d’un job expiré (budget global épuisé). */
+export async function failExpiredAnalysisJob(job: AnalysisJob): Promise<boolean> {
+  if (job.status !== "pending" && job.status !== "processing") return false;
+  if (!isAnalysisJobGlobalTimeoutExceeded(job)) return false;
+  const msg = expiredJobFailureMessage(job);
+  await failAnalysisJob(job.id, msg);
+  return true;
+}
+
+/**
+ * Fait échouer les jobs pending/processing dépassant le budget global.
+ * Retourne les jobs expirés (pour sync history côté worker/API).
+ */
+export async function expireTimedOutAnalysisJobs(): Promise<AnalysisJob[]> {
+  if (usePersistentStorage()) {
+    const result = await query<{
+      id: string;
+      user_id: string;
+      document_id: string;
+      history_id: string;
+      file_name: string;
+      status: AnalysisJobStatus;
+      attempts: number;
+      last_error: string | null;
+      claimed_at: Date | null;
+      claimed_by: string | null;
+      lease_expires_at: Date | null;
+      started_at: Date | null;
+      completed_at: Date | null;
+      skip_ready_reply: boolean;
+      p1_duration_ms: number | null;
+      user_email: string | null;
+      pages: unknown;
+      metrics?: unknown;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `update public.app_analysis_jobs
+       set status = 'failed',
+           completed_at = timezone('utc', now()),
+           lease_expires_at = null,
+           claimed_at = null,
+           claimed_by = null,
+           last_error = case
+             when last_error is not null and (
+               last_error ilike '%satur%'
+               or last_error ilike '%rate_limit%'
+               or last_error ilike '%TPM%'
+               or last_error ilike '%file d''attente%'
+             ) then $1
+             else $2
+           end,
+           updated_at = timezone('utc', now())
+       where status in ('pending', 'processing')
+         and created_at < timezone('utc', now())
+           - ($3::double precision / 1000.0) * interval '1 second'
+       returning *`,
+      [
+        LLM_SATURATION_FAIL_MESSAGE,
+        ANALYSIS_JOB_GLOBAL_TIMEOUT_MESSAGE,
+        ANALYSIS_JOB_GLOBAL_TIMEOUT_MS,
+      ],
+    );
+    return result.rows.map((row) => rowToJob(row));
+  }
+
+  const jobs = await readFsJobs();
+  const expired: AnalysisJob[] = [];
+  const nowIso = new Date().toISOString();
+  for (let i = 0; i < jobs.length; i += 1) {
+    const job = jobs[i]!;
+    if (job.status !== "pending" && job.status !== "processing") continue;
+    if (!isAnalysisJobGlobalTimeoutExceeded(job)) continue;
+    const failed: AnalysisJob = {
+      ...job,
+      status: "failed",
+      completedAt: nowIso,
+      leaseExpiresAt: undefined,
+      claimedAt: undefined,
+      claimedBy: undefined,
+      lastError: expiredJobFailureMessage(job),
+      updatedAt: nowIso,
+    };
+    jobs[i] = failed;
+    expired.push(failed);
+  }
+  if (expired.length > 0) await writeFsJobs(jobs);
+  return expired;
 }
 
 /** Supprime tous les jobs liés à une analyse (history delete cascade). */

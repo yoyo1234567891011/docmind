@@ -1,9 +1,11 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
+import { canUseLocalFilesystem } from "@/config/persistence";
 import { SYSTEM_DIR } from "@/config/paths";
 
 async function ensureSystemDir(): Promise<void> {
+  if (!canUseLocalFilesystem()) return;
   await mkdir(SYSTEM_DIR, { recursive: true });
 }
 

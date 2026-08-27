@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 
 import {
+  canUseLocalFilesystem,
   isFsDualWriteEnabled,
   isFsFallbackEnabled,
   usePersistentStorage,
@@ -58,7 +59,7 @@ export async function readAlertsState(
       );
       if (parsed) return normalizeState(parsed);
 
-      if (isFsFallbackEnabled()) {
+      if (canUseLocalFilesystem() && isFsFallbackEnabled()) {
         // Lecture FS directe (pas via userFileRead → éviter double couche PG files)
         const { readFile } = await import("fs/promises");
         try {

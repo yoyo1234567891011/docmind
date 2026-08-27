@@ -1,6 +1,6 @@
 import { mkdir } from "fs/promises";
 
-import { usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem, usePersistentStorage } from "@/config/persistence";
 import {
   assertSafeUserId,
   userClausesDir,
@@ -28,7 +28,7 @@ export async function ensureUserWorkspace(userId: string): Promise<void> {
   const id = assertSafeUserId(userId);
   if (readyUsers.has(id)) return;
 
-  if (!usePersistentStorage()) {
+  if (canUseLocalFilesystem()) {
     await Promise.all([
       mkdir(userDataDir(id), { recursive: true }),
       mkdir(userHistoryDir(id), { recursive: true }),

@@ -1,18 +1,19 @@
 /**
  * Stockage fichiers utilisateur : FS local (dev) ou Postgres (multi-instance).
  *
- * Mode persistent + DOCMIND_FS_FALLBACK (défaut on) :
+ * Mode persistent + DOCMIND_FS_FALLBACK=1 (opt-in local uniquement) :
  *   - lecture PG, miss → FS → promote lazy vers PG
  *   - list fusionne PG ∪ FS
  * Mode persistent + DOCMIND_FS_DUAL_WRITE=1 :
  *   - écritures PG + FS (rollback)
- * DOCMIND_FS_FALLBACK=0 : PG uniquement (FS ignoré).
+ * DOCMIND_FS_FALLBACK=0 / déployé : PG uniquement (FS ignoré, aucune promotion).
  */
 
 import { mkdir, readFile, readdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 
 import {
+  canUseLocalFilesystem,
   isFsDualWriteEnabled,
   isFsFallbackEnabled,
   usePersistentStorage,
@@ -31,6 +32,7 @@ function toRelativeKey(userId: string, absolutePath: string): string {
 }
 
 async function readFs(absolutePath: string): Promise<string | null> {
+  if (!canUseLocalFilesystem()) return null;
   try {
     return await readFile(absolutePath, "utf8");
   } catch {
@@ -39,6 +41,7 @@ async function readFs(absolutePath: string): Promise<string | null> {
 }
 
 async function writeFs(absolutePath: string, content: string): Promise<void> {
+  if (!canUseLocalFilesystem()) return;
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, content, "utf8");
 }
@@ -116,6 +119,7 @@ export async function userFileUnlink(
   absolutePath: string,
 ): Promise<void> {
   if (!usePersistentStorage()) {
+    if (!canUseLocalFilesystem()) return;
     try {
       await unlink(absolutePath);
     } catch {
@@ -145,6 +149,7 @@ export async function userFileList(
   absoluteDir: string,
 ): Promise<string[]> {
   if (!usePersistentStorage()) {
+    if (!canUseLocalFilesystem()) return [];
     try {
       return await readdir(absoluteDir);
     } catch {
@@ -166,6 +171,7 @@ export async function userFileList(
   }
 
   if (isFsFallbackEnabled()) {
+    if (!canUseLocalFilesystem()) return [...names];
     try {
       for (const name of await readdir(absoluteDir)) {
         names.add(name);
@@ -192,6 +198,6 @@ export async function userFileDeletePrefix(
 }
 
 export async function userFileEnsureDir(absoluteDir: string): Promise<void> {
-  if (usePersistentStorage() && !isFsDualWriteEnabled()) return;
+  if (!canUseLocalFilesystem()) return;
   await mkdir(absoluteDir, { recursive: true });
 }

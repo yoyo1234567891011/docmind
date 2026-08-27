@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
-import { usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem, usePersistentStorage } from "@/config/persistence";
 import { SYSTEM_DIR } from "@/config/paths";
 import { query } from "@/lib/db/pool";
 import { deletePdfObject } from "@/lib/storage/s3";
@@ -37,6 +37,7 @@ export type StorageCleanupJob = {
 type FsFile = { jobs: StorageCleanupJob[] };
 
 async function readFsJobs(): Promise<StorageCleanupJob[]> {
+  if (!canUseLocalFilesystem()) return [];
   try {
     const raw = await readFile(STORAGE_CLEANUP_JOBS_FILE, "utf8");
     const parsed = JSON.parse(raw) as FsFile;
@@ -47,6 +48,7 @@ async function readFsJobs(): Promise<StorageCleanupJob[]> {
 }
 
 async function writeFsJobs(jobs: StorageCleanupJob[]): Promise<void> {
+  if (!canUseLocalFilesystem()) return;
   await mkdir(SYSTEM_DIR, { recursive: true });
   await writeFile(
     STORAGE_CLEANUP_JOBS_FILE,

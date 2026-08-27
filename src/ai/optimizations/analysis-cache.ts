@@ -4,6 +4,7 @@ import path from "path";
 
 import { getOptimizationConfig } from "@/config/optimizations";
 import {
+  canUseLocalFilesystem,
   isFsDualWriteEnabled,
   isFsFallbackEnabled,
   usePersistentStorage,
@@ -111,10 +112,12 @@ function cachePath(userId: string, cacheKey: string): string {
 }
 
 async function ensureCacheDir(userId: string): Promise<void> {
+  if (!canUseLocalFilesystem()) return;
   await mkdir(cacheDir(userId), { recursive: true });
 }
 
 async function pruneCache(userId: string, maxEntries: number): Promise<void> {
+  if (!canUseLocalFilesystem()) return;
   const dir = cacheDir(userId);
   const files = (await readdir(dir).catch(() => [])).filter((f) =>
     f.endsWith(".json"),
@@ -207,8 +210,8 @@ export async function getCachedAnalysis(
         }
       }
 
-      // Fallback FS + promote Redis (migration incrémentale)
-      if (isFsFallbackEnabled()) {
+      // Fallback FS + promote Redis (migration incrémentale, dev local uniquement)
+      if (canUseLocalFilesystem() && isFsFallbackEnabled()) {
         try {
           const fsRaw = await readFile(cachePath(userId, cacheKey), "utf8");
           const parsed = JSON.parse(fsRaw) as CachedAnalysisPayload;
@@ -241,6 +244,8 @@ export async function getCachedAnalysis(
       }
       return null;
     }
+
+    if (!canUseLocalFilesystem()) return null;
 
     const raw = await readFile(cachePath(userId, cacheKey), "utf8");
     const parsed = JSON.parse(raw) as CachedAnalysisPayload;
@@ -290,7 +295,7 @@ export async function setCachedAnalysis(input: {
         "EX",
         ttlSec,
       );
-      if (isFsDualWriteEnabled()) {
+      if (canUseLocalFilesystem() && isFsDualWriteEnabled()) {
         await ensureCacheDir(input.userId);
         await writeFile(
           cachePath(input.userId, cacheKey),
@@ -302,6 +307,8 @@ export async function setCachedAnalysis(input: {
       }
       return;
     }
+
+    if (!canUseLocalFilesystem()) return;
 
     await ensureCacheDir(input.userId);
     await writeFile(
@@ -339,6 +346,7 @@ export async function clearUserAnalysisCache(userId: string): Promise<void> {
     } while (cursor !== "0");
     return;
   }
+  if (!canUseLocalFilesystem()) return;
   const dir = cacheDir(userId);
   const files = await readdir(dir).catch(() => [] as string[]);
   await Promise.all(
