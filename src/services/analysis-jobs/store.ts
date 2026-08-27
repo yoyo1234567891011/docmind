@@ -749,11 +749,20 @@ export async function releaseAnalysisJobQuotaCharge(
   const jobs = await readFsJobs();
   const idx = jobs.findIndex((j) => j.id === jobId && j.status === "completed");
   if (idx < 0) return;
-  const metrics = { ...jobs[idx]!.metrics };
-  delete metrics.quotaCharged;
+  const prev = jobs[idx]!.metrics;
+  if (!prev?.quotaCharged) return;
   jobs[idx] = {
     ...jobs[idx]!,
-    metrics: Object.keys(metrics).length > 0 ? metrics : undefined,
+    metrics: {
+      queueWaitMs: prev.queueWaitMs ?? 0,
+      lockWaitMs: prev.lockWaitMs ?? 0,
+      generateMs: prev.generateMs ?? 0,
+      historyMs: prev.historyMs ?? 0,
+      memoryMs: prev.memoryMs ?? null,
+      totalMs: prev.totalMs ?? 0,
+      totalTokens: prev.totalTokens,
+      latencyDiag: prev.latencyDiag,
+    },
     updatedAt: new Date().toISOString(),
   };
   await writeFsJobs(jobs);
