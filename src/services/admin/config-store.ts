@@ -276,17 +276,10 @@ export async function resolveTaskConfig(
   }
   const taskConfig = config.tasks[task];
   const code = getTaskConfig(task);
-  let maxTokens = taskConfig?.maxTokens ?? code.maxTokens;
-  if (task === "analyze" && isCloudLlmEnabled()) {
-    maxTokens = Math.max(
-      maxTokens,
-      docmindConfig.ollama.cloudAnalyzeMaxTokens,
-    );
-  }
   return {
     model: taskConfig?.model || getDefaultChatModel(),
     temperature: taskConfig?.temperature ?? code.temperature,
-    maxTokens,
+    maxTokens: taskConfig?.maxTokens ?? code.maxTokens,
     ollamaBaseUrl: normalizeOllamaBaseUrl(
       config.ollamaBaseUrl || getOllamaBaseUrl(),
     ),
