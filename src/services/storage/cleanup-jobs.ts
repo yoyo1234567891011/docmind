@@ -4,11 +4,17 @@
  */
 import { randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
+import path from "path";
 
 import { usePersistentStorage } from "@/config/persistence";
-import { STORAGE_CLEANUP_JOBS_FILE, SYSTEM_DIR } from "@/config/paths";
+import { SYSTEM_DIR } from "@/config/paths";
 import { query } from "@/lib/db/pool";
 import { deletePdfObject } from "@/lib/storage/s3";
+
+const STORAGE_CLEANUP_JOBS_FILE = path.join(
+  SYSTEM_DIR,
+  "storage-cleanup-jobs.json",
+);
 
 export type StorageCleanupJobKind = "s3_orphan_delete";
 
