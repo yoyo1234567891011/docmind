@@ -21,10 +21,17 @@ const CROSS_CATEGORY: Array<[string, string]> = [
   ["facture", "contrat"],
   ["facture", "assurance"],
   ["bail", "assurance"],
-  ["banque", "assurance"],
   ["conditions-generales", "contrat"],
   ["conditions-generales", "assurance"],
 ];
+
+export function areCategoriesRelationCompatible(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (neverCompare(a, b)) return false;
+  return CROSS_CATEGORY.some(
+    ([x, y]) => (x === a && y === b) || (x === b && y === a),
+  );
+}
 
 export interface RelationCandidate {
   docId: string;
@@ -42,16 +49,17 @@ export interface CandidateSelectorResult {
 }
 
 function crossAllowed(a: string, b: string): boolean {
-  if (a === b) return true;
-  return CROSS_CATEGORY.some(
-    ([x, y]) => (x === a && y === b) || (x === b && y === a),
-  );
+  return areCategoriesRelationCompatible(a, b);
 }
 
 function neverCompare(a: string, b: string): boolean {
   const pair = new Set([a, b]);
   if (pair.has("impots") && pair.has("bail")) return true;
   if (pair.has("facture") && pair.has("contrat-de-travail")) return true;
+  if (pair.has("banque") && pair.has("assurance")) return true;
+  if (pair.has("banque") && pair.has("contrat")) return true;
+  if (pair.has("banque") && pair.has("bail")) return true;
+  if (pair.has("banque") && pair.has("impots")) return true;
   return false;
 }
 

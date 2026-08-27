@@ -1,4 +1,6 @@
 import { verifyAnalysisDraft } from "@/ai/reasoning/verify-analysis";
+import { scrubAnalysisForDisplay } from "@/ai/post-processing/enrich";
+import { mergeWithLocalRiskFindings } from "@/ai/post-processing/inject-local-risk-findings";
 import { scoreRiskFromFindings } from "@/services/risk/score-from-findings";
 import { assessDocumentRisk } from "@/ai/scoring";
 import { hasRiskExplanations, type DocumentAnalysis, type RiskFinding } from "@/types";
@@ -128,7 +130,16 @@ function assembleDraft(state: Parameters<AnalysisAgent["run"]>[0]) {
     important_point_drafts: legal?.important_point_drafts,
     risks: state.risks || [],
     actions: state.actions || [],
-    risk_findings: state.risk_findings,
+    // Injection locale avant verify : score + « Points à surveiller ».
+    risk_findings: mergeWithLocalRiskFindings(
+      state.risk_findings,
+      state.documentText,
+      {
+        category: state.classification?.category,
+        documentType: legal?.document_type,
+        title: legal?.title,
+      },
+    ),
   };
 }
 
@@ -148,26 +159,21 @@ export const verifyAgent: AnalysisAgent = {
       state.pages,
     );
     const findings: RiskFinding[] = verified.risk_findings ?? [];
+    const confirmedCount = findings.filter((f) => f.status === "confirmed").length;
 
-    let assessment =
-      findings.some((f) => f.status === "confirmed")
+    // Score : findings confirmés ; sinon regex document (évite 0/100 si LLM ambigu seulement).
+    const assessment =
+      confirmedCount > 0
         ? scoreRiskFromFindings(findings)
-        : findings.length > 0
-          ? scoreRiskFromFindings(findings)
-          : assessDocumentRisk(
-              {
-                risks: verified.risks,
-                important_points: verified.important_points,
-                deadlines: verified.deadlines,
-                actions: verified.actions,
-              },
-              state.documentText,
-            );
-
-    // Si findings structurés existent (même ambigus), préférer score findings
-    if (findings.length > 0) {
-      assessment = scoreRiskFromFindings(findings);
-    }
+        : assessDocumentRisk(
+            {
+              risks: verified.risks,
+              important_points: verified.important_points,
+              deadlines: verified.deadlines,
+              actions: verified.actions,
+            },
+            state.documentText,
+          );
 
     let analysis: DocumentAnalysis = {
       document_type: verified.document_type,
@@ -224,6 +230,8 @@ export const verifyAgent: AnalysisAgent = {
       analysis = { ...analysis, risk_score: Math.min(100, Math.max(0, Math.round(sum))) };
       issues = checkAnalysisCoherence(analysis);
     }
+
+    analysis = scrubAnalysisForDisplay(analysis);
 
     const v = verified._verification;
     const note = [

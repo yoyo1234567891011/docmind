@@ -5,6 +5,7 @@ import { getSearchIndexEntry } from "@/services/sheets/index-store";
 import {
   selectRelationCandidates,
   MAX_CANDIDATES,
+  areCategoriesRelationCompatible,
 } from "@/services/memory/candidate-selector";
 import { upsertContractFamily } from "@/services/memory/contract-family";
 import { getMemoryDocument, saveMemoryDocument } from "@/services/memory/document-store";
@@ -138,6 +139,10 @@ export async function detectRelationsForPair(input: {
 
   const sameCategory = source.category === candidate.category;
   const sharedEntity = sharedEntityIds[0] ?? null;
+  const categoriesCompatible = areCategoriesRelationCompatible(
+    source.category,
+    candidate.category,
+  );
 
   // --- duplicate_of ---
   if (
@@ -165,7 +170,7 @@ export async function detectRelationsForPair(input: {
     );
   } else if (source.simhash && candidate.simhash) {
     const dist = hammingDistanceHex(source.simhash, candidate.simhash);
-    if (dist <= 3) {
+    if (dist <= 2 && (sameCategory || dist === 0)) {
       out.push(
         makeRelation({
           userId,
@@ -206,7 +211,7 @@ export async function detectRelationsForPair(input: {
           lenA > 0 && lenB > 0
             ? Math.min(lenA, lenB) / Math.max(lenA, lenB)
             : 0;
-        if (cos > 0.98 && lenRatio >= 0.9) {
+        if (cos > 0.985 && lenRatio >= 0.92 && sameCategory) {
           out.push(
             makeRelation({
               userId,
@@ -244,6 +249,7 @@ export async function detectRelationsForPair(input: {
   if (
     !isDuplicate &&
     sameCategory &&
+    categoriesCompatible &&
     sharedEntity &&
     Date.now() - pairStarted < RELATION_ENGINE_PAIR_BUDGET_MS
   ) {
@@ -264,8 +270,8 @@ export async function detectRelationsForPair(input: {
 
     // Famille : même org + catégorie + titres un minimum liés OU gap temporel
     const familySignal =
-      titleSim >= 0.25 ||
-      (dateGapDays != null && dateGapDays >= 20 && dateGapDays <= 800);
+      titleSim >= 0.38 ||
+      (dateGapDays != null && dateGapDays >= 60 && dateGapDays <= 500);
 
     if (familySignal) {
       const familyEv: MemoryRelationEvidence[] = [
@@ -307,9 +313,9 @@ export async function detectRelationsForPair(input: {
         0.25; // shared entity+cat
 
       if (
-        supersedeScore >= 0.7 &&
+        supersedeScore >= 0.78 &&
         (newerIsSource || olderIsSource) &&
-        titleSim >= 0.3
+        titleSim >= 0.38
       ) {
         const fromDoc = newerIsSource
           ? source.documentId
@@ -354,6 +360,7 @@ export async function detectRelationsForPair(input: {
   // Soft party_shared si entity partagée et pas déjà couvert
   if (
     sharedEntity &&
+    categoriesCompatible &&
     !out.some((r) => r.type === "same_contract_family" || r.type === "duplicate_of")
   ) {
     out.push(

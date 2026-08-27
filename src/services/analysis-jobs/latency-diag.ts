@@ -51,6 +51,8 @@ export type LatencyDiag = {
     completionTokens?: number;
     totalTokens?: number;
     salvaged: boolean;
+    /** Nombre de retries LLM bundle sur JSON invalide / tronqué. */
+    jsonBundleRetries?: number;
     jobId?: string;
     documentLabel?: string;
   };

@@ -3,12 +3,17 @@ import { createHash } from "crypto";
 import { AppError } from "@/lib/errors";
 import type { AiTask } from "@/ai/models/config";
 import {
-  ensureOllamaReachable,
+  ensureOllamaReachable as ensureOllamaHttpReachable,
   fetchOllama,
   isAbortError,
   normalizeOllamaBaseUrl,
 } from "@/ai/models/ollama-http";
 import { withOllamaGenerateLock } from "@/ai/models/generate-lock";
+import {
+  getLlmProviderConfig,
+  isCloudLlmEnabled,
+} from "@/ai/models/llm-provider";
+import { generateWithOpenAiCompatible } from "@/ai/models/openai-compatible-generate";
 import type {
   OllamaGenerateOptions,
   OllamaGenerateRequest,
@@ -20,9 +25,16 @@ import { docmindConfig } from "@/config/docmind";
 import { resolveTaskConfig } from "@/services/admin/config-store";
 import { appendAdminMetric } from "@/services/admin/metrics-store";
 import { ensureAdminRuntimeLoaded } from "@/services/admin/runtime";
+import { addAnalysisGenerateMs } from "@/services/analysis-jobs/timing";
 
-export { ensureOllamaReachable, normalizeOllamaBaseUrl };
+export { normalizeOllamaBaseUrl };
 export { getOllamaGenerateLockState } from "@/ai/models/generate-lock";
+
+/** Ollama local ou no-op si provider cloud configuré. */
+export async function ensureOllamaReachable(baseUrl: string): Promise<void> {
+  if (isCloudLlmEnabled()) return;
+  await ensureOllamaHttpReachable(baseUrl);
+}
 
 function lockKeyForPrompt(model: string, prompt: string): string {
   const hash = createHash("sha256").update(prompt).digest("hex").slice(0, 12);
@@ -111,15 +123,23 @@ export async function generateWithOllama(
     },
   };
 
-  const timeoutMs =
-    typeof options.timeoutMs === "number" && options.timeoutMs > 0
-      ? options.timeoutMs
-      : resolveGenerateTimeoutMs();
+  const timeoutMs = (() => {
+    const base =
+      typeof options.timeoutMs === "number" && options.timeoutMs > 0
+        ? options.timeoutMs
+        : resolveGenerateTimeoutMs();
+    const provider = getLlmProviderConfig();
+    if (provider.kind === "openai_compatible") {
+      return Math.min(base, 120_000);
+    }
+    return base;
+  })();
   const key = lockKeyForPrompt(model, prompt);
 
   return withOllamaGenerateLock(key, async () => {
     const controller = new AbortController();
     let timedOut = false;
+    const generateStarted = Date.now();
 
     const timer = setTimeout(() => {
       timedOut = true;
@@ -136,14 +156,40 @@ export async function generateWithOllama(
     };
     controller.signal.addEventListener("abort", onAbort, { once: true });
 
+    const provider = getLlmProviderConfig();
+    // Cloud : ignorer le tag Ollama du profil (mistral/qwen) — utiliser LLM_MODEL.
+    const effectiveModel =
+      provider.kind === "openai_compatible" ? provider.model : model;
+
     console.info(
-      `[ollama] generate start key=${key} model=${model} promptChars=${prompt.length} timeoutMs=${timeoutMs}`,
+      `[ollama] generate start key=${key} provider=${provider.kind} model=${effectiveModel} promptChars=${prompt.length} timeoutMs=${timeoutMs}`,
     );
 
     try {
+      if (provider.kind === "openai_compatible") {
+        const result = await generateWithOpenAiCompatible({
+          prompt,
+          model: effectiveModel,
+          temperature: options.temperature ?? 0.2,
+          maxTokens: options.maxTokens,
+          formatJson: options.formatJson,
+          signal: controller.signal,
+          cloud: provider,
+        });
+        const generateMs = Date.now() - generateStarted;
+        addAnalysisGenerateMs(generateMs);
+        console.info(
+          `[ollama] generate done key=${key} provider=cloud durationMs=${result.durationMs} generateMs=${generateMs}`,
+        );
+        return {
+          ...result,
+          durationMs: Date.now() - started,
+        };
+      }
+
       const result = await postGenerateToOllama(
         baseUrl,
-        payload,
+        { ...payload, model: effectiveModel },
         controller.signal,
       );
 
@@ -158,15 +204,17 @@ export async function generateWithOllama(
 
       const promptTokens = result.prompt_eval_count ?? 0;
       const completionTokens = result.eval_count ?? 0;
+      const generateMs = Date.now() - generateStarted;
       const durationMs = Date.now() - started;
+      addAnalysisGenerateMs(generateMs);
 
       console.info(
-        `[ollama] generate done key=${key} durationMs=${durationMs} promptTok=${promptTokens} completionTok=${completionTokens}`,
+        `[ollama] generate done key=${key} durationMs=${durationMs} generateMs=${generateMs} promptTok=${promptTokens} completionTok=${completionTokens}`,
       );
 
       return {
         text,
-        model: result.model || model,
+        model: result.model || effectiveModel,
         promptTokens,
         completionTokens,
         totalTokens: promptTokens + completionTokens,
@@ -174,13 +222,16 @@ export async function generateWithOllama(
       };
     } catch (error) {
       const elapsed = Date.now() - started;
+      const generateMs = Date.now() - generateStarted;
+      // Enregistre la durée réelle même en timeout/échec (observabilité load).
+      addAnalysisGenerateMs(generateMs);
       if (timedOut || isAbortError(error)) {
         console.info(
           `[ollama] generate cancelled key=${key} elapsedMs=${elapsed} reason=${timedOut ? "timeout" : "abort"}`,
         );
         throw new AppError(
           "OLLAMA_UNAVAILABLE",
-          `Ollama n'a pas répondu sous ${Math.round(timeoutMs / 1000)}s (requête annulée). Relancez l'analyse ou vérifiez que le modèle n'est pas saturé.`,
+          `Le modèle n'a pas répondu sous ${Math.round(timeoutMs / 1000)}s (requête annulée). Relancez l'analyse.`,
           504,
         );
       }
@@ -204,6 +255,7 @@ export async function generateWithOllama(
 export async function generateForTask(
   task: Exclude<AiTask, "embed">,
   prompt: string,
+  overrides?: { maxTokens?: number },
 ): Promise<OllamaGenerateResult> {
   await ensureAdminRuntimeLoaded();
   const config = await resolveTaskConfig(task);
@@ -214,7 +266,7 @@ export async function generateForTask(
       prompt,
       model: config.model,
       temperature: config.temperature,
-      maxTokens: config.maxTokens,
+      maxTokens: overrides?.maxTokens ?? config.maxTokens,
       baseUrl: config.ollamaBaseUrl,
     });
 
@@ -261,6 +313,31 @@ export async function sendTextToOllama(
 
 export async function listOllamaModels(): Promise<string[]> {
   await ensureAdminRuntimeLoaded();
+  const provider = getLlmProviderConfig();
+  if (provider.kind === "openai_compatible") {
+    try {
+      const response = await fetch(
+        `${provider.baseUrl.replace(/\/$/, "")}/models`,
+        {
+          method: "GET",
+          headers: { Authorization: `Bearer ${provider.apiKey}` },
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) return [provider.model];
+      const payload = (await response.json()) as {
+        data?: Array<{ id?: string }>;
+      };
+      const ids = (payload.data ?? [])
+        .map((m) => m.id ?? "")
+        .filter(Boolean)
+        .sort();
+      return ids.length > 0 ? ids : [provider.model];
+    } catch {
+      return [provider.model];
+    }
+  }
+
   const config = await resolveTaskConfig("analyze");
   try {
     const response = await fetchOllama(config.ollamaBaseUrl, "/api/tags", {

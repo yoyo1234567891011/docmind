@@ -138,11 +138,14 @@ export function evaluateCoreBundleGeneration(input: {
   }
 
   const text = input.generation.text?.trim() ?? "";
+  const truncated = input.generation.finishReason === "length";
   if (!text) {
     return {
       ok: false,
       code: "GENERATE_FAILED",
-      message: "Ollama a renvoyé une réponse vide.",
+      message: truncated
+        ? "Réponse IA tronquée (limite de tokens)."
+        : "Ollama a renvoyé une réponse vide.",
       httpStatus: 502,
       appCode: "OLLAMA_UNAVAILABLE",
     };
@@ -153,7 +156,9 @@ export function evaluateCoreBundleGeneration(input: {
     return {
       ok: false,
       code: "INVALID_JSON",
-      message: "JSON d'analyse invalide ou tronqué.",
+      message: truncated
+        ? "JSON d'analyse invalide ou tronqué (limite de tokens)."
+        : "JSON d'analyse invalide ou tronqué.",
       httpStatus: 502,
       appCode: "ANALYSIS_FAILED",
     };
@@ -163,8 +168,9 @@ export function evaluateCoreBundleGeneration(input: {
     return {
       ok: false,
       code: "INVALID_SCHEMA",
-      message:
-        "Schéma d'analyse insuffisant (summary / points / risques absents).",
+      message: truncated
+        ? "Schéma d'analyse insuffisant (réponse tronquée)."
+        : "Schéma d'analyse insuffisant (summary / points / risques absents).",
       httpStatus: 502,
       appCode: "ANALYSIS_FAILED",
     };

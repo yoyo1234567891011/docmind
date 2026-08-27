@@ -20,6 +20,12 @@ export function repairJsonText(raw: string): string {
   // Trailing commas
   text = text.replace(/,\s*([\]}])/g, "$1");
 
+  // Virgule orpheline avant fermeture d'objet tronqué
+  text = text.replace(/,\s*$/g, "");
+
+  // Clé partielle en fin de génération (ex. "mitigat)
+  text = text.replace(/,\s*"[^"]*$/g, "");
+
   // Clés non quotées
   text = text.replace(
     /([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g,

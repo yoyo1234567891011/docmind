@@ -53,4 +53,6 @@ export interface OllamaGenerateResult {
   completionTokens: number;
   totalTokens: number;
   durationMs: number;
+  /** OpenAI-compatible finish_reason (ex. length, stop). */
+  finishReason?: string;
 }

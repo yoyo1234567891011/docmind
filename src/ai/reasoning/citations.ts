@@ -1,4 +1,8 @@
 import type { DocumentCitation } from "@/types/citation";
+import {
+  cleanExcerptForDisplay,
+  truncateAtTextBoundary,
+} from "@/ai/post-processing/display-cleanup";
 import { normalizeForMatch } from "@/ai/reasoning/normalize-text";
 
 export type DocumentLocus = {
@@ -59,6 +63,20 @@ function tokenOverlapRatio(a: string, b: string): number {
   return hits / ta.length;
 }
 
+function isHeaderOnlyLocus(locus: DocumentLocus): boolean {
+  const t = locus.text.trim();
+  if (t.length > 120) return false;
+  if (/\d[\d\s.,]*\s*€|€\s*\d|\d+\s*%/.test(t)) return false;
+  if (/sous\s+\d+\s*jours?|pr[ée]avis|[ée]ch[ée]ance|montant|total|loyer|p[ée]nalit/i.test(t)) {
+    return false;
+  }
+  const letters = t.replace(/[^A-Za-zÀ-ÿ]/g, "");
+  if (letters.length >= 8 && letters === letters.toUpperCase()) return true;
+  return /^(?:soci[ée]t[ée]|direction|service|d[ée]partement|facture|relev[ée]|contrat|bail)\b/i.test(
+    t,
+  );
+}
+
 /**
  * Localise un extrait dans le document → citation exacte.
  * Retourne null si aucune preuve exploitable (conclusion interdite).
@@ -73,6 +91,8 @@ export function locateExcerptCitation(
   let best: { locus: DocumentLocus; score: number } | null = null;
 
   for (const locus of loci) {
+    if (isHeaderOnlyLocus(locus)) continue;
+
     if (locus.normalized.includes(ex) || ex.includes(locus.normalized)) {
       const score = Math.min(ex.length, locus.normalized.length) /
         Math.max(ex.length, locus.normalized.length);
@@ -105,10 +125,26 @@ export function locateExcerptCitation(
     canonical = raw.slice(start, end).trim() || raw;
   }
 
+  let cleaned = canonical.trim();
+  // Éviter un début au milieu d’un mot (fenêtre ±20)
+  if (
+    cleaned.length > 0 &&
+    /^[a-zàâäéèêëïîôùûüç]{1,10}\s/i.test(cleaned) &&
+    cleaned[0] === cleaned[0]!.toLowerCase()
+  ) {
+    const sp = cleaned.indexOf(" ");
+    if (sp > 0 && sp <= 10) cleaned = cleaned.slice(sp + 1).trim();
+  }
+  if (cleaned.length > 400) {
+    cleaned = truncateAtTextBoundary(cleaned, 400);
+  }
+
+  cleaned = cleanExcerptForDisplay(cleaned) ?? cleaned;
+
   return {
     page: best.locus.page,
     paragraph: best.locus.paragraph,
-    excerpt: canonical.slice(0, 400),
+    excerpt: cleaned,
   };
 }
 

@@ -89,6 +89,21 @@ async function main() {
 
   {
     const o = evaluateCoreBundleGeneration({
+      generation: {
+        ...fakeGeneration("{not-json"),
+        finishReason: "length",
+      },
+    });
+    assert.equal(o.ok, false);
+    if (!o.ok) {
+      assert.equal(o.code, "INVALID_JSON");
+      assert.match(o.message, /tronqué/i);
+    }
+    console.log("OK 3b) JSON tronqué (length) → INVALID_JSON retryable");
+  }
+
+  {
+    const o = evaluateCoreBundleGeneration({
       generation: fakeGeneration("{not-json"),
     });
     assert.equal(o.ok, false);

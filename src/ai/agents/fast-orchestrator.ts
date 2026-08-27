@@ -15,6 +15,7 @@ import {
   type CoreBundleParsed,
 } from "./core-bundle-outcome";
 import { generateAgentJson } from "./llm";
+import { getTaskConfig } from "@/ai/models";
 import { tryParseJsonObject } from "@/ai/validation/json";
 import {
   buildDeterministicActions,
@@ -85,7 +86,8 @@ type CoreBundle = Partial<ExtractedFacts> &
     actions?: unknown;
   };
 
-const CORE_BUNDLE_ATTEMPTS = 2;
+const CORE_BUNDLE_ATTEMPTS = 3;
+const CORE_BUNDLE_MAX_TOKENS_CAP = 1_800;
 
 type SalvageCtx = {
   categoryLabel: string;
@@ -102,9 +104,18 @@ async function generateCoreBundleOutcome(
   generation: Awaited<ReturnType<typeof generateAgentJson>>["generation"];
 }> {
   let lastOutcome: CoreBundleOutcome | null = null;
+  let jsonBundleRetries = 0;
+  const baseMaxTokens = getTaskConfig("analyze").maxTokens;
 
   for (let attempt = 0; attempt < CORE_BUNDLE_ATTEMPTS; attempt += 1) {
-    const { generation, error } = await generateAgentJson(prompt);
+    const maxTokens =
+      attempt === 0
+        ? baseMaxTokens
+        : Math.min(
+            Math.floor(baseMaxTokens * (1 + attempt * 0.25)),
+            CORE_BUNDLE_MAX_TOKENS_CAP,
+          );
+    const { generation, error } = await generateAgentJson(prompt, { maxTokens });
     const outcome = evaluateCoreBundleGeneration({ generation, error });
     if (outcome.ok) {
       return { parsed: outcome.parsed, generation };
@@ -131,9 +142,15 @@ async function generateCoreBundleOutcome(
       latencySpan("salvageMs", Date.now() - salvageStarted);
     }
 
-    if (outcome.code === "INVALID_JSON" && attempt < CORE_BUNDLE_ATTEMPTS - 1) {
+    const retryable =
+      outcome.code === "INVALID_JSON" ||
+      outcome.code === "INVALID_SCHEMA" ||
+      generation?.finishReason === "length";
+    if (retryable && attempt < CORE_BUNDLE_ATTEMPTS - 1) {
+      jsonBundleRetries += 1;
+      latencyMeta({ jsonBundleRetries });
       console.warn(
-        `[analyze] core bundle retry JSON attempt=${attempt + 1}/${CORE_BUNDLE_ATTEMPTS}`,
+        `[analyze] core bundle retry attempt=${attempt + 1}/${CORE_BUNDLE_ATTEMPTS} code=${outcome.code} finish=${generation?.finishReason ?? "n/a"} maxTokens=${maxTokens}`,
       );
       continue;
     }

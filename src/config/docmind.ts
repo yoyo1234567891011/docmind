@@ -62,7 +62,14 @@ export const docmindConfig = {
     activeProfile: "mistral" as ModelProfileId,
 
     /** Longueur max de génération par défaut (tokens). */
-    maxTokens: 1100,
+    maxTokens: 1400,
+
+    /**
+     * Cloud (Groq) : completion tokens.
+     * Free tier TPM ~8k : trop haut (ex. 2200) + long bail ≈ requête refusée.
+     * 1200 suffit pour le JSON core-bundle ; moins de TPM consommé.
+     */
+    cloudAnalyzeMaxTokens: 1400,
 
     /**
      * Fenêtre de contexte Ollama. Plus bas = prompt_eval plus rapide
@@ -72,8 +79,8 @@ export const docmindConfig = {
 
     /**
      * Timeout hard sur un appel /api/generate (ms).
-     * Doit rester < maxDuration de /api/analyze (300s) pour éviter un kill
-     * plateforme avant l’abort Ollama. Surcharge : OLLAMA_GENERATE_TIMEOUT_MS.
+     * Doit rester < maxDuration Vercel Hobby (300s) — marge pour PG/historique.
+     * Surcharge : OLLAMA_GENERATE_TIMEOUT_MS.
      */
     generateTimeoutMs: 270_000,
 
@@ -106,7 +113,7 @@ export const docmindConfig = {
         embed: "nomic-embed-text",
         tasks: {
           classify: { temperature: 0, maxTokens: 64 },
-          analyze: { temperature: 0, maxTokens: 1100 },
+          analyze: { temperature: 0, maxTokens: 1400 },
           reply: { temperature: 0.3, maxTokens: 500 },
           searchIntent: { temperature: 0, maxTokens: 300 },
         },
@@ -118,7 +125,7 @@ export const docmindConfig = {
         embed: "nomic-embed-text",
         tasks: {
           classify: { temperature: 0, maxTokens: 64 },
-          analyze: { temperature: 0, maxTokens: 1100 },
+          analyze: { temperature: 0, maxTokens: 1400 },
           reply: { temperature: 0.3, maxTokens: 500 },
           searchIntent: { temperature: 0, maxTokens: 300 },
         },
@@ -130,7 +137,7 @@ export const docmindConfig = {
         embed: "nomic-embed-text",
         tasks: {
           classify: { temperature: 0, maxTokens: 64 },
-          analyze: { temperature: 0, maxTokens: 1100 },
+          analyze: { temperature: 0, maxTokens: 1400 },
           reply: { temperature: 0.25, maxTokens: 500 },
           searchIntent: { temperature: 0, maxTokens: 300 },
         },
@@ -142,7 +149,7 @@ export const docmindConfig = {
         embed: "nomic-embed-text",
         tasks: {
           classify: { temperature: 0, maxTokens: 64 },
-          analyze: { temperature: 0, maxTokens: 1100 },
+          analyze: { temperature: 0, maxTokens: 1400 },
           reply: { temperature: 0.3, maxTokens: 500 },
           searchIntent: { temperature: 0, maxTokens: 300 },
         },

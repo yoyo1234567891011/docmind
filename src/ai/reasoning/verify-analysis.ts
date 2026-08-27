@@ -5,6 +5,7 @@ import {
 } from "@/ai/reasoning/citations";
 import { excerptExistsInDocument } from "@/ai/reasoning/normalize-text";
 import { sanitizeDeadlines } from "@/ai/extraction";
+import { criterionSupportedByExcerpt } from "@/ai/post-processing/inject-local-risk-findings";
 import type { CitedConclusion } from "@/types/citation";
 import {
   hasRiskExplanations,
@@ -287,6 +288,20 @@ export function verifyAnalysisDraft(
       excerpt: citation.excerpt,
       citation,
     };
+
+    if (
+      withCitation.criterion_id &&
+      !criterionSupportedByExcerpt(
+        withCitation.criterion_id,
+        withCitation.excerpt,
+      )
+    ) {
+      verifiedFindings.push({ ...withCitation, status: "rejected" });
+      notes.push(
+        `rejected(criterion≠excerpt): ${withCitation.description.slice(0, 60)}`,
+      );
+      continue;
+    }
 
     if (!withCitation.criterion_id && withCitation.confidence < minConfidenceConfirmed) {
       verifiedFindings.push({ ...withCitation, status: "rejected" });

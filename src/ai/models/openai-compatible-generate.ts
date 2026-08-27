@@ -7,6 +7,10 @@ import { LLM_SATURATION_USER_MESSAGE } from "@/lib/sanitize";
 import type { CloudLlmConfig } from "@/ai/models/llm-provider";
 import type { OllamaGenerateResult } from "@/ai/models/types";
 import { isAbortError } from "@/ai/models/ollama-http";
+import {
+  latencyMeta,
+  latencySpan,
+} from "@/services/analysis-jobs/latency-diag";
 
 export type OpenAiCompatibleGenerateInput = {
   prompt: string;
@@ -31,11 +35,12 @@ type ChatCompletionResponse = {
   };
 };
 
-const EMPTY_RESPONSE_RETRIES = 2;
-const RATE_LIMIT_RETRIES = 3;
+const EMPTY_RESPONSE_RETRIES = 1;
+/** Pas de retry HTTP sur 429 — le worker requeue avec cooldown TPM. */
+const RATE_LIMIT_RETRIES = 0;
 /** Groq free TPM ~8k : ne pas réserver trop de completion tokens. */
-const GROQ_MAX_COMPLETION_TOKENS = 1_600;
-const RATE_LIMIT_WAIT_CAP_MS = 90_000;
+const GROQ_MAX_COMPLETION_TOKENS = 1_800;
+const RATE_LIMIT_WAIT_CAP_MS = 30_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -128,6 +133,7 @@ export async function generateWithOpenAiCompatible(
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let response: Response;
+    const requestStart = Date.now();
     try {
       response = await fetch(url, {
         method: "POST",
@@ -149,6 +155,9 @@ export async function generateWithOpenAiCompatible(
         503,
       );
     }
+    // fetch() résout à l’arrivée des headers (pas du body) — proxy NETWORK/TTFB.
+    const headersAt = Date.now();
+    const ttfbMs = headersAt - requestStart;
 
     if (!response.ok) {
       const details = await response.text().catch(() => "");
@@ -163,7 +172,10 @@ export async function generateWithOpenAiCompatible(
         );
         // Freiner les claims P2 pendant la saturation (best-effort).
         void import("@/services/analysis-jobs/p2-concurrency")
-          .then(({ noteP2RateLimitHit }) => noteP2RateLimitHit())
+          .then(({ noteP2RateLimitHit, noteP2GroqRateLimitCooldown }) => {
+            void noteP2RateLimitHit();
+            void noteP2GroqRateLimitCooldown();
+          })
           .catch(() => undefined);
         await sleep(waitMs);
         continue;
@@ -172,6 +184,7 @@ export async function generateWithOpenAiCompatible(
     }
 
     const payload = (await response.json()) as ChatCompletionResponse;
+    const bodyEnd = Date.now();
     const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
     lastFinishReason = payload.choices?.[0]?.finish_reason ?? undefined;
 
@@ -179,6 +192,20 @@ export async function generateWithOpenAiCompatible(
       const promptTokens = payload.usage?.prompt_tokens ?? 0;
       const completionTokens = payload.usage?.completion_tokens ?? 0;
       const durationMs = Date.now() - started;
+      const generateProxyMs = bodyEnd - headersAt;
+      const llmTotalMs = bodyEnd - requestStart;
+
+      latencySpan("networkTtfbMs", ttfbMs);
+      latencySpan("llmWaitMs", ttfbMs);
+      latencySpan("llmGenerateProxyMs", generateProxyMs);
+      latencySpan("llmTotalMs", llmTotalMs);
+      latencyMeta({
+        model: payload.model || model,
+        promptTokens,
+        completionTokens,
+        totalTokens:
+          payload.usage?.total_tokens ?? promptTokens + completionTokens,
+      });
 
       return {
         text,
@@ -188,6 +215,7 @@ export async function generateWithOpenAiCompatible(
         totalTokens:
           payload.usage?.total_tokens ?? promptTokens + completionTokens,
         durationMs,
+        finishReason: lastFinishReason,
       };
     }
 
