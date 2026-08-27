@@ -28,6 +28,7 @@ Copier vers `.env.local` en développement.
 | `EVAL_ALLOW_IN_DEPLOY` | Autorise eval key en prod (déconseillé) |
 | `EVAL_BASE_URL` | Base URL pour evaluate |
 | `HEALTH_DETAILS_TOKEN` | Token pour `/api/health?details=1` |
+| `CRON_SECRET` | Secret Bearer / `x-cron-secret` pour `POST /api/cron/drain-analysis-jobs` — **requis en beta/prod** (sinon drain HTTP 503) |
 
 ## Légal (pages publiques)
 
@@ -45,6 +46,19 @@ Copier vers `.env.local` en développement.
 | `OLLAMA_GENERATE_TIMEOUT_MS` | Timeout génération |
 | `OLLAMA_LOCK_MAX_WAIT_MS` | Attente max file GPU |
 
+## LLM cloud (Vercel autonome)
+
+Dès qu’une clé est définie, `generate()` utilise l’API OpenAI-compatible (plus besoin d’Ollama/tunnel sur le PC).
+
+| Variable | Description |
+|----------|-------------|
+| `LLM_PROVIDER` | `ollama` (force local) ou `openai_compatible` |
+| `LLM_API_KEY` | Clé générique (prioritaire) |
+| `GROQ_API_KEY` | Clé Groq (gratuit) — défaut base `https://api.groq.com/openai/v1` |
+| `MISTRAL_API_KEY` | Clé Mistral — défaut base `https://api.mistral.ai/v1` |
+| `LLM_API_BASE_URL` | Override base URL |
+| `LLM_MODEL` | Ex. `llama-3.1-8b-instant` (Groq) ou `mistral-small-latest` |
+
 ## Optimisations
 
 `OPT_ANALYSIS_CACHE`, `OPT_CONDITIONAL_JSON_RETRY`, `OPT_OLLAMA_KEEP_ALIVE` (`1`/`0`)  
@@ -56,10 +70,10 @@ Copier vers `.env.local` en développement.
 |----------|-------------|
 | `STRIPE_SECRET_KEY` | Secret API |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Publishable |
-| `STRIPE_PRICE_PREMIUM` | `price_…` |
+| `STRIPE_PRICE_BASIQUE` / `PRO` / `PREMIUM` / `EXTRA` | `price_…` mensuels |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` |
 | `BILLING_ENTITLEMENTS_FAIL_OPEN` | `1` force fail-open (jamais en prod) |
-| `QUOTA_FREE_*` / `QUOTA_PREMIUM_*` | analyze, upload, letter, search |
+| `QUOTA_FREE_*` / `QUOTA_BASIQUE_*` / `QUOTA_PRO_*` / `QUOTA_PREMIUM_*` / `QUOTA_EXTRA_*` | analyze, upload, letter, search |
 
 ## Persistance
 
@@ -72,7 +86,7 @@ Copier vers `.env.local` en développement.
 | `S3_ENDPOINT`, `S3_REGION` / `AWS_REGION` | Endpoint / région |
 | `S3_FORCE_PATH_STYLE` | `1` pour MinIO etc. |
 | `PG_POOL_MAX`, `PG_SSL`, `PG_SSL_REJECT_UNAUTHORIZED` | Pool PG |
-| `DOCMIND_FS_FALLBACK` | Lecture FS si miss PG (défaut on en persistent) |
+| `DOCMIND_FS_FALLBACK` | Lecture FS si miss PG (opt-in local; `=0` obligatoire en déployé) |
 | `DOCMIND_FS_DUAL_WRITE` | Écrit FS+PG (rollback) |
 
 ## Analytics & monitoring

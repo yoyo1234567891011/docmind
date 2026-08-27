@@ -1,8 +1,9 @@
 import { getBillingPlan } from "@/config/billing";
 import { isStripeConfigured } from "@/lib/stripe";
 import {
-  hasPremiumAccess,
+  hasPaidAccess,
   resolveAccessBadge,
+  resolveEffectivePlan,
 } from "@/services/billing/access";
 import {
   entitlementsFailOpen,
@@ -36,7 +37,6 @@ export async function getBillingOverview(
   let subscription = await getUserSubscription(userId);
   const stripeConfigured = isStripeConfigured();
 
-  // Sans webhook local : réconcilier périodiquement (activation / annulation portal).
   if (
     options?.reconcile !== false &&
     stripeConfigured &&
@@ -52,12 +52,17 @@ export async function getBillingOverview(
 
   const entitlements = await getUserEntitlements(userId, { reconcile: false });
   const entitlementsDevBypass = entitlementsFailOpen();
-  const isPremium = entitlementsDevBypass
-    ? true
-    : hasPremiumAccess(subscription.plan, subscription.status, {
+  const effectivePlan = entitlementsDevBypass
+    ? ("pro" as const)
+    : resolveEffectivePlan(subscription.plan, subscription.status, {
         currentPeriodEnd: subscription.currentPeriodEnd,
       });
-  const plan = getBillingPlan(isPremium ? "premium" : "free");
+  const isPremium = entitlementsDevBypass
+    ? true
+    : hasPaidAccess(subscription.plan, subscription.status, {
+        currentPeriodEnd: subscription.currentPeriodEnd,
+      });
+  const plan = getBillingPlan(effectivePlan);
   const invoices = await listUserInvoices(userId);
   const accessBadge = resolveAccessBadge(subscription, {
     entitlementsDevBypass,
@@ -68,6 +73,7 @@ export async function getBillingOverview(
     plan,
     entitlements,
     isPremium,
+    effectivePlan,
     accessBadge,
     stripeConfigured,
     entitlementsDevBypass,

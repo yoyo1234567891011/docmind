@@ -1,49 +1,57 @@
 import {
   getAppBaseUrl,
-  getStripePremiumPriceId,
+  getStripePriceIdForPlan,
+  isPaidBillingPlanId,
+  normalizeBillingPlanId,
 } from "@/config/billing";
 import { AppError } from "@/lib/errors";
 import { withKeyedLock } from "@/lib/keyed-lock";
 import { getStripe, requireStripeConfigured } from "@/lib/stripe";
 import { trackAnalyticsEvent } from "@/services/analytics";
-import { hasPremiumAccess } from "@/services/billing/access";
+import { hasPaidAccess } from "@/services/billing/access";
 import { getOrCreateStripeCustomer } from "@/services/billing/customers";
 import { getUserSubscription } from "@/services/billing/store";
+import type { PaidBillingPlanId } from "@/types/billing";
 
-export async function createPremiumCheckoutSession(input: {
+export async function createPlanCheckoutSession(input: {
   userId: string;
   email: string | null;
+  plan: PaidBillingPlanId;
 }): Promise<{ url: string }> {
   requireStripeConfigured();
 
-  const priceId = getStripePremiumPriceId();
+  const plan = input.plan;
+  if (!isPaidBillingPlanId(plan)) {
+    throw new AppError("BAD_REQUEST", "Plan Stripe invalide.", 400);
+  }
+
+  const priceId = getStripePriceIdForPlan(plan);
   if (!priceId) {
     throw new AppError(
       "BAD_REQUEST",
-      "STRIPE_PRICE_PREMIUM manquant.",
+      `Price Stripe manquant pour le plan ${plan}.`,
       503,
     );
   }
 
-  // Mutex + relecture : évite double session / double customer.
   return withKeyedLock(`billing:checkout:${input.userId}`, async () => {
     const sub = await getUserSubscription(input.userId);
-    const stillPremium = hasPremiumAccess(sub.plan, sub.status, {
+    const stillPaid = hasPaidAccess(sub.plan, sub.status, {
       currentPeriodEnd: sub.currentPeriodEnd,
     });
 
-    if (stillPremium && sub.cancelAtPeriodEnd) {
+    if (stillPaid && sub.cancelAtPeriodEnd) {
       throw new AppError(
         "BAD_REQUEST",
-        "Votre Premium est encore actif jusqu’à la fin de période. Réactivez le renouvellement depuis Facturation (ou le portail Stripe) au lieu de créer un nouvel abonnement.",
+        "Votre abonnement est encore actif jusqu’à la fin de période. Réactivez le renouvellement depuis Facturation (ou le portail Stripe) au lieu de créer un nouvel abonnement.",
         400,
       );
     }
 
-    if (stillPremium) {
+    if (stillPaid) {
       throw new AppError(
         "BAD_REQUEST",
-        "Vous êtes déjà abonné à Premium.",
+        "Vous avez déjà un abonnement actif. Gérez-le depuis Facturation ou le portail Stripe (changement d’offre).",
         400,
       );
     }
@@ -75,12 +83,14 @@ export async function createPremiumCheckoutSession(input: {
         client_reference_id: input.userId,
         metadata: {
           docmind_user_id: input.userId,
-          plan: "premium",
+          plan,
+          docmind_plan: plan,
         },
         subscription_data: {
           metadata: {
             docmind_user_id: input.userId,
-            plan: "premium",
+            plan,
+            docmind_plan: plan,
           },
         },
         allow_promotion_codes: true,
@@ -102,7 +112,7 @@ export async function createPremiumCheckoutSession(input: {
       userId: input.userId,
       idempotencyKey: `billing.checkout_started:${session.id}`,
       meta: {
-        plan: "premium",
+        plan,
         source: "checkout_api",
         sessionId: session.id,
       },
@@ -110,4 +120,20 @@ export async function createPremiumCheckoutSession(input: {
 
     return { url: session.url };
   });
+}
+
+/** @deprecated Prefer createPlanCheckoutSession({ plan: "pro" | ... }) */
+export async function createPremiumCheckoutSession(input: {
+  userId: string;
+  email: string | null;
+}): Promise<{ url: string }> {
+  return createPlanCheckoutSession({ ...input, plan: "pro" });
+}
+
+export function parseCheckoutPlan(
+  raw: unknown,
+): PaidBillingPlanId | null {
+  if (typeof raw !== "string") return null;
+  const plan = normalizeBillingPlanId(raw);
+  return isPaidBillingPlanId(plan) ? plan : null;
 }

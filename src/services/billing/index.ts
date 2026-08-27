@@ -13,10 +13,16 @@ export {
 } from "./entitlements";
 export {
   hasPremiumAccess,
+  hasPaidAccess,
+  resolveEffectivePlan,
   resolveAccessBadge,
   stripeStatusLabel,
 } from "./access";
-export { createPremiumCheckoutSession } from "./checkout";
+export {
+  createPremiumCheckoutSession,
+  createPlanCheckoutSession,
+  parseCheckoutPlan,
+} from "./checkout";
 export { createBillingPortalSession } from "./portal";
 export {
   cancelPremiumSubscription,

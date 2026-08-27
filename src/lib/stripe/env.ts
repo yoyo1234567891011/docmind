@@ -1,3 +1,5 @@
+import { areStripePaidPricesConfigured } from "@/config/billing";
+
 export function getStripeSecretKey(): string | undefined {
   return process.env.STRIPE_SECRET_KEY?.trim() || undefined;
 }
@@ -12,9 +14,7 @@ export function getStripePublishableKey(): string | undefined {
   );
 }
 
-/** Stripe est utilisable pour checkout / webhooks. */
+/** Stripe est utilisable pour checkout / webhooks (4 prices + secret). */
 export function isStripeConfigured(): boolean {
-  return Boolean(
-    getStripeSecretKey() && process.env.STRIPE_PRICE_PREMIUM?.trim(),
-  );
+  return Boolean(getStripeSecretKey() && areStripePaidPricesConfigured());
 }

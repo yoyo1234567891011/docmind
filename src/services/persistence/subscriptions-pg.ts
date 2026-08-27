@@ -1,4 +1,5 @@
 import { query } from "@/lib/db/pool";
+import { normalizeBillingPlanId } from "@/config/billing";
 import {
   EMPTY_FREE_SUBSCRIPTION,
   type UserSubscriptionRecord,
@@ -9,7 +10,7 @@ function normalize(record: UserSubscriptionRecord): UserSubscriptionRecord {
   return {
     ...base,
     ...record,
-    plan: record.plan === "premium" ? "premium" : "free",
+    plan: normalizeBillingPlanId(record.plan),
     cancelAtPeriodEnd: Boolean(record.cancelAtPeriodEnd),
   };
 }

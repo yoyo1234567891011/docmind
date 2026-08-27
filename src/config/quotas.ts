@@ -25,20 +25,30 @@ function envInt(key: string, fallback: number): number {
   return Number.isFinite(n) ? Math.trunc(n) : fallback;
 }
 
+const DEFAULTS: Record<BillingPlanId, PlanQuotaLimits> = {
+  free: { analyze: 5, upload: 10, letter: 0, search: 50 },
+  basique: { analyze: 15, upload: 30, letter: 0, search: 200 },
+  pro: { analyze: 40, upload: 80, letter: 20, search: 500 },
+  premium: { analyze: 75, upload: 150, letter: 40, search: 1_000 },
+  extra: { analyze: 150, upload: 300, letter: 75, search: 2_000 },
+};
+
+const ENV_PREFIX: Record<BillingPlanId, string> = {
+  free: "QUOTA_FREE",
+  basique: "QUOTA_BASIQUE",
+  pro: "QUOTA_PRO",
+  premium: "QUOTA_PREMIUM",
+  extra: "QUOTA_EXTRA",
+};
+
 export function getPlanQuotas(plan: BillingPlanId): PlanQuotaLimits {
-  if (plan === "premium") {
-    return {
-      analyze: envInt("QUOTA_PREMIUM_ANALYZE", 200),
-      upload: envInt("QUOTA_PREMIUM_UPLOAD", 500),
-      letter: envInt("QUOTA_PREMIUM_LETTER", 100),
-      search: envInt("QUOTA_PREMIUM_SEARCH", 2_000),
-    };
-  }
+  const prefix = ENV_PREFIX[plan] ?? ENV_PREFIX.free;
+  const base = DEFAULTS[plan] ?? DEFAULTS.free;
   return {
-    analyze: envInt("QUOTA_FREE_ANALYZE", 20),
-    upload: envInt("QUOTA_FREE_UPLOAD", 40),
-    letter: envInt("QUOTA_FREE_LETTER", 0),
-    search: envInt("QUOTA_FREE_SEARCH", 200),
+    analyze: envInt(`${prefix}_ANALYZE`, base.analyze),
+    upload: envInt(`${prefix}_UPLOAD`, base.upload),
+    letter: envInt(`${prefix}_LETTER`, base.letter),
+    search: envInt(`${prefix}_SEARCH`, base.search),
   };
 }
 

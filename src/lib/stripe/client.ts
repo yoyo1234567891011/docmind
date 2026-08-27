@@ -53,7 +53,7 @@ export function requireStripeConfigured(): void {
   if (!isStripeConfigured()) {
     throw new AppError(
       "BAD_REQUEST",
-      "Stripe n’est pas configuré. Ajoutez STRIPE_SECRET_KEY et STRIPE_PRICE_PREMIUM.",
+      "Stripe n’est pas configuré. Ajoutez STRIPE_SECRET_KEY et les STRIPE_PRICE_BASIQUE/PRO/PREMIUM/EXTRA.",
       503,
     );
   }

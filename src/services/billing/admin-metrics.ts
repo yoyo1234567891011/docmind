@@ -2,7 +2,7 @@ import { readdir } from "fs/promises";
 import path from "path";
 
 import { usePersistentStorage } from "@/config/persistence";
-import { BILLING_PLANS } from "@/config/billing";
+import { BILLING_PLANS, isPaidBillingPlanId } from "@/config/billing";
 import { query } from "@/lib/db/pool";
 import { getUserSubscription } from "@/services/billing/store";
 import type { UserSubscriptionRecord } from "@/types/billing";
@@ -16,13 +16,17 @@ export interface BillingAdminRollup {
   source: "postgres" | "filesystem" | "none";
 }
 
-function isPremiumActive(sub: UserSubscriptionRecord): boolean {
-  if (sub.plan !== "premium") return false;
+function isPaidActive(sub: UserSubscriptionRecord): boolean {
+  if (!isPaidBillingPlanId(sub.plan)) return false;
   return (
     sub.status === "active" ||
     sub.status === "trialing" ||
     sub.status === "past_due"
   );
+}
+
+function planMonthlyEur(plan: UserSubscriptionRecord["plan"]): number {
+  return BILLING_PLANS[plan]?.priceMonthlyEur ?? 0;
 }
 
 async function listFromPostgres(): Promise<UserSubscriptionRecord[]> {
@@ -55,9 +59,9 @@ async function listFromFilesystem(): Promise<UserSubscriptionRecord[]> {
   return out;
 }
 
-/** Agrégats abonnements pour MRR / Premium actifs. */
+/** Agrégats abonnements pour MRR / plans payants actifs. */
 export async function collectBillingAdminRollup(): Promise<BillingAdminRollup> {
-  const priceMonthlyEur = BILLING_PLANS.premium.priceMonthlyEur ?? 10;
+  const priceMonthlyEur = BILLING_PLANS.pro.priceMonthlyEur ?? 19.99;
   let subs: UserSubscriptionRecord[] = [];
   let source: BillingAdminRollup["source"] = "none";
 
@@ -88,9 +92,11 @@ export async function collectBillingAdminRollup(): Promise<BillingAdminRollup> {
   let premiumActive = 0;
   let premiumCanceling = 0;
   let freeLocal = 0;
+  let mrrEur = 0;
   for (const sub of subs) {
-    if (isPremiumActive(sub)) {
+    if (isPaidActive(sub)) {
       premiumActive += 1;
+      mrrEur += planMonthlyEur(sub.plan);
       if (sub.cancelAtPeriodEnd) premiumCanceling += 1;
     } else {
       freeLocal += 1;
@@ -101,7 +107,7 @@ export async function collectBillingAdminRollup(): Promise<BillingAdminRollup> {
     premiumActive,
     premiumCanceling,
     freeLocal,
-    mrrEur: Math.round(premiumActive * priceMonthlyEur * 100) / 100,
+    mrrEur: Math.round(mrrEur * 100) / 100,
     priceMonthlyEur,
     source,
   };

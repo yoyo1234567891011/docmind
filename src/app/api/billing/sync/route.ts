@@ -1,6 +1,7 @@
 import { apiFromUnknownError, apiSuccess } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { getBillingOverview } from "@/services/billing";
+import { toClientBillingOverview } from "@/services/billing/public-overview";
 import { syncUserSubscriptionFromStripe } from "@/services/billing/sync";
 import { BILLING_PLANS } from "@/config/billing";
 
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     const overview = await getBillingOverview(user.id);
 
     return apiSuccess({
-      ...overview,
+      ...toClientBillingOverview(overview),
       plans: Object.values(BILLING_PLANS),
       synced: result.synced,
       syncSource: result.source,

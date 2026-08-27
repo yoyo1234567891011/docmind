@@ -1,7 +1,7 @@
 import { getPlanQuotas, type QuotaMetric } from "@/config/quotas";
 import { AppError } from "@/lib/errors";
 import { entitlementsFailOpen } from "@/services/billing/entitlements";
-import { hasPremiumAccess } from "@/services/billing/access";
+import { resolveEffectivePlan } from "@/services/billing/access";
 import { getUserSubscription } from "@/services/billing/store";
 import {
   decrementUserUsage,
@@ -10,6 +10,7 @@ import {
   type UserUsageMonth,
 } from "@/services/quotas/store";
 import type { BillingPlanId } from "@/types/billing";
+import { getBillingPlan } from "@/config/billing";
 
 export interface QuotaStatusItem {
   metric: QuotaMetric;
@@ -26,15 +27,12 @@ export interface QuotaStatus {
 }
 
 function resolvePlan(
-  userId: string,
   subscriptionPlan: BillingPlanId,
   status: string,
   currentPeriodEnd?: string | null,
 ): BillingPlanId {
-  if (entitlementsFailOpen()) return "premium";
-  return hasPremiumAccess(subscriptionPlan, status, { currentPeriodEnd })
-    ? "premium"
-    : "free";
+  if (entitlementsFailOpen()) return "pro";
+  return resolveEffectivePlan(subscriptionPlan, status, { currentPeriodEnd });
 }
 
 export function pickQuotaItem(
@@ -51,17 +49,18 @@ export function quotaExceededMessage(
 ): string {
   const item = pickQuotaItem(status, metric);
   if (!item) return "Quota mensuel atteint.";
+  const planName = getBillingPlan(status.plan).name;
 
   if (metric === "analyze") {
     if (status.plan === "free") {
-      return `Vous avez utilisé vos ${item.limit} analyses du mois. Passez Premium pour continuer.`;
+      return `Vous avez utilisé vos ${item.limit} analyses du mois. Passez à Basique, Pro ou supérieur pour continuer.`;
     }
-    return `Quota Premium atteint pour ce mois (${item.limit} analyses). Réessayez le mois prochain.`;
+    return `Quota ${planName} atteint pour ce mois (${item.limit} analyses). Passez à une offre supérieure ou réessayez le mois prochain.`;
   }
 
   return status.plan === "free"
-    ? `Quota mensuel atteint (${item.used}/${item.limit}). Passez Premium ou attendez le mois prochain.`
-    : `Quota mensuel atteint (${item.used}/${item.limit}). Réessayez le mois prochain.`;
+    ? `Quota mensuel atteint (${item.used}/${item.limit}). Choisissez un abonnement depuis Facturation ou attendez le mois prochain.`
+    : `Quota mensuel ${planName} atteint (${item.used}/${item.limit}). Réessayez le mois prochain ou passez à une offre supérieure.`;
 }
 
 function quotaExceededError(
@@ -77,7 +76,7 @@ function quotaExceededError(
 
 export async function getQuotaStatus(userId: string): Promise<QuotaStatus> {
   const sub = await getUserSubscription(userId);
-  const plan = resolvePlan(userId, sub.plan, sub.status, sub.currentPeriodEnd);
+  const plan = resolvePlan(sub.plan, sub.status, sub.currentPeriodEnd);
   const limits = getPlanQuotas(plan);
   const usage = await getUserUsage(userId);
   const metrics: QuotaMetric[] = ["analyze", "upload", "letter", "search"];
@@ -93,7 +92,9 @@ export async function getQuotaStatus(userId: string): Promise<QuotaStatus> {
         metric,
         used,
         limit,
-        remaining: unlimited ? Number.POSITIVE_INFINITY : Math.max(0, limit - used),
+        remaining: unlimited
+          ? Number.POSITIVE_INFINITY
+          : Math.max(0, limit - used),
         unlimited,
       };
     }),

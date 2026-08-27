@@ -68,6 +68,7 @@ export { trackClientAnalytics } from "./analytics";
 export {
   fetchBilling,
   syncBilling,
+  startPlanCheckout,
   startPremiumCheckout,
   openBillingPortal,
   cancelSubscription,

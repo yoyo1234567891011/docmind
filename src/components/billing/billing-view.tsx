@@ -11,12 +11,13 @@ import {
   fetchBilling,
   openBillingPortal,
   resumeSubscription,
-  startPremiumCheckout,
+  startPlanCheckout,
   syncBilling,
   type BillingApiResponse,
 } from "@/lib/client";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import type { PaidBillingPlanId } from "@/types";
 
 function badgeClass(tone: string): string {
   switch (tone) {
@@ -31,6 +32,10 @@ function badgeClass(tone: string): string {
     default:
       return "bg-[var(--surface-elevated)] text-[var(--muted)]";
   }
+}
+
+function isPaidPlanId(id: string): id is PaidBillingPlanId {
+  return id === "basique" || id === "pro" || id === "premium" || id === "extra";
 }
 
 export function BillingView() {
@@ -90,13 +95,15 @@ export function BillingView() {
         if (cancelled) return;
         setData(next);
         if (next.isPremium) {
-          setInfo("Premium activé — droits synchronisés depuis Stripe.");
+          setInfo(
+            `Plan ${next.plan.name} activé — droits synchronisés depuis Stripe.`,
+          );
           return;
         }
         if (attempts < 6) scheduleRetry();
         else {
           setInfo(
-            "Paiement reçu. Si Premium n’apparaît pas, cliquez sur Actualiser le statut.",
+            "Paiement reçu. Si le plan n’apparaît pas, cliquez sur Actualiser le statut.",
           );
         }
       } catch {
@@ -136,7 +143,7 @@ export function BillingView() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-4xl px-5 py-10">
+      <div className="mx-auto max-w-5xl px-5 py-10">
         <HistoryListSkeleton />
       </div>
     );
@@ -144,7 +151,7 @@ export function BillingView() {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-4xl px-5 py-10">
+      <div className="mx-auto max-w-5xl px-5 py-10">
         <Alert tone="error" title="Facturation">
           {error || "Données indisponibles."}
         </Alert>
@@ -168,7 +175,7 @@ export function BillingView() {
     : "Prochain renouvellement";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 px-5 py-10 sm:px-6">
+    <div className="mx-auto max-w-5xl space-y-8 px-5 py-10 sm:px-6">
       <header className="text-left">
         <p className="text-sm text-[var(--muted)]">
           <Link href="/dashboard" className="hover:text-[var(--accent)]">
@@ -179,8 +186,7 @@ export function BillingView() {
           Facturation
         </h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Statut d’abonnement synchronisé via les webhooks Stripe (pas uniquement
-          le navigateur).
+          Choisissez un plan. Statut synchronisé via les webhooks Stripe.
         </p>
       </header>
 
@@ -196,9 +202,9 @@ export function BillingView() {
       ) : null}
       {!stripeConfigured ? (
         <Alert tone="info" title="Stripe non configuré">
-          Ajoutez STRIPE_SECRET_KEY, STRIPE_PRICE_PREMIUM et
-          STRIPE_WEBHOOK_SECRET dans .env.local. En local sans Stripe, Premium
-          reste disponible pour le développement.
+          Ajoutez STRIPE_SECRET_KEY, STRIPE_PRICE_BASIQUE / PRO / PREMIUM /
+          EXTRA et STRIPE_WEBHOOK_SECRET. En local sans Stripe, l’offre Pro
+          reste ouverte pour le développement.
         </Alert>
       ) : null}
 
@@ -217,7 +223,7 @@ export function BillingView() {
           </span>
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
             <p className="text-xs text-[var(--muted)]">Plan</p>
             <p className="font-display text-3xl">{plan.name}</p>
@@ -256,43 +262,6 @@ export function BillingView() {
           </div>
         </div>
 
-        <dl className="mt-6 grid gap-3 border-t border-[var(--border)] pt-4 text-xs sm:grid-cols-2">
-          <div>
-            <dt className="text-[var(--muted)]">Customer Stripe</dt>
-            <dd className="mt-0.5 break-all font-mono">
-              {subscription.stripeCustomerId || "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[var(--muted)]">Subscription Stripe</dt>
-            <dd className="mt-0.5 break-all font-mono">
-              {subscription.stripeSubscriptionId || "—"}
-            </dd>
-          </div>
-          <div className="sm:col-span-2">
-            <dt className="text-[var(--muted)]">Dernier webhook</dt>
-            <dd className="mt-0.5">
-              {subscription.lastWebhookEventType ? (
-                <>
-                  <code className="rounded bg-[var(--surface-elevated)] px-1.5 py-0.5">
-                    {subscription.lastWebhookEventType}
-                  </code>
-                  {subscription.lastWebhookAt
-                    ? ` · ${formatDateTime(subscription.lastWebhookAt)}`
-                    : ""}
-                  {subscription.lastWebhookEventId ? (
-                    <span className="mt-1 block break-all font-mono text-[var(--muted)]">
-                      {subscription.lastWebhookEventId}
-                    </span>
-                  ) : null}
-                </>
-              ) : (
-                <span className="text-[var(--muted)]">Aucun événement reçu</span>
-              )}
-            </dd>
-          </div>
-        </dl>
-
         <div className="mt-6 flex flex-wrap gap-2">
           <Button
             variant="secondary"
@@ -306,7 +275,7 @@ export function BillingView() {
                 setData(next);
                 setInfo(
                   next.isPremium
-                    ? "Premium synchronisé depuis Stripe."
+                    ? `Plan ${next.plan.name} synchronisé depuis Stripe.`
                     : next.synced
                       ? "Statut Stripe mis à jour."
                       : "Aucun abonnement Stripe trouvé pour ce compte.",
@@ -321,16 +290,16 @@ export function BillingView() {
             <Button
               disabled={Boolean(busy) || !stripeConfigured}
               onClick={() =>
-                void run("checkout", async () => {
-                  const { url } = await startPremiumCheckout();
+                void run("checkout-pro", async () => {
+                  const { url } = await startPlanCheckout("pro");
                   window.location.href = url;
                 })
               }
             >
-              {busy === "checkout" ? (
+              {busy === "checkout-pro" ? (
                 <SpinnerIcon className="h-4 w-4" />
               ) : null}
-              Passer à Premium
+              Passer à Pro
             </Button>
           ) : null}
           {isPremium && stripeConfigured && !entitlementsDevBypass ? (
@@ -345,7 +314,7 @@ export function BillingView() {
                   })
                 }
               >
-                Gérer / factures
+                Changer de plan / factures
               </Button>
               {subscription.cancelAtPeriodEnd ? (
                 <Button
@@ -369,7 +338,7 @@ export function BillingView() {
                   onClick={() => {
                     if (
                       !window.confirm(
-                        "Annuler le renouvellement Premium ? Vous gardez l’accès jusqu’à la fin de la période déjà payée.",
+                        "Annuler le renouvellement ? Vous gardez l’accès jusqu’à la fin de la période déjà payée.",
                       )
                     ) {
                       return;
@@ -380,7 +349,7 @@ export function BillingView() {
                       setData(next);
                       setInfo(
                         result.currentPeriodEnd
-                          ? `Renouvellement annulé — accès Premium jusqu’au ${formatDateTime(result.currentPeriodEnd)} (badge « Expire bientôt »).`
+                          ? `Renouvellement annulé — accès jusqu’au ${formatDateTime(result.currentPeriodEnd)}.`
                           : "Renouvellement annulé en fin de période.",
                       );
                     });
@@ -394,15 +363,23 @@ export function BillingView() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {plans.map((item) => {
           const active = item.id === plan.id;
+          const highlighted = Boolean(item.highlighted);
+          const canCheckout =
+            isPaidPlanId(item.id) &&
+            !active &&
+            stripeConfigured &&
+            !entitlementsDevBypass &&
+            (!isPremium || item.id !== plan.id);
+
           return (
             <article
               key={item.id}
               className={cn(
-                "rounded-xl border p-5 text-left",
-                active
+                "flex flex-col rounded-xl border p-5 text-left",
+                active || highlighted
                   ? "border-[var(--accent)] bg-[var(--surface)]"
                   : "border-[var(--border)] bg-[var(--surface)]",
               )}
@@ -410,6 +387,7 @@ export function BillingView() {
               <p className="text-sm font-medium text-[var(--muted)]">
                 {item.name}
                 {active ? " · actuel" : ""}
+                {highlighted && !active ? " · recommandé" : ""}
               </p>
               <p className="mt-2 font-display text-3xl">
                 {item.priceMonthlyEur == null
@@ -424,11 +402,31 @@ export function BillingView() {
               <p className="mt-1 text-sm text-[var(--muted)]">
                 {item.description}
               </p>
-              <ul className="mt-4 space-y-1.5 text-sm text-[var(--foreground)]">
+              <ul className="mt-4 flex-1 space-y-1.5 text-sm text-[var(--foreground)]">
                 {item.features.map((feature) => (
                   <li key={feature}>— {feature}</li>
                 ))}
               </ul>
+              {canCheckout ? (
+                <Button
+                  className="mt-5 w-full"
+                  variant={highlighted ? "primary" : "secondary"}
+                  disabled={Boolean(busy)}
+                  onClick={() => {
+                    const checkoutPlan = item.id;
+                    if (!isPaidPlanId(checkoutPlan)) return;
+                    void run(`checkout-${checkoutPlan}`, async () => {
+                      const { url } = await startPlanCheckout(checkoutPlan);
+                      window.location.href = url;
+                    });
+                  }}
+                >
+                  {busy === `checkout-${item.id}` ? (
+                    <SpinnerIcon className="h-4 w-4" />
+                  ) : null}
+                  Choisir {item.name}
+                </Button>
+              ) : null}
             </article>
           );
         })}

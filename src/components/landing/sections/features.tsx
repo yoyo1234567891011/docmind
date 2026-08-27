@@ -13,7 +13,7 @@ const FEATURES = [
   },
   {
     title: "Agent courrier",
-    text: "Résiliation, remboursement, contestation : un brouillon basé sur les faits extraits (Premium).",
+    text: "Résiliation, remboursement, contestation : un brouillon basé sur les faits extraits (dès Pro).",
   },
   {
     title: "Bibliothèque claire",
@@ -41,7 +41,7 @@ export function LandingFeatures() {
           </p>
         </div>
 
-        <ul className="mt-14 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-14 grid gap-x-10 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature) => (
             <li key={feature.title} className="text-left">
               <h3 className="text-lg font-medium text-[var(--foreground)]">

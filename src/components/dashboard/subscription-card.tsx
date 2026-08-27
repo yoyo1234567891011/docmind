@@ -103,7 +103,7 @@ export function SubscriptionCard({
 
       <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2">
         <div>
-          <dt className="text-xs text-[var(--muted)]">Actif</dt>
+          <dt className="text-xs text-[var(--muted)]">Plan payant</dt>
           <dd>{isPremium ? "Oui" : "Non"}</dd>
         </div>
         <div>

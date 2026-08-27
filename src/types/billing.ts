@@ -1,5 +1,19 @@
 /** Plans produit DocMind. */
-export type BillingPlanId = "free" | "premium";
+export type BillingPlanId =
+  | "free"
+  | "basique"
+  | "pro"
+  | "premium"
+  | "extra";
+
+export const PAID_BILLING_PLAN_IDS = [
+  "basique",
+  "pro",
+  "premium",
+  "extra",
+] as const;
+
+export type PaidBillingPlanId = (typeof PAID_BILLING_PLAN_IDS)[number];
 
 export type BillingSubscriptionStatus =
   | "trialing"
@@ -21,6 +35,7 @@ export type BillingEntitlement =
 
 export type BillingAccessBadgeId =
   | "free"
+  | "paid_active"
   | "premium_active"
   | "trialing"
   | "past_due"
@@ -48,6 +63,8 @@ export interface BillingPlanDefinition {
   entitlements: BillingEntitlement[];
   /** true = plan payant Stripe */
   stripe: boolean;
+  /** Offre mise en avant (landing / facturation). */
+  highlighted?: boolean;
 }
 
 export interface UserSubscriptionRecord {
@@ -58,6 +75,10 @@ export interface UserSubscriptionRecord {
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   stripePriceId: string | null;
+  /** Présence d’un customer Stripe (IDs bruts non exposés au client). */
+  hasStripeCustomer?: boolean;
+  /** Présence d’une subscription Stripe (IDs bruts non exposés au client). */
+  hasStripeSubscription?: boolean;
   currentPeriodStart: string | null;
   /** Prochaine date de renouvellement (fin de période courante). */
   currentPeriodEnd: string | null;
@@ -90,8 +111,13 @@ export interface BillingOverview {
   subscription: UserSubscriptionRecord;
   plan: BillingPlanDefinition;
   entitlements: BillingEntitlement[];
-  /** Accès Premium effectif (dérivé plan+status, pas un booléen stocké). */
+  /**
+   * Accès payant effectif (plan ≠ free + status OK).
+   * Conservé pour compat UI ; préférer `effectivePlan` / entitlements.
+   */
   isPremium: boolean;
+  /** Plan effectif pour quotas / UI (free si période expirée / status invalide). */
+  effectivePlan: BillingPlanId;
   accessBadge: BillingAccessBadge;
   stripeConfigured: boolean;
   /** true si entitlements en mode dev fail-open (Stripe absent). */

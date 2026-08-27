@@ -17,7 +17,9 @@ import {
 } from "@/lib/client";
 import { createClient } from "@/lib/supabase/client";
 import { QUOTA_METRIC_LABELS } from "@/config/quotas";
+import { BILLING_PLANS } from "@/config/billing";
 import { formatAnalyzeQuotaRemaining } from "@/lib/quotas/display";
+import type { BillingPlanId } from "@/types/billing";
 
 interface ProfileFormProps {
   email: string;
@@ -173,7 +175,8 @@ export function ProfileForm({ email, fullName: initialName }: ProfileFormProps) 
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
           <h2 className="font-display text-xl">Quotas du mois</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Plan {quotas.plan === "premium" ? "Premium" : "Gratuit"} ·{" "}
+            Plan{" "}
+            {BILLING_PLANS[quotas.plan as BillingPlanId]?.name ?? quotas.plan} ·{" "}
             {quotas.month}
           </p>
           <ul className="mt-4 space-y-2">
@@ -222,7 +225,7 @@ export function ProfileForm({ email, fullName: initialName }: ProfileFormProps) 
       </section>
 
       {stats ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           {[
             ["Documents", stats.documents],
             ["Analyses", stats.analyses],

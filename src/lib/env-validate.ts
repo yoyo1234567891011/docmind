@@ -39,7 +39,10 @@ export function validateProductionEnv(): EnvIssue[] {
   require("NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_APP_URL (Checkout / redirects)");
   require("ADMIN_EMAILS");
   require("STRIPE_SECRET_KEY");
+  require("STRIPE_PRICE_BASIQUE");
+  require("STRIPE_PRICE_PRO");
   require("STRIPE_PRICE_PREMIUM");
+  require("STRIPE_PRICE_EXTRA");
   require("STRIPE_WEBHOOK_SECRET");
   require("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
   require("DATABASE_URL", "DATABASE_URL (Postgres — données critiques)");
@@ -63,6 +66,37 @@ export function validateProductionEnv(): EnvIssue[] {
       level: "error",
       message:
         "BILLING_ENTITLEMENTS_FAIL_OPEN=1 interdit en environnement déployé.",
+    });
+  }
+
+  // TLS Postgres : assouplissement self-signed interdit en production stricte.
+  // Autorisé en staging/beta/local pour Supabase (PG_SSL_REJECT_UNAUTHORIZED=0).
+  if (
+    appEnv() === "production" &&
+    process.env.PG_SSL_REJECT_UNAUTHORIZED?.trim() === "0"
+  ) {
+    issues.push({
+      level: "error",
+      message:
+        "PG_SSL_REJECT_UNAUTHORIZED=0 interdit en production (TLS Postgres doit vérifier le certificat).",
+    });
+  }
+
+  const storage = process.env.DOCMIND_STORAGE?.trim().toLowerCase();
+  if (storage !== "persistent") {
+    issues.push({
+      level: "error",
+      message:
+        "DOCMIND_STORAGE=persistent obligatoire en environnement déployé (fs / auto interdit).",
+    });
+  }
+
+  const fallback = process.env.DOCMIND_FS_FALLBACK?.trim().toLowerCase();
+  if (fallback !== "0" && fallback !== "false" && fallback !== "off") {
+    issues.push({
+      level: "error",
+      message:
+        "DOCMIND_FS_FALLBACK=0 obligatoire en environnement déployé (promotion FS→PG interdite).",
     });
   }
 
@@ -93,19 +127,18 @@ export function validateProductionEnv(): EnvIssue[] {
   return issues;
 }
 
+/**
+ * En environnement déployé (production/beta/staging), les protections
+ * critiques ne peuvent PAS être contournées par DOCMIND_SKIP_ENV_ASSERT.
+ * SKIP n’est autorisé qu’en development (CI locale / scripts).
+ */
 export function assertProductionEnvOrThrow(): void {
+  const skipRequested = process.env.DOCMIND_SKIP_ENV_ASSERT === "1";
+  if (skipRequested && !isDeployedEnv()) return;
+
   const issues = validateProductionEnv().filter((i) => i.level === "error");
   if (issues.length > 0) {
     const message = issues.map((i) => i.message).join("\n");
     throw new Error(`[docmind:env] Configuration invalide:\n${message}`);
-  }
-
-  if (process.env.DOCMIND_SKIP_ENV_ASSERT === "1") return;
-
-  // Interdit le forçage FS en déployé (évite cycle d’import avec persistence.ts).
-  if (process.env.DOCMIND_STORAGE?.trim().toLowerCase() === "fs") {
-    throw new Error(
-      "[docmind:env] DOCMIND_STORAGE=fs interdit en production — utiliser persistent.",
-    );
   }
 }

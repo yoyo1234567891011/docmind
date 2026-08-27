@@ -18,7 +18,7 @@ const BillingView = dynamic(
 
 export const metadata: Metadata = {
   title: "Facturation",
-  description: "Abonnement DocMind Gratuit / Premium, annulation et factures.",
+  description: "Abonnement DocMind : Gratuit, Basique, Pro, Premium, Extra.",
 };
 
 export default function FacturationPage() {

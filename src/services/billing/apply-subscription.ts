@@ -1,6 +1,10 @@
 import type Stripe from "stripe";
 
-import { getStripePremiumPriceId } from "@/config/billing";
+import {
+  isPaidBillingPlanId,
+  normalizeBillingPlanId,
+  planIdFromStripePriceId,
+} from "@/config/billing";
 import { trackAnalyticsEvent } from "@/services/analytics";
 import {
   getUserSubscription,
@@ -43,31 +47,31 @@ export function readSubscriptionPriceId(
 }
 
 /**
- * Mappe un abonnement Stripe → plan DocMind.
- * Accepte uniquement le price Premium configuré ou metadata explicite
- * (évite d’accorder Premium sur un autre produit Stripe du même customer).
+ * Mappe un abonnement Stripe → plan DocMind via price_id configurés.
+ * Ancien price Premium 10 € (non listé dans les 4 nouveaux) → free.
  */
 export function planFromSubscription(sub: Stripe.Subscription): BillingPlanId {
   const priceId = readSubscriptionPriceId(sub);
-  const premiumPrice = getStripePremiumPriceId();
-  // En production le price id est la source de vérité.
-  if (premiumPrice) {
-    return priceId === premiumPrice ? "premium" : "free";
-  }
-  // Dev sans price configuré : metadata explicite uniquement.
-  if (
-    sub.metadata?.plan === "premium" ||
-    sub.metadata?.docmind_plan === "premium"
-  ) {
-    return "premium";
-  }
+  const fromPrice = planIdFromStripePriceId(priceId);
+  if (fromPrice !== "free") return fromPrice;
+
+  // Dev sans prices configurés : metadata explicite.
+  const meta =
+    sub.metadata?.docmind_plan?.trim() || sub.metadata?.plan?.trim() || "";
+  const fromMeta = normalizeBillingPlanId(meta);
+  if (isPaidBillingPlanId(fromMeta)) return fromMeta;
   return "free";
 }
 
-export function isStripePremiumStatus(status: string): boolean {
+export function isStripePaidStatus(status: string): boolean {
   return (
     status === "active" || status === "trialing" || status === "past_due"
   );
+}
+
+/** @deprecated Prefer isStripePaidStatus */
+export function isStripePremiumStatus(status: string): boolean {
+  return isStripePaidStatus(status);
 }
 
 /**
@@ -76,7 +80,7 @@ export function isStripePremiumStatus(status: string): boolean {
  */
 export function isCancelScheduled(sub: Stripe.Subscription): boolean {
   if (sub.cancel_at_period_end) return true;
-  if (!isStripePremiumStatus(sub.status)) return false;
+  if (!isStripePaidStatus(sub.status)) return false;
   return typeof sub.cancel_at === "number" && sub.cancel_at > 0;
 }
 
@@ -98,9 +102,9 @@ export async function applyStripeSubscription(
   const period = periodFromSubscription(sub);
   const status = sub.status as BillingSubscriptionStatus;
   const catalogPlan = planFromSubscription(sub);
-  const active = isStripePremiumStatus(status);
+  const active = isStripePaidStatus(status);
   let nextPlan: BillingPlanId =
-    active && catalogPlan === "premium" ? "premium" : "free";
+    active && isPaidBillingPlanId(catalogPlan) ? catalogPlan : "free";
   if (status === "canceled" || status === "unpaid") {
     nextPlan = "free";
   }
@@ -123,8 +127,6 @@ export async function applyStripeSubscription(
       currentPeriodStart: period.start,
       currentPeriodEnd: periodEnd,
       cancelAtPeriodEnd: cancelScheduled,
-      // Ne garder canceledAt que si annulation planifiée ou effective —
-      // sinon un resume laisserait un stale canceled_at Stripe et un faux badge.
       canceledAt: cancelScheduled
         ? toIso(sub.canceled_at) || new Date().toISOString()
         : status === "canceled"
@@ -144,27 +146,26 @@ export async function applyStripeSubscription(
     eventMeta ? { webhookCreatedSec: eventMeta.created } : undefined,
   );
 
-  // Événement plus ancien que lastWebhookAt — ignoré sous le verrou.
   if (!applied) return;
 
-  const wasPremium =
+  const wasPaid =
     previous != null &&
-    previous.plan === "premium" &&
-    isStripePremiumStatus(previous.status);
-  const isPremiumNow = nextPlan === "premium" && active;
-  if (!wasPremium && isPremiumNow) {
+    isPaidBillingPlanId(previous.plan) &&
+    isStripePaidStatus(previous.status);
+  const isPaidNow = isPaidBillingPlanId(nextPlan) && active;
+  if (!wasPaid && isPaidNow) {
     await trackAnalyticsEvent({
       name: "billing.converted",
       userId,
       idempotencyKey: `billing.converted:${sub.id}:${period.start ?? "na"}`,
       meta: {
-        plan: "premium",
+        plan: nextPlan,
         status,
         stripeSubscriptionId: sub.id,
         source: eventMeta?.type ?? "apply_subscription",
       },
     });
-  } else if (wasPremium && !isPremiumNow) {
+  } else if (wasPaid && !isPaidNow) {
     await trackAnalyticsEvent({
       name: "billing.churned",
       userId,

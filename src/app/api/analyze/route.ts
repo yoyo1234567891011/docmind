@@ -28,7 +28,7 @@ export const maxDuration = 300;
 
 /** Limite texte analysé (défense DoS) — ~upload PDF 10 Mo. */
 const MAX_ANALYZE_TEXT_CHARS = 1_500_000;
-const MAX_ANALYZE_PAGES = 200;
+const MAX_ANALYZE_PAGES = 30;
 
 export async function POST(request: Request) {
   try {
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     if (pages && pages.length > MAX_ANALYZE_PAGES) {
       throw new AppError(
         "BAD_REQUEST",
-        `Trop de pages (max ${MAX_ANALYZE_PAGES}).`,
+        `Ce document dépasse la limite de ${MAX_ANALYZE_PAGES} pages. Réduisez le PDF ou scindez-le.`,
         413,
       );
     }

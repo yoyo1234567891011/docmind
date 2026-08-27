@@ -53,9 +53,12 @@ export function LetterDraftPanel({
         if (cancelled) return;
         setSuggestedType(data.suggestion.letterType);
         setSuggestionReason(data.suggestion.reason);
+        const hasLetter =
+          billing?.entitlementsDevBypass === true ||
+          billing?.entitlements?.includes("letter_agent") === true;
         const needsPremium =
           data.premiumRequired === true ||
-          (billing != null && !billing.isPremium && !billing.entitlementsDevBypass);
+          (billing != null && !hasLetter);
         setPremiumRequired(needsPremium);
         if (!needsPremium && data.currentLetter?.required) {
           setLetter(data.currentLetter);
@@ -120,13 +123,13 @@ export function LetterDraftPanel({
 
         <div className="space-y-4 px-5 py-4">
           {billingChecked && premiumRequired ? (
-            <Alert tone="info" title="Offre Premium">
-              L’agent courrier est réservé à Premium.{" "}
+            <Alert tone="info" title="Offre Pro">
+              L’agent courrier est inclus à partir de l’offre Pro.{" "}
               <Link
                 href="/facturation"
                 className="font-medium text-[var(--accent)] hover:underline"
               >
-                Passer à Premium
+                Voir les plans
               </Link>
             </Alert>
           ) : (

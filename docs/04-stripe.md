@@ -4,12 +4,26 @@
 
 Catalogue : `src/config/billing.ts`.
 
-| Plan | Prix | Entitlements |
-|------|------|--------------|
-| **Gratuit** | — | `analyze`, `memory`, `search`, `alerts`, `documents` |
-| **Premium** | 19 € / mois | + `letter_agent`, `priority_support` |
+| Plan | Prix | Analyses | Entitlements clés |
+|------|------|----------|-------------------|
+| **Gratuit** | — | 5 | `analyze`, `memory`, `search`, `alerts`, `documents` |
+| **Basique** | 9,99 € / mois | 15 | idem Gratuit (sans courrier) |
+| **Pro** | 19,99 € / mois | 40 | + `letter_agent` |
+| **Premium** | 34,99 € / mois | 75 | + `priority_support` |
+| **Extra** | 59,99 € / mois | 150 | idem Premium |
 
-Price ID Stripe : `STRIPE_PRICE_PREMIUM` (`price_…`).
+Price IDs Stripe (mensuels EUR) :
+
+```
+STRIPE_PRICE_BASIQUE=price_…
+STRIPE_PRICE_PRO=price_…
+STRIPE_PRICE_PREMIUM=price_…
+STRIPE_PRICE_EXTRA=price_…
+```
+
+Un `price_…` non listé (ex. ancien Premium 10 €) → plan **free**.
+
+Limite PDF : **30 pages** / document (`MAX_PDF_PAGES`).
 
 ## Fail-open / fail-closed
 
@@ -17,7 +31,7 @@ Price ID Stripe : `STRIPE_PRICE_PREMIUM` (`price_…`).
 
 | Contexte | Comportement |
 |----------|--------------|
-| Dev local **sans** Stripe | Fail-open (Premium effectif) sauf `BILLING_ENTITLEMENTS_FAIL_OPEN=0` |
+| Dev local **sans** Stripe | Fail-open (Pro effectif) sauf `BILLING_ENTITLEMENTS_FAIL_OPEN=0` |
 | Production / beta / staging **sans** Stripe | **Fail-closed** (Gratuit) — ne pas déployer ainsi |
 | Stripe configuré | Toujours état réel de l’abonnement local synchronisé |
 
@@ -25,16 +39,16 @@ Price ID Stripe : `STRIPE_PRICE_PREMIUM` (`price_…`).
 
 ```text
 UI /facturation
-  → POST /api/billing/checkout
+  → POST /api/billing/checkout { plan: basique|pro|premium|extra }
   → Stripe Checkout Session (subscription)
   → succès → redirect app
-  → webhook checkout.session.updated / subscription.*
+  → webhook checkout.session.completed / subscription.*
   → applyStripeSubscription → app_subscriptions / subscription.json
 ```
 
 Autres routes :
 
-- `POST /api/billing/portal` — Customer Portal  
+- `POST /api/billing/portal` — Customer Portal (changement de plan)  
 - `POST /api/billing/cancel` — résiliation fin de période  
 - `POST /api/billing/sync` — réconciliation manuelle  
 - `GET /api/billing` — overview pour l’UI  
@@ -42,15 +56,16 @@ Autres routes :
 ## Webhooks
 
 Endpoint : `POST /api/stripe/webhook` (corps **brut**, signature `stripe-signature`).  
-Handler : `src/services/billing/webhook.ts`.
+Handler : `src/services/billing/webhook.ts`. **Pas de nouveau webhook** pour le multi-plan.
 
-### Idempotence
+### Idempotence (concurrence)
 
-1. `claimStripeWebhookEvent(event.id)` → insert PG `stripe_webhook_events`  
-2. Si déjà claim → `{ handled: true }` (no-op)  
-3. Traitement ; en erreur → `releaseStripeWebhookEvent` (Stripe peut retry)  
+1. Single-flight Redis/local : `withKeyedLock(billing:webhook:{event.id})`  
+2. Si déjà claimé (`stripe_webhook_events`) → `{ handled: true }` (no-op)  
+3. `dispatch` puis **claim définitif uniquement si `handled:true`**  
+4. Crash avant claim → pas de claim fantôme → Stripe peut retry  
 
-En mode FS (dev) : pas de dédup durable (claim toujours true).
+Ordre des états : `event.created` comparé à `lastWebhookAt` **sous** le mutex `billing:sub:{userId}`.
 
 ### Événements gérés
 
@@ -60,7 +75,7 @@ En mode FS (dev) : pas de dédup durable (claim toujours true).
 - `charge.refunded`, `refund.created`  
 - `charge.dispute.created|funds_withdrawn`  
 
-Remboursement complet → révocation Premium locale (+ tentative cancel Stripe).
+Remboursement complet → révocation locale (+ tentative cancel Stripe).
 
 ### Local
 
@@ -69,28 +84,21 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 # Copier le whsec_… dans STRIPE_WEBHOOK_SECRET
 ```
 
+Helper création prices : `node scripts/create-stripe-plan-prices.mjs`
+
 ## Quotas
 
 `src/config/quotas.ts` (+ overrides `QUOTA_*` dans `.env`).
 
-| Quota | Free | Premium |
-|-------|------|---------|
-| analyze | 30 / mois | 500 |
-| upload | 40 | 500 |
-| letter | 0 | 100 |
-| search | 200 | 2000 |
+| Quota | Free | Basique | Pro | Premium | Extra |
+|-------|------|---------|-----|---------|-------|
+| analyze | 5 | 15 | 40 | 75 | 150 |
+| upload | 10 | 30 | 80 | 150 | 300 |
+| letter | 0 | 0 | 20 | 40 | 75 |
+| search | 50 | 200 | 500 | 1 000 | 2 000 |
 
-`-1` = illimité. Consommation : `src/services/quotas/enforce.ts` → `GET /api/quotas`.
+## Accès
 
-## Analytics billing
-
-Events : `billing.checkout_started`, `converted`, `renewed`, `cancel_requested`, `refunded`, `churned`  
-(voir [Analytics](./05-analytics.md)).
-
-## Checklist intégration
-
-1. Clés test Stripe + `STRIPE_PRICE_PREMIUM`  
-2. `NEXT_PUBLIC_APP_URL` (redirects)  
-3. Webhook secret + `stripe listen` en local  
-4. Smoke : checkout → webhook → `/api/billing` montre Premium  
-5. Test e2e : `e2e/specs/04-billing-premium-refund.spec.ts`
+- `hasPaidAccess` / `resolveEffectivePlan` — plan payant actif  
+- `letter_agent` dès **Pro**  
+- `isPremium` dans l’API billing = accès payant (compat UI)

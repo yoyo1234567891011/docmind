@@ -15,11 +15,11 @@ const FAQ_ITEMS = [
   },
   {
     q: "Faut-il une carte bancaire pour commencer ?",
-    a: "Non. L’offre Gratuite suffit pour analyser, rechercher et recevoir des alertes. Premium est optionnel (courriers IA).",
+    a: "Non. L’offre Gratuite suffit pour analyser, rechercher et recevoir des alertes. L’agent courrier est inclus dès Pro.",
   },
   {
-    q: "Puis-je annuler Premium facilement ?",
-    a: "Oui. Vous gérez l’abonnement depuis Facturation ; l’annulation en fin de période est prévue. Aucun engagement long.",
+    q: "Puis-je changer ou annuler mon abonnement facilement ?",
+    a: "Oui. Vous gérez l’abonnement depuis Facturation (portail Stripe) ; l’annulation en fin de période est prévue. Aucun engagement long.",
   },
   {
     q: "DocMind remplace-t-il un avocat ?",

@@ -3,10 +3,13 @@ import { extractText } from "unpdf";
 import { AppError } from "@/lib/errors";
 import { mergePagesToText } from "@/ai/reasoning/citations";
 import { computeTextFingerprints } from "@/services/memory/fingerprints";
+import {
+  classifyExtractedTextQuality,
+} from "@/services/pdf/text-sufficiency";
 import type { ExtractedDocumentText } from "@/types";
 
 /** Défense DoS : PDF compressé → explosion pages/texte (bombe PDF). */
-const MAX_PDF_PAGES = 200;
+const MAX_PDF_PAGES = 30;
 const MAX_EXTRACTED_TEXT_CHARS = 1_500_000;
 const MAX_PAGE_CHARS = 50_000;
 
@@ -28,7 +31,7 @@ export async function extractTextFromPdf(
     if (totalPages > MAX_PDF_PAGES) {
       throw new AppError(
         "UNSUPPORTED_FILE",
-        `PDF trop volumineux (${totalPages} pages, max ${MAX_PDF_PAGES}).`,
+        `Ce PDF dépasse la limite de ${MAX_PDF_PAGES} pages (${totalPages} pages). Réduisez le document ou scindez-le.`,
         413,
       );
     }
@@ -37,7 +40,7 @@ export async function extractTextFromPdf(
     if (rawPages.length > MAX_PDF_PAGES) {
       throw new AppError(
         "UNSUPPORTED_FILE",
-        `PDF trop volumineux (max ${MAX_PDF_PAGES} pages).`,
+        `Ce PDF dépasse la limite de ${MAX_PDF_PAGES} pages. Réduisez le document ou scindez-le.`,
         413,
       );
     }
@@ -61,12 +64,14 @@ export async function extractTextFromPdf(
     }
 
     const fingerprints = computeTextFingerprints(text);
+    const pageCount = totalPages || pages.length;
 
     return {
       documentId,
       text,
-      pageCount: totalPages || pages.length,
+      pageCount,
       pages,
+      textQuality: classifyExtractedTextQuality(text, pageCount),
       contentHash: fingerprints.contentHash,
       simhash: fingerprints.simhash,
     };

@@ -1,7 +1,13 @@
-import { getBillingPlan } from "@/config/billing";
+import {
+  getBillingPlan,
+  isPaidBillingPlanId,
+} from "@/config/billing";
 import { isDeployedEnv } from "@/lib/env-validate";
 import { isStripeConfigured } from "@/lib/stripe";
-import { hasPremiumAccess } from "@/services/billing/access";
+import {
+  hasPaidAccess,
+  resolveEffectivePlan,
+} from "@/services/billing/access";
 import { getUserSubscription } from "@/services/billing/store";
 import { syncUserSubscriptionFromStripe } from "@/services/billing/sync";
 import type { BillingEntitlement, BillingPlanId } from "@/types/billing";
@@ -14,20 +20,18 @@ const ENTITLEMENT_RECONCILE_MS = 30_000;
  */
 export function entitlementsFailOpen(): boolean {
   if (isStripeConfigured()) return false;
-  // Jamais de Premium fantôme en déployé, même avec FAIL_OPEN=1.
   if (isDeployedEnv()) return false;
   if (process.env.BILLING_ENTITLEMENTS_FAIL_OPEN === "1") return true;
   if (process.env.BILLING_ENTITLEMENTS_FAIL_OPEN === "0") return false;
-  // development / test
   return true;
 }
 
-/** @deprecated Prefer hasPremiumAccess — conservé pour imports existants. */
+/** @deprecated Prefer hasPaidAccess */
 export function isPremiumStatus(
   plan: BillingPlanId,
   status: string,
 ): boolean {
-  return hasPremiumAccess(plan, status);
+  return hasPaidAccess(plan, status);
 }
 
 async function maybeReconcileSubscription(userId: string): Promise<void> {
@@ -52,11 +56,11 @@ export async function getUserEntitlements(
   options?: { reconcile?: boolean },
 ): Promise<BillingEntitlement[]> {
   if (entitlementsFailOpen()) {
-    return getBillingPlan("premium").entitlements;
+    // Dev local : Pro (courrier) sans Stripe.
+    return getBillingPlan("pro").entitlements;
   }
 
   if (!isStripeConfigured()) {
-    // Prod sans Stripe : pas de Premium fantôme
     return getBillingPlan("free").entitlements;
   }
 
@@ -65,14 +69,10 @@ export async function getUserEntitlements(
   }
 
   const sub = await getUserSubscription(userId);
-  if (
-    hasPremiumAccess(sub.plan, sub.status, {
-      currentPeriodEnd: sub.currentPeriodEnd,
-    })
-  ) {
-    return getBillingPlan("premium").entitlements;
-  }
-  return getBillingPlan("free").entitlements;
+  const effective = resolveEffectivePlan(sub.plan, sub.status, {
+    currentPeriodEnd: sub.currentPeriodEnd,
+  });
+  return getBillingPlan(effective).entitlements;
 }
 
 export async function hasEntitlement(
@@ -91,10 +91,18 @@ export async function requireEntitlement(
   const { AppError } = await import("@/lib/errors");
   const ok = await hasEntitlement(userId, entitlement, { reconcile: true });
   if (!ok) {
-    throw new AppError(
-      "FORBIDDEN",
-      "Cette fonctionnalité nécessite l’offre Premium. Passez à Premium depuis Facturation.",
-      403,
-    );
+    const upgradeHint =
+      entitlement === "letter_agent"
+        ? "Cette fonctionnalité nécessite l’offre Pro ou supérieure. Choisissez un plan depuis Facturation."
+        : "Cette fonctionnalité nécessite un abonnement payant. Passez à un plan depuis Facturation.";
+    throw new AppError("FORBIDDEN", upgradeHint, 403);
   }
+}
+
+export function planHasLetterAgent(plan: BillingPlanId): boolean {
+  return getBillingPlan(plan).entitlements.includes("letter_agent");
+}
+
+export function planIsPaid(plan: BillingPlanId): boolean {
+  return isPaidBillingPlanId(plan);
 }

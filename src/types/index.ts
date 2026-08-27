@@ -89,6 +89,7 @@ export type { UserAccountStats } from "./account";
 
 export type {
   BillingPlanId,
+  PaidBillingPlanId,
   BillingSubscriptionStatus,
   BillingEntitlement,
   BillingPlanDefinition,
@@ -98,7 +99,7 @@ export type {
   BillingInvoiceSummary,
   BillingOverview,
 } from "./billing";
-export { EMPTY_FREE_SUBSCRIPTION } from "./billing";
+export { EMPTY_FREE_SUBSCRIPTION, PAID_BILLING_PLAN_IDS } from "./billing";
 
 export { EVAL_FIELDS, AGENT_EVAL_STEPS } from "./eval";
 export type {

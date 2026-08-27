@@ -8,6 +8,8 @@ import {
   analysisJobPollTimeoutMessage,
   analysisJobProcessingHint,
   analysisJobQueuePositionLine,
+  analysisJobLongWaitHint,
+  analysisJobSaturationFailMessage,
   analysisJobSaturationWaitHint,
   analysisJobStatusBody,
   analysisJobStatusTitle,
@@ -47,6 +49,7 @@ import {
   readPendingAnalysis,
   savePendingAnalysis,
 } from "@/lib/client/pending-analysis";
+import { markDashboardStale } from "@/lib/client/dashboard-sync";
 import {
   classifyExtractedTextQuality,
   extractionQualityMessage,
@@ -91,6 +94,7 @@ export function HomeUploadSection() {
   >(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [saturationWait, setSaturationWait] = useState(false);
+  const [longWaitHint, setLongWaitHint] = useState<string | null>(null);
   const [quotas, setQuotas] = useState<QuotaStatus | null>(null);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -187,6 +191,7 @@ export function HomeUploadSection() {
     setBackgroundPending(true);
     setJobUiStatus(input.jobId ? "pending" : "processing");
     setQueuePosition(null);
+    setLongWaitHint(null);
     let attempts = 0;
     let consecutiveErrors = 0;
     const MAX_ATTEMPTS = 120; // ~8 min
@@ -213,6 +218,7 @@ export function HomeUploadSection() {
           documentId: record.documentId || current?.documentId || "",
         }),
       );
+      markDashboardStale("analysis");
     };
 
     pollRef.current = setInterval(() => {
@@ -239,23 +245,32 @@ export function HomeUploadSection() {
               (job.status === "pending" || job.status === "processing") &&
                 isAnalysisJobSaturationHint(job.lastError),
             );
+            setLongWaitHint(
+              job.status === "pending" || job.status === "processing"
+                ? analysisJobLongWaitHint(job.attempts)
+                : null,
+            );
 
             if (job.status === "completed") {
               finishPending();
               setSaturationWait(false);
+              setLongWaitHint(null);
               await applyCompletedHistory(job.historyId || input.historyId);
               return;
             }
             if (job.status === "failed") {
               finishPending();
               setSaturationWait(false);
+              setLongWaitHint(null);
               pendingHistoryRef.current = null;
               pendingJobRef.current = null;
               clearPendingAnalysis();
               setJobUiStatus("failed");
               setAnalysisError(
                 job.lastError?.trim()
-                  ? `L’analyse approfondie a échoué : ${job.lastError}`
+                  ? isAnalysisJobSaturationHint(job.lastError)
+                    ? analysisJobSaturationFailMessage()
+                    : `L’analyse approfondie a échoué : ${job.lastError}`
                   : "L’analyse approfondie a échoué. L’aperçu reste disponible — réessayez plus tard.",
               );
               trackAbandon("p2_failed", input.historyId);
@@ -392,8 +407,8 @@ export function HomeUploadSection() {
       setQuotaExceeded(true);
       setAnalysisError(
         quotas?.plan === "free"
-          ? `Vous avez utilisé vos ${analyzeQuota?.limit ?? 20} analyses du mois. Passez Premium pour continuer.`
-          : "Quota Premium atteint pour ce mois.",
+          ? `Vous avez utilisé vos ${analyzeQuota?.limit ?? 5} analyses du mois. Choisissez un plan pour continuer.`
+          : "Quota d’analyses atteint pour ce mois. Passez à une offre supérieure.",
       );
       return;
     }
@@ -460,8 +475,8 @@ export function HomeUploadSection() {
         disabledMessage={
           analyzeQuotaExhausted
             ? quotas?.plan === "free"
-              ? `Vous avez utilisé vos ${analyzeQuota?.limit ?? 20} analyses du mois. Passez Premium pour continuer.`
-              : "Quota Premium atteint pour ce mois."
+              ? `Vous avez utilisé vos ${analyzeQuota?.limit ?? 5} analyses du mois. Choisissez un plan pour continuer.`
+              : "Quota d’analyses atteint pour ce mois. Passez à une offre supérieure."
             : undefined
         }
         onStatusChange={setUploadStatus}
@@ -524,7 +539,7 @@ export function HomeUploadSection() {
                     href="/facturation"
                     className="inline-block font-medium text-[var(--accent)] underline-offset-2 hover:underline"
                   >
-                    Passer Premium pour continuer
+                    Passer à un plan pour continuer
                   </Link>
                 ) : null}
                 {!quotaExceeded ? (
@@ -597,6 +612,9 @@ export function HomeUploadSection() {
                     <p className="text-sm opacity-90">
                       {analysisJobSaturationWaitHint()}
                     </p>
+                  ) : null}
+                  {longWaitHint ? (
+                    <p className="text-sm opacity-90">{longWaitHint}</p>
                   ) : null}
                   {jobUiStatus === "processing" ? (
                     <p className="text-sm opacity-90">

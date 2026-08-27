@@ -148,7 +148,7 @@ async function revokePremiumAfterFullRefund(
   });
 
   if (
-    previous.plan === "premium" &&
+    previous.plan !== "free" &&
     (previous.status === "active" ||
       previous.status === "trialing" ||
       previous.status === "past_due")

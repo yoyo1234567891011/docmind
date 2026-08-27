@@ -4,36 +4,67 @@ import type {
   BillingSubscriptionStatus,
   UserSubscriptionRecord,
 } from "@/types/billing";
+import { isPaidBillingPlanId, normalizeBillingPlanId } from "@/config/billing";
+
+function statusAllowsPaidAccess(
+  status: BillingSubscriptionStatus | string,
+): boolean {
+  return status === "active" || status === "trialing" || status === "past_due";
+}
+
+function periodStillValid(period?: {
+  currentPeriodEnd?: string | null;
+  now?: number;
+}): boolean {
+  const endRaw = period?.currentPeriodEnd;
+  if (!endRaw) return true;
+  const end = Date.parse(endRaw);
+  const now = period?.now ?? Date.now();
+  if (Number.isFinite(end) && end < now) return false;
+  return true;
+}
 
 /**
- * Droits Premium dérivés du couple (plan, status Stripe) — jamais d’un booléen isolé.
- * - active / trialing : accès Premium
- * - past_due : grâce (relances Stripe)
- * - cancel_at_period_end + active : accès jusqu’à currentPeriodEnd
- * - période expirée (currentPeriodEnd < now) : plus d’accès, même si status local encore active
- * - unpaid / canceled / incomplete / paused : pas d’accès Premium
+ * Accès payant effectif (plan ≠ free + status Stripe OK + période non expirée).
+ * Remplace l’ancien binaire Premium-only.
+ */
+export function hasPaidAccess(
+  plan: BillingPlanId,
+  status: BillingSubscriptionStatus | string,
+  period?: { currentPeriodEnd?: string | null; now?: number },
+): boolean {
+  if (!isPaidBillingPlanId(plan)) return false;
+  if (!statusAllowsPaidAccess(status)) return false;
+  return periodStillValid(period);
+}
+
+/**
+ * Plan effectif pour quotas / entitlements.
+ * Si le statut / la période n’autorise plus l’accès → free.
+ */
+export function resolveEffectivePlan(
+  plan: BillingPlanId,
+  status: BillingSubscriptionStatus | string,
+  period?: { currentPeriodEnd?: string | null; now?: number },
+): BillingPlanId {
+  const normalized = normalizeBillingPlanId(plan);
+  if (!hasPaidAccess(normalized, status, period)) return "free";
+  return normalized;
+}
+
+/**
+ * Compat : ancien « Premium » = tout plan payant actif.
+ * @deprecated Prefer hasPaidAccess / resolveEffectivePlan
  */
 export function hasPremiumAccess(
   plan: BillingPlanId,
   status: BillingSubscriptionStatus | string,
   period?: { currentPeriodEnd?: string | null; now?: number },
 ): boolean {
-  if (plan !== "premium") return false;
-  if (
-    !(status === "active" || status === "trialing" || status === "past_due")
-  ) {
-    return false;
-  }
-  const endRaw = period?.currentPeriodEnd;
-  if (endRaw) {
-    const end = Date.parse(endRaw);
-    const now = period?.now ?? Date.now();
-    if (Number.isFinite(end) && end < now) return false;
-  }
-  return true;
+  return hasPaidAccess(plan, status, period);
 }
 
-/** Alias — remplace l’ancien isPremiumStatus basé sur un booléen stocké. */
+/** Alias historique. */
 export const isPremiumStatus = hasPremiumAccess;
 
 export function resolveAccessBadge(
@@ -51,20 +82,22 @@ export function resolveAccessBadge(
   if (options?.entitlementsDevBypass) {
     return {
       id: "dev_premium",
-      label: "Premium (dev)",
+      label: "Pro (dev)",
       tone: "info",
-      description: "Stripe non configuré — entitlements Premium en local.",
+      description: "Stripe non configuré — entitlements Pro+ en local.",
     };
   }
 
-  const { plan, status, cancelAtPeriodEnd } = subscription;
+  const plan = normalizeBillingPlanId(subscription.plan);
+  const { status, cancelAtPeriodEnd } = subscription;
+  const paid = isPaidBillingPlanId(plan);
 
   if (status === "unpaid") {
     return {
       id: "unpaid",
       label: "Impayé",
       tone: "danger",
-      description: "Paiement échoué — droits Premium révoqués.",
+      description: "Paiement échoué — droits payants révoqués.",
     };
   }
 
@@ -77,9 +110,8 @@ export function resolveAccessBadge(
     };
   }
 
-  // Annulation planifiée — avant Essai / Actif (cancel_at_period_end ou cancel_at).
   if (
-    plan === "premium" &&
+    paid &&
     (status === "active" || status === "trialing") &&
     cancelAtPeriodEnd
   ) {
@@ -88,11 +120,11 @@ export function resolveAccessBadge(
       label: "Expire bientôt",
       tone: "warning",
       description:
-        "Renouvellement annulé — Premium actif jusqu’à la date indiquée.",
+        "Renouvellement annulé — accès actif jusqu’à la date indiquée.",
     };
   }
 
-  if (status === "trialing" && plan === "premium") {
+  if (status === "trialing" && paid) {
     return {
       id: "trialing",
       label: "Essai",
@@ -101,7 +133,7 @@ export function resolveAccessBadge(
     };
   }
 
-  if (status === "past_due" && plan === "premium") {
+  if (status === "past_due" && paid) {
     return {
       id: "past_due",
       label: "Paiement en retard",
@@ -110,10 +142,16 @@ export function resolveAccessBadge(
     };
   }
 
-  if (plan === "premium" && status === "active") {
+  if (paid && status === "active") {
+    const labelByPlan: Record<string, string> = {
+      basique: "Basique actif",
+      pro: "Pro actif",
+      premium: "Premium actif",
+      extra: "Extra actif",
+    };
     return {
-      id: "premium_active",
-      label: "Premium actif",
+      id: plan === "premium" || plan === "extra" ? "premium_active" : "paid_active",
+      label: labelByPlan[plan] ?? "Abonnement actif",
       tone: "success",
       description: "Abonnement Stripe actif.",
     };

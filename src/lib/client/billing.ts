@@ -2,6 +2,7 @@ import type {
   ApiResponse,
   BillingOverview,
   BillingPlanDefinition,
+  PaidBillingPlanId,
 } from "@/types";
 
 import { csrfHeaders } from "@/lib/client/csrf";
@@ -33,13 +34,21 @@ export async function syncBilling(options?: {
   return parse(response);
 }
 
-export async function startPremiumCheckout(): Promise<{ url: string }> {
+export async function startPlanCheckout(
+  plan: PaidBillingPlanId = "pro",
+): Promise<{ url: string }> {
   const response = await fetch("/api/billing/checkout", {
     method: "POST",
-    headers: await csrfHeaders(),
+    headers: await csrfHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ plan }),
     credentials: "same-origin",
   });
   return parse(response);
+}
+
+/** @deprecated Prefer startPlanCheckout("pro") */
+export async function startPremiumCheckout(): Promise<{ url: string }> {
+  return startPlanCheckout("pro");
 }
 
 export async function openBillingPortal(): Promise<{ url: string }> {

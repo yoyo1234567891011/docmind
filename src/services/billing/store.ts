@@ -9,9 +9,9 @@ import {
   pgGetUserSubscription,
   pgSaveUserSubscription,
 } from "@/services/persistence/subscriptions-pg";
+import { normalizeBillingPlanId } from "@/config/billing";
 import {
   EMPTY_FREE_SUBSCRIPTION,
-  type BillingPlanId,
   type BillingSubscriptionStatus,
   type UserSubscriptionRecord,
 } from "@/types/billing";
@@ -32,8 +32,7 @@ async function ensureFile(userId: string): Promise<string> {
 }
 
 function normalize(record: UserSubscriptionRecord): UserSubscriptionRecord {
-  const plan: BillingPlanId =
-    record.plan === "premium" ? "premium" : "free";
+  const plan = normalizeBillingPlanId(record.plan);
   const base = EMPTY_FREE_SUBSCRIPTION(record.userId, record.createdAt);
   return {
     ...base,
