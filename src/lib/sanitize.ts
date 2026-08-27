@@ -51,19 +51,28 @@ export function sanitizeAnalysisFailureMessage(input: unknown): string {
     return LLM_SATURATION_USER_MESSAGE;
   }
   if (raw.trim().startsWith("{") && /"error"|rate_limit/i.test(raw)) {
-    return "Le service d’analyse est temporairement indisponible. Réessayez dans un instant — le document uploadé est conservé.";
+    return ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE;
   }
   if (raw.trim()) return sanitizeUserText(raw, 280);
   return "L’analyse approfondie a échoué. Réessayez — le document uploadé est conservé.";
 }
 
-/** Message UI pour saturation TPM / file GPU. */
-export const LLM_SATURATION_USER_MESSAGE =
-  "Le service d’analyse est temporairement saturé (limite de débit). Réessayez dans environ une minute — le document uploadé est conservé.";
+/** Message UI unique — saturation TPM, timeout job ou indisponibilité LLM temporaire. */
+export const ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE =
+  "Service d’analyse saturé. Réessayez dans 1 à 2 minutes — l’aperçu reste disponible.";
+
+export const LLM_SATURATION_USER_MESSAGE = ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE;
 
 /** Message quand le job est remis en file (pas un échec définitif). */
 export const LLM_SATURATION_REQUEUE_MESSAGE =
   "Analyse en file d’attente : le service est saturé. Nouvelle tentative automatique sous peu.";
+
+/** Échec définitif après saturation / retries épuisés. */
+export const LLM_SATURATION_FAIL_MESSAGE = ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE;
+
+/** Échec définitif — budget temps global job épuisé. */
+export const ANALYSIS_JOB_GLOBAL_TIMEOUT_MESSAGE =
+  ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE;
 
 /**
  * 429 / TPM / verrou génération — à requeue plutôt qu’à échouer.

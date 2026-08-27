@@ -1,6 +1,6 @@
 import { mkdir } from "fs/promises";
 
-import { canUseLocalFilesystem, usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem } from "@/config/persistence";
 import {
   assertSafeUserId,
   userClausesDir,
