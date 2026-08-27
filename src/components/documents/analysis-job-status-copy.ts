@@ -2,7 +2,6 @@
  * Messages UI — file d’analyse (bêta).
  * P1 = aperçu local rapide ; P2 = génération IA (souvent 1 à 3 minutes).
  */
-import { ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE } from "@/lib/sanitize";
 
 export function analysisJobStatusTitle(
   status: "pending" | "processing" | "unknown" = "unknown",
