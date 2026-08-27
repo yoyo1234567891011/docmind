@@ -36,18 +36,15 @@ function sanitizeMeta(meta?: AnalyticsMeta): AnalyticsMeta | undefined {
 }
 
 async function ensureSystemDir(): Promise<void> {
-  // Prod / persistent : pas de FS (Vercel lecture seule).
-  const { usePersistentStorage } = await import("@/config/persistence");
-  const { isDeployedEnv } = await import("@/lib/env-validate");
-  if (usePersistentStorage() || isDeployedEnv()) return;
+  const { canUseLocalFilesystem } = await import("@/config/persistence");
+  if (!canUseLocalFilesystem()) return;
   await mkdir(SYSTEM_DIR, { recursive: true });
   await mkdir(path.dirname(PRODUCT_ANALYTICS_FILE), { recursive: true });
 }
 
 async function analyticsFsEnabled(): Promise<boolean> {
-  const { usePersistentStorage } = await import("@/config/persistence");
-  const { isDeployedEnv } = await import("@/lib/env-validate");
-  return !usePersistentStorage() && !isDeployedEnv();
+  const { canUseLocalFilesystem } = await import("@/config/persistence");
+  return canUseLocalFilesystem();
 }
 
 export async function readAnalyticsFile(): Promise<AnalyticsFile> {

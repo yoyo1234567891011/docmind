@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
-import { usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem, usePersistentStorage } from "@/config/persistence";
 import { userSubscriptionFile } from "@/config/paths";
 import { withKeyedLock } from "@/lib/keyed-lock";
 import {
@@ -18,6 +18,7 @@ import {
 
 async function ensureFile(userId: string): Promise<string> {
   const filePath = userSubscriptionFile(userId);
+  if (!canUseLocalFilesystem()) return filePath;
   await mkdir(path.dirname(filePath), { recursive: true });
   try {
     await readFile(filePath, "utf8");
@@ -77,6 +78,11 @@ export async function saveUserSubscription(
   });
   if (usePersistentStorage()) {
     return pgSaveUserSubscription(next);
+  }
+  if (!canUseLocalFilesystem()) {
+    throw new Error(
+      "[docmind:storage] Abonnement FS indisponible — DOCMIND_STORAGE=persistent requis.",
+    );
   }
   const filePath = await ensureFile(record.userId);
   await writeFile(filePath, JSON.stringify(next, null, 2), "utf8");

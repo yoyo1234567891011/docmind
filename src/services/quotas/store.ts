@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
 import type { QuotaMetric } from "@/config/quotas";
-import { usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem, usePersistentStorage } from "@/config/persistence";
 import { userDataDir } from "@/config/paths";
 import { withKeyedLock } from "@/lib/keyed-lock";
 import {
@@ -92,6 +92,11 @@ export async function incrementUserUsage(
       [metric]: used + by,
       updatedAt: new Date().toISOString(),
     };
+    if (!canUseLocalFilesystem()) {
+      throw new Error(
+        "[docmind:storage] Quota FS indisponible — DOCMIND_STORAGE=persistent requis.",
+      );
+    }
     await mkdir(path.dirname(usageFile(userId)), { recursive: true });
     await writeFile(usageFile(userId), JSON.stringify(next, null, 2), "utf8");
     return next;
@@ -117,6 +122,11 @@ export async function decrementUserUsage(
       [metric]: Math.max(0, used - by),
       updatedAt: new Date().toISOString(),
     };
+    if (!canUseLocalFilesystem()) {
+      throw new Error(
+        "[docmind:storage] Quota FS indisponible — DOCMIND_STORAGE=persistent requis.",
+      );
+    }
     await mkdir(path.dirname(usageFile(userId)), { recursive: true });
     await writeFile(usageFile(userId), JSON.stringify(next, null, 2), "utf8");
     return next;

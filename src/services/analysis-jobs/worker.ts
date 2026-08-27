@@ -337,9 +337,14 @@ export async function processOneAnalysisJob(
     await noteP2Success().catch(() => undefined);
     return "completed";
   } catch (error) {
-    const message = sanitizeAnalysisFailureMessage(
-      error instanceof Error ? error.message : "Erreur P2 inconnue",
-    );
+    const rawMessage =
+      error instanceof Error ? error.message : "Erreur P2 inconnue";
+    if (/EROFS|read-only file system/i.test(rawMessage)) {
+      console.error(
+        `[analysis-jobs] EROFS raw job=${job.id} history=${job.historyId} message=${rawMessage}`,
+      );
+    }
+    const message = sanitizeAnalysisFailureMessage(rawMessage);
     const attached = (
       error as { analysisJobMetrics?: Omit<AnalysisJobMetrics, "totalMs"> }
     )?.analysisJobMetrics;

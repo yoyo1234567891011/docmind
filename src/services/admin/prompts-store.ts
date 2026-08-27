@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { randomUUID } from "crypto";
 
+import { canUseLocalFilesystem } from "@/config/persistence";
 import { ADMIN_DIR, ADMIN_PROMPTS_FILE } from "@/config/paths";
 import { DEFAULT_ADMIN_PROMPTS } from "@/services/admin/default-prompts";
 import { updateAdminConfig } from "@/services/admin/config-store";
@@ -10,7 +11,13 @@ import type {
   AdminPromptsFile,
 } from "@/types/admin";
 
+/** FS local (dev) seulement — Vercel / persistent = mémoire + défauts. */
+function adminFsEnabled(): boolean {
+  return canUseLocalFilesystem();
+}
+
 async function ensureAdminDir(): Promise<void> {
+  if (!adminFsEnabled()) return;
   await mkdir(ADMIN_DIR, { recursive: true });
 }
 
@@ -79,6 +86,13 @@ function seedDefaults(): AdminPromptsFile {
 }
 
 export async function readAdminPrompts(): Promise<AdminPromptsFile> {
+  if (memoryPrompts) return memoryPrompts;
+
+  if (!adminFsEnabled()) {
+    memoryPrompts = seedDefaults();
+    return memoryPrompts;
+  }
+
   await ensureAdminDir();
   try {
     const raw = await readFile(ADMIN_PROMPTS_FILE, "utf8");
@@ -98,7 +112,9 @@ export async function readAdminPrompts(): Promise<AdminPromptsFile> {
     return normalized;
   } catch {
     const seeded = seedDefaults();
-    await writeFile(ADMIN_PROMPTS_FILE, JSON.stringify(seeded, null, 2), "utf8");
+    await writeFile(ADMIN_PROMPTS_FILE, JSON.stringify(seeded, null, 2), "utf8").catch(
+      () => undefined,
+    );
     memoryPrompts = seeded;
     return seeded;
   }
@@ -111,14 +127,15 @@ export function getMemoryPrompts(): AdminPromptsFile | null {
 export async function saveAdminPrompts(
   file: AdminPromptsFile,
 ): Promise<AdminPromptsFile> {
-  await ensureAdminDir();
   const normalized = normalizeFile(file);
+  memoryPrompts = normalized;
+  if (!adminFsEnabled()) return normalized;
+  await ensureAdminDir();
   await writeFile(
     ADMIN_PROMPTS_FILE,
     JSON.stringify(normalized, null, 2),
     "utf8",
   );
-  memoryPrompts = normalized;
   return normalized;
 }
 

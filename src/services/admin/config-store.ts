@@ -22,6 +22,7 @@ import {
   type ModelProfileId,
 } from "@/config/ollama-models";
 import { docmindConfig } from "@/config/docmind";
+import { canUseLocalFilesystem } from "@/config/persistence";
 import { ADMIN_CONFIG_FILE, ADMIN_DIR } from "@/config/paths";
 import type {
   AdminPromptKey,
@@ -73,7 +74,12 @@ function defaultConfig(): AdminRuntimeConfig {
 }
 
 async function ensureAdminDir(): Promise<void> {
+  if (!adminFsEnabled()) return;
   await mkdir(ADMIN_DIR, { recursive: true });
+}
+
+function adminFsEnabled(): boolean {
+  return canUseLocalFilesystem();
 }
 
 let memoryConfig: AdminRuntimeConfig | null = null; // reset on HMR so disk config wins
@@ -107,6 +113,16 @@ function syncProfileIfNeeded(
 }
 
 export async function readAdminConfig(): Promise<AdminRuntimeConfig> {
+  if (memoryConfig && !adminFsEnabled()) {
+    return memoryConfig;
+  }
+
+  if (!adminFsEnabled()) {
+    const created = defaultConfig();
+    memoryConfig = created;
+    return created;
+  }
+
   await ensureAdminDir();
   try {
     const raw = await readFile(ADMIN_CONFIG_FILE, "utf8");
@@ -135,14 +151,18 @@ export async function readAdminConfig(): Promise<AdminRuntimeConfig> {
     }
 
     if (synced.dirty) {
-      await writeFile(ADMIN_CONFIG_FILE, JSON.stringify(merged, null, 2), "utf8");
+      await writeFile(ADMIN_CONFIG_FILE, JSON.stringify(merged, null, 2), "utf8").catch(
+        () => undefined,
+      );
     }
 
     memoryConfig = merged;
     return merged;
   } catch {
     const created = defaultConfig();
-    await writeFile(ADMIN_CONFIG_FILE, JSON.stringify(created, null, 2), "utf8");
+    await writeFile(ADMIN_CONFIG_FILE, JSON.stringify(created, null, 2), "utf8").catch(
+      () => undefined,
+    );
     memoryConfig = created;
     return created;
   }
@@ -151,14 +171,15 @@ export async function readAdminConfig(): Promise<AdminRuntimeConfig> {
 export async function writeAdminConfig(
   next: AdminRuntimeConfig,
 ): Promise<AdminRuntimeConfig> {
-  await ensureAdminDir();
   const payload: AdminRuntimeConfig = {
     ...next,
     profileId: next.profileId ?? getActiveProfileId(),
     updatedAt: new Date().toISOString(),
   };
-  await writeFile(ADMIN_CONFIG_FILE, JSON.stringify(payload, null, 2), "utf8");
   memoryConfig = payload;
+  if (!adminFsEnabled()) return payload;
+  await ensureAdminDir();
+  await writeFile(ADMIN_CONFIG_FILE, JSON.stringify(payload, null, 2), "utf8");
   return payload;
 }
 
@@ -255,10 +276,17 @@ export async function resolveTaskConfig(
   }
   const taskConfig = config.tasks[task];
   const code = getTaskConfig(task);
+  let maxTokens = taskConfig?.maxTokens ?? code.maxTokens;
+  if (task === "analyze" && isCloudLlmEnabled()) {
+    maxTokens = Math.max(
+      maxTokens,
+      docmindConfig.ollama.cloudAnalyzeMaxTokens,
+    );
+  }
   return {
     model: taskConfig?.model || getDefaultChatModel(),
     temperature: taskConfig?.temperature ?? code.temperature,
-    maxTokens: taskConfig?.maxTokens ?? code.maxTokens,
+    maxTokens,
     ollamaBaseUrl: normalizeOllamaBaseUrl(
       config.ollamaBaseUrl || getOllamaBaseUrl(),
     ),

@@ -65,9 +65,8 @@ let memoryAlerts: MonitoringAlert[] = [];
 let memorySnapshot: MonitoringSnapshot | null = null;
 
 async function monitoringFsEnabled(): Promise<boolean> {
-  const { usePersistentStorage } = await import("@/config/persistence");
-  const { isDeployedEnv } = await import("@/lib/env-validate");
-  return !usePersistentStorage() && !isDeployedEnv();
+  const { canUseLocalFilesystem } = await import("@/config/persistence");
+  return canUseLocalFilesystem();
 }
 
 async function ensureDir(): Promise<void> {

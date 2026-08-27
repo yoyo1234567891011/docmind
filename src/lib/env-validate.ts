@@ -12,7 +12,18 @@ function appEnv(): string {
   ).toLowerCase();
 }
 
+/** Vercel / AWS Lambda / équivalent — disque local read-only ou éphémère. */
+export function isServerlessRuntime(): boolean {
+  return (
+    process.env.VERCEL === "1" ||
+    Boolean(process.env.VERCEL_ENV?.trim()) ||
+    Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME?.trim()) ||
+    Boolean(process.env.AWS_EXECUTION_ENV?.trim())
+  );
+}
+
 export function isDeployedEnv(): boolean {
+  if (isServerlessRuntime()) return true;
   const env = appEnv();
   return env === "production" || env === "beta" || env === "staging";
 }

@@ -10,6 +10,7 @@ async function ensureSystemDir(): Promise<void> {
 }
 
 export async function readJsonArrayFile<T>(filePath: string): Promise<T[]> {
+  if (!canUseLocalFilesystem()) return [];
   await ensureSystemDir();
   try {
     const raw = await readFile(filePath, "utf8");
@@ -26,6 +27,7 @@ export async function writeJsonArrayFile<T>(
   filePath: string,
   entries: T[],
 ): Promise<void> {
+  if (!canUseLocalFilesystem()) return;
   await ensureSystemDir();
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(

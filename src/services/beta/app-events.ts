@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 
+import { canUseLocalFilesystem } from "@/config/persistence";
 import { APP_EVENTS_FILE } from "@/config/paths";
 import { sanitizeUserText } from "@/lib/sanitize";
 import {
@@ -45,7 +46,9 @@ export async function appendAppEvent(
     userId: input.userId ?? null,
   };
 
-  await appendJsonArrayEntry(APP_EVENTS_FILE, entry, 5_000);
+  if (canUseLocalFilesystem()) {
+    await appendJsonArrayEntry(APP_EVENTS_FILE, entry, 5_000);
+  }
   return entry;
 }
 

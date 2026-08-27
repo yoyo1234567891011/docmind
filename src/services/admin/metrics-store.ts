@@ -1,9 +1,8 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { randomUUID } from "crypto";
 
-import { usePersistentStorage } from "@/config/persistence";
+import { canUseLocalFilesystem } from "@/config/persistence";
 import { ADMIN_DIR, ADMIN_METRICS_FILE } from "@/config/paths";
-import { isDeployedEnv } from "@/lib/env-validate";
 import type {
   AdminFrequentError,
   AdminMetricEvent,
@@ -14,7 +13,7 @@ import type {
 const MAX_EVENTS = 2000;
 
 function adminFsEnabled(): boolean {
-  return !usePersistentStorage() && !isDeployedEnv();
+  return canUseLocalFilesystem();
 }
 
 async function ensureAdminDir(): Promise<void> {

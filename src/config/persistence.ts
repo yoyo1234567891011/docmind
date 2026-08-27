@@ -1,4 +1,4 @@
-import { isDeployedEnv } from "@/lib/env-validate";
+import { isDeployedEnv, isServerlessRuntime } from "@/lib/env-validate";
 
 /**
  * Backend de persistance critique.
@@ -22,9 +22,19 @@ export function isDatabaseConfigured(): boolean {
 
 export function getStorageBackend(): StorageBackend {
   const forced = process.env.DOCMIND_STORAGE?.trim().toLowerCase();
-  if (forced === "fs") return "fs";
   if (forced === "persistent") return "persistent";
 
+  if (isServerlessRuntime()) {
+    if (forced === "fs") {
+      console.error(
+        "[docmind:storage] DOCMIND_STORAGE=fs ignoré sur runtime serverless — persistent requis.",
+      );
+    }
+    if (isDatabaseConfigured() && isS3Configured()) return "persistent";
+    return "persistent";
+  }
+
+  if (forced === "fs") return "fs";
   if (isDatabaseConfigured() && isS3Configured()) return "persistent";
   return "fs";
 }
@@ -38,10 +48,13 @@ export function usePersistentStorage(): boolean {
  * Jamais sur Vercel ni en mode persistent (Postgres / S3 / Redis).
  */
 export function canUseLocalFilesystem(): boolean {
+  if (isServerlessRuntime()) return false;
   if (usePersistentStorage()) return false;
   if (isDeployedEnv()) return false;
   return true;
 }
+
+export { isServerlessRuntime } from "@/lib/env-validate";
 
 function isTruthyFlag(raw: string | undefined): boolean {
   const v = raw?.trim().toLowerCase();

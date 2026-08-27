@@ -65,6 +65,11 @@ async function persistHistoryRecord(record: HistoryRecord): Promise<void> {
     await pgSaveHistoryRecord(record);
     return;
   }
+  if (!canUseLocalFilesystem()) {
+    throw new Error(
+      "[docmind:storage] Historique FS indisponible — DOCMIND_STORAGE=persistent requis.",
+    );
+  }
   await ensureHistoryDir(record.userId);
   await writeFile(
     getRecordPath(record.userId, record.id),
@@ -81,6 +86,11 @@ async function persistHistoryRecordUpdate(
   await chaosGate("disk_full");
   if (usePersistentStorage()) {
     return pgUpdateHistoryRecord(record);
+  }
+  if (!canUseLocalFilesystem()) {
+    throw new Error(
+      "[docmind:storage] Historique FS indisponible — DOCMIND_STORAGE=persistent requis.",
+    );
   }
   const filePath = getRecordPath(record.userId, record.id);
   try {
