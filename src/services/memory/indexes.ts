@@ -202,12 +202,12 @@ export async function bumpCorpusSize(
     await writeMap(userId, "corpus_docs", map);
     return before + 1;
   }
-  return before || 1;
+  return before;
 }
 
 export async function getCorpusSize(userId: string): Promise<number> {
   const map = await readMap(userId, "corpus_docs");
-  return Math.max(1, Object.keys(map).length);
+  return Object.keys(map).length;
 }
 
 export async function removeDocFromIndexes(

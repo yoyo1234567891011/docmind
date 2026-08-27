@@ -192,10 +192,24 @@ export function buildRelationSignals(
   category: string,
 ): DocRelationSignals {
   const pay = extractPaymentSignals(record);
+  const productHints = [
+    record.displayName,
+    record.analysis.title,
+    record.analysis.summary,
+    record.fileName,
+    ...(record.analysis.important_points ?? []).slice(0, 8),
+    // Extrait court : lexique produit (Internet / Mobile) sans stocker tout le PDF.
+    (record.extractedText ?? "").slice(0, 400),
+  ]
+    .filter((s): s is string => Boolean(s && String(s).trim()))
+    .join(" | ")
+    .slice(0, 1200);
+
   return {
     documentId: record.documentId,
     category,
     title: record.displayName || record.analysis.title || record.fileName,
+    productHints,
     guaranteeLabels: extractGuaranteeLabels(record),
     riskLabels: extractRiskLabels(record, category),
     amounts: pay.amounts,

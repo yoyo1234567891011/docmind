@@ -324,17 +324,40 @@ export async function listHistoryRecords(
   }
 }
 
+function logCascadeError(
+  userId: string,
+  documentId: string | null,
+  historyId: string,
+  operation: string,
+  error: unknown,
+): void {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(
+    `[history-delete] userId=${userId} documentId=${documentId ?? "none"} historyId=${historyId} operation=${operation} error=${message.slice(0, 300)}`,
+  );
+}
+
+async function runSecondaryCleanup(
+  userId: string,
+  historyId: string,
+  documentId: string | null,
+  operation: string,
+  fn: () => Promise<void>,
+): Promise<void> {
+  try {
+    await fn();
+  } catch (error) {
+    logCascadeError(userId, documentId, historyId, operation, error);
+  }
+}
+
 export async function deleteHistoryRecord(
   userId: string,
   id: string,
 ): Promise<void> {
-  let documentId: string | null = null;
-  try {
-    const record = await getHistoryRecord(userId, id);
-    documentId = record.documentId;
-  } catch {
-    // still try unlink record path
-  }
+  // Identification fiable avant toute suppression.
+  const record = await getHistoryRecord(userId, id);
+  const documentId = record.documentId?.trim() || null;
 
   if (usePersistentStorage()) {
     const deleted = await pgDeleteHistoryRecord(userId, id);
@@ -357,23 +380,103 @@ export async function deleteHistoryRecord(
     }
   }
 
-  await removeSearchIndexEntry(userId, id);
+  // Nettoyages secondaires — loggés, non bloquants.
+  await runSecondaryCleanup(userId, id, documentId, "search_index", () =>
+    removeSearchIndexEntry(userId, id),
+  );
 
+  await runSecondaryCleanup(userId, id, documentId, "alerts", async () => {
+    const { removeAlertsLinkedToHistory } = await import(
+      "@/services/alerts/state"
+    );
+    await removeAlertsLinkedToHistory(userId, id);
+  });
+
+  await runSecondaryCleanup(userId, id, documentId, "outbox", async () => {
+    const { removeOutboxForHistory } = await import(
+      "@/services/notifications/outbox"
+    );
+    await removeOutboxForHistory(userId, id);
+  });
+
+  await runSecondaryCleanup(userId, id, documentId, "analysis_jobs", async () => {
+    const { deleteAnalysisJobsForHistory } = await import(
+      "@/services/analysis-jobs/store"
+    );
+    await deleteAnalysisJobsForHistory(userId, id);
+  });
+
+  await runSecondaryCleanup(userId, id, documentId, "analysis_logs", async () => {
+    const { removeAnalysisLogsForDocument } = await import(
+      "@/services/logs/analysis-logs"
+    );
+    await removeAnalysisLogsForDocument(userId, {
+      documentId,
+      historyId: id,
+    });
+  });
+
+  // Critiques pour cohérence dashboard (mémoire / PDF / documents).
   if (documentId) {
+    const criticalErrors: string[] = [];
+
     if (usePersistentStorage()) {
-      await deletePdfObject(userId, documentId).catch(() => undefined);
+      try {
+        await deletePdfObject(userId, documentId);
+      } catch (error) {
+        logCascadeError(userId, documentId, id, "pdf_s3", error);
+        criticalErrors.push("pdf");
+      }
+      try {
+        const { query } = await import("@/lib/db/pool");
+        await query(
+          `delete from public.app_documents where user_id = $1 and document_id = $2`,
+          [userId, documentId],
+        );
+      } catch (error) {
+        logCascadeError(userId, documentId, id, "app_documents", error);
+        criticalErrors.push("app_documents");
+      }
     } else {
       try {
         await unlink(userPdfPath(userId, documentId));
-      } catch {
-        // PDF may already be missing
+      } catch (error) {
+        const code =
+          error && typeof error === "object" && "code" in error
+            ? String((error as { code?: string }).code)
+            : "";
+        if (code !== "ENOENT") {
+          logCascadeError(userId, documentId, id, "pdf_fs", error);
+          criticalErrors.push("pdf");
+        }
       }
     }
-    // Même mutex que dual-write — évite résurrection mémoire post-delete.
-    const { withKeyedLock } = await import("@/lib/keyed-lock");
-    void withKeyedLock(`memory:dual:${userId}`, async () => {
-      await purgeMemoryForDocument(userId, documentId);
-    }, { ttlMs: 120_000 }).catch(() => undefined);
+
+    try {
+      const { withKeyedLock } = await import("@/lib/keyed-lock");
+      await withKeyedLock(
+        `memory:dual:${userId}`,
+        async () => {
+          await purgeMemoryForDocument(userId, documentId);
+        },
+        { ttlMs: 120_000 },
+      );
+    } catch (error) {
+      logCascadeError(userId, documentId, id, "memory_purge", error);
+      criticalErrors.push("memory");
+    }
+
+    if (criticalErrors.length > 0) {
+      throw new AppError(
+        "INTERNAL_ERROR",
+        `Le document a été retiré de l’historique, mais le nettoyage associé a échoué (${criticalErrors.join(", ")}). Réessayez ou contactez le support.`,
+        500,
+      );
+    }
+  } else {
+    console.warn(
+      `[history-delete] userId=${userId} historyId=${id} operation=skip_doc_assets reason=missing_documentId`,
+    );
   }
 }
 

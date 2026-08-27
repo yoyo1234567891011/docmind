@@ -57,6 +57,10 @@ function isAtRisk(item: HistoryListItem): boolean {
   return item.riskLevel === "eleve" || item.riskLevel === "critique";
 }
 
+/**
+ * Alertes d’échéances à surveiller (liste complète, non plafonnée).
+ * Le plafonnement d’affichage se fait côté UI — pas sur le compteur KPI.
+ */
 export function filterUpcomingDeadlineAlerts(
   alerts: DocumentAlert[],
 ): DocumentAlert[] {
@@ -73,8 +77,20 @@ export function filterUpcomingDeadlineAlerts(
       const aDate = a.dueDate || "9999";
       const bDate = b.dueDate || "9999";
       return aDate.localeCompare(bDate);
-    })
-    .slice(0, 6);
+    });
+}
+
+/** Compteur KPI — total réel, jamais tronqué. */
+export function countUpcomingDeadlineAlerts(alerts: DocumentAlert[]): number {
+  return filterUpcomingDeadlineAlerts(alerts).length;
+}
+
+/** Liste affichée sur le Dashboard (plafond UI). */
+export function listUpcomingDeadlineAlertsForDisplay(
+  alerts: DocumentAlert[],
+  limit = 6,
+): DocumentAlert[] {
+  return filterUpcomingDeadlineAlerts(alerts).slice(0, Math.max(0, limit));
 }
 
 const RELATION_ALERT_KINDS = new Set([
@@ -86,13 +102,25 @@ const RELATION_ALERT_KINDS = new Set([
   "relation_contradiction",
 ]);
 
-/** Alertes relationnelles P3 pour le tableau de bord. */
+/**
+ * Alertes relationnelles P3 pour le tableau de bord.
+ * Liste complète ; plafonnement d’affichage via listRelationAlertsForDisplay.
+ */
 export function filterRelationAlerts(alerts: DocumentAlert[]): DocumentAlert[] {
-  return alerts
-    .filter(
-      (alert) => !alert.dismissed && RELATION_ALERT_KINDS.has(alert.kind),
-    )
-    .slice(0, 6);
+  return alerts.filter(
+    (alert) => !alert.dismissed && RELATION_ALERT_KINDS.has(alert.kind),
+  );
+}
+
+export function countRelationAlerts(alerts: DocumentAlert[]): number {
+  return filterRelationAlerts(alerts).length;
+}
+
+export function listRelationAlertsForDisplay(
+  alerts: DocumentAlert[],
+  limit = 6,
+): DocumentAlert[] {
+  return filterRelationAlerts(alerts).slice(0, Math.max(0, limit));
 }
 
 export function computeDashboardStats(
@@ -104,9 +132,14 @@ export function computeDashboardStats(
   const averageRiskScore =
     totalDocuments === 0
       ? 0
-      : Math.round(
-          items.reduce((sum, item) => sum + item.riskScore, 0) / totalDocuments,
-        );
+      : (() => {
+          const sum = items.reduce((acc, item) => {
+            const n = Number(item.riskScore);
+            return acc + (Number.isFinite(n) ? n : 0);
+          }, 0);
+          const avg = Math.round(sum / totalDocuments);
+          return Number.isFinite(avg) ? avg : 0;
+        })();
 
   const needsActionCount = items.filter((item) => item.needsAction).length;
   const atRiskDocuments = sorted.filter(isAtRisk);
@@ -178,12 +211,15 @@ export function computeDashboardStats(
         id: "deadlines",
         label: "Échéances",
         value: String(upcomingDeadlinesCount),
-        hint: "Proches ou à surveiller",
+        hint: "À surveiller (total)",
       },
       {
         id: "score",
         label: "Risque moyen",
-        value: totalDocuments === 0 ? "—" : `${averageRiskScore}`,
+        value:
+          totalDocuments === 0 || !Number.isFinite(averageRiskScore)
+            ? "—"
+            : `${averageRiskScore}`,
         hint: "Score sur 100",
       },
       {

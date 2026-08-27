@@ -1,6 +1,6 @@
 import { withKeyedLock } from "@/lib/keyed-lock";
 import type { HistoryRecord } from "@/types/history";
-import { upsertMemoryFromHistoryRecord } from "@/services/memory/upsert-from-analysis";
+import { upsertMemoryFromHistoryRecordUnlocked } from "@/services/memory/upsert-from-analysis";
 
 function isAnalysisComplete(record: HistoryRecord): boolean {
   const phase = record.analysisPhase ?? "complete";
@@ -60,7 +60,7 @@ async function runMemoryDualWriteLocked(record: HistoryRecord): Promise<void> {
     if (!(await historyStillExists(record.userId, record.id))) {
       return;
     }
-    const result = await upsertMemoryFromHistoryRecord(record);
+    const result = await upsertMemoryFromHistoryRecordUnlocked(record);
     if (!(await historyStillExists(record.userId, record.id))) {
       // Course avec delete : retirer ce que l’upsert vient d’écrire.
       const { purgeMemoryForDocument } = await import(
@@ -83,6 +83,8 @@ async function runMemoryDualWriteLocked(record: HistoryRecord): Promise<void> {
 
 export function scheduleMemoryDualWrite(record: HistoryRecord): void {
   if (!isAnalysisComplete(record)) return;
+  // Tests qui indexent via upsertMemoryFromHistoryRecord synchrone.
+  if (process.env.DOCMIND_SKIP_MEMORY_DUAL_WRITE === "1") return;
 
   void (async () => {
     try {

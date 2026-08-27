@@ -12,6 +12,7 @@ import {
   fetchTags,
   patchHistoryItem,
 } from "@/lib/client";
+import { markDashboardStale } from "@/lib/client/dashboard-sync";
 import { UNFILED_FOLDER_ID, type HistoryListItem } from "@/types";
 
 import { buildManagerQuery } from "./build-query";
@@ -144,6 +145,7 @@ export function useDocumentManager() {
         const record = await patchHistoryItem(item.id, {
           favorite: !item.favorite,
         });
+        markDashboardStale("patch");
         refreshItem(record);
         await loadMeta();
       },

@@ -35,6 +35,7 @@ import {
   parseDateToIso,
 } from "@/services/memory/normalize";
 import { buildRelationSignals } from "@/services/memory/detect-p3";
+import { clearDerivedMemoryForReindex } from "@/services/memory/purge-document";
 import { runRelationEngine } from "@/services/memory/relation-engine";
 import { saveRelationSignals } from "@/services/memory/relation-signals";
 import { listRelationsForDoc } from "@/services/memory/relation-store";
@@ -75,9 +76,9 @@ function collectClauseSpans(record: HistoryRecord): string[] {
 }
 
 /**
- * Étape C + P1 : upsert nœuds puis RelationEngine incrémental (K candidats).
+ * Corps d’indexation (sans verrou) — appelé sous `memory:dual:{userId}`.
  */
-export async function upsertMemoryFromHistoryRecord(
+export async function upsertMemoryFromHistoryRecordUnlocked(
   record: HistoryRecord,
   options?: { skipRelations?: boolean },
 ): Promise<MemoryUpsertResult> {
@@ -91,6 +92,11 @@ export async function upsertMemoryFromHistoryRecord(
   const simhash = record.simhash || fingerprints.simhash;
 
   const previous = await getMemoryDocument(userId, docId);
+  if (previous) {
+    // Réindexation : état dérivé précédent du document → remplacé, pas empilé.
+    await clearDerivedMemoryForReindex(userId, docId);
+  }
+
   const document: MemoryDocumentNode = {
     id: previous?.id ?? randomUUID(),
     userId,
@@ -104,8 +110,9 @@ export async function upsertMemoryFromHistoryRecord(
     textLength: (record.extractedText || "").length,
     folderId: record.folderId,
     tagIds: record.tagIds ?? [],
-    status: previous?.status ?? "active",
-    contractFamilyId: previous?.contractFamilyId ?? null,
+    // Nouvelle version : repart d’un statut actif (l’engine pourra le recalculer).
+    status: "active",
+    contractFamilyId: null,
     analyzedAt: seenAt,
     relationsPhase: "pending",
     primaryEntityIds: [],
@@ -199,13 +206,13 @@ export async function upsertMemoryFromHistoryRecord(
     if (d.dueDate) await indexDeadlineTime(userId, d.dueDate, d.id);
   }
 
-  // Signaux P3 (garanties / risques / paiements) — indépendants de l’historique
+  // Signaux P3 — écrasent l’ancien fichier (déjà purgé en réindex).
   await saveRelationSignals(
     userId,
     buildRelationSignals(record, document.category),
   );
 
-  // Indexes incrémentaux (nouveau doc seulement)
+  // Indexes à partir de la nouvelle version uniquement.
   await indexFingerprint(userId, contentHash, docId, simhash);
   await indexCategoryDoc(userId, document.category, docId);
   await bumpCorpusSize(userId, docId);
@@ -255,4 +262,20 @@ export async function upsertMemoryFromHistoryRecord(
     durationMs: Date.now() - started,
     relationMetrics,
   };
+}
+
+/**
+ * Indexation / réindexation mémoire (verrou user) :
+ * clearDerived (si réindex) → extraction → signaux → relations → indexes.
+ */
+export async function upsertMemoryFromHistoryRecord(
+  record: HistoryRecord,
+  options?: { skipRelations?: boolean },
+): Promise<MemoryUpsertResult> {
+  const { withKeyedLock } = await import("@/lib/keyed-lock");
+  return withKeyedLock(
+    `memory:dual:${record.userId}`,
+    () => upsertMemoryFromHistoryRecordUnlocked(record, options),
+    { ttlMs: 120_000 },
+  );
 }

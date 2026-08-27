@@ -7,7 +7,7 @@ interface DashboardStatCardsProps {
 
 export function DashboardStatCards({ cards }: DashboardStatCardsProps) {
   return (
-    <div className="grid gap-px overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--border)] sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-px overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--border)] md:grid-cols-2 xl:grid-cols-3">
       {cards.map((card, index) => (
         <article
           key={card.id}

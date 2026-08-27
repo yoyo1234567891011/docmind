@@ -10,7 +10,11 @@ import {
   type CounterpartyAggregate,
 } from "@/lib/client/memory-timeline";
 
-export function CounterpartiesPanel() {
+export function CounterpartiesPanel({
+  refreshKey = 0,
+}: {
+  refreshKey?: number;
+}) {
   const [items, setItems] = useState<CounterpartyAggregate[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,6 +24,7 @@ export function CounterpartiesPanel() {
       setItems(data.counterparties.slice(0, 6));
       setError(null);
     } catch (err) {
+      // Erreur ≠ liste vide : conserver l’affichage précédent si présent.
       setError(
         err instanceof Error
           ? err.message
@@ -30,7 +35,7 @@ export function CounterpartiesPanel() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   return (
     <DashboardPanel
@@ -38,10 +43,10 @@ export function CounterpartiesPanel() {
       subtitle="Historique agrégé (Orange, EDF, MAIF…)"
       action={
         <Link
-          href="/alertes"
+          href="/contreparties"
           className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"
         >
-          Alertes
+          Voir tout
           <ChevronRightIcon className="h-4 w-4" />
         </Link>
       }

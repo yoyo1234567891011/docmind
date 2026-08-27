@@ -12,6 +12,7 @@ import type {
 } from "@/types";
 
 import { csrfHeaders } from "@/lib/client/csrf";
+import { markDashboardStale } from "@/lib/client/dashboard-sync";
 
 function toQueryString(query: HistoryQuery): string {
   const params = new URLSearchParams();
@@ -90,6 +91,8 @@ export async function deleteHistoryItem(id: string): Promise<void> {
   if (!payload.success) {
     throw new Error(payload.error.message);
   }
+
+  markDashboardStale("delete");
 }
 
 export async function patchHistoryItem(
@@ -109,6 +112,7 @@ export async function patchHistoryItem(
     throw new Error(payload.error.message);
   }
 
+  markDashboardStale("patch");
   return payload.data;
 }
 

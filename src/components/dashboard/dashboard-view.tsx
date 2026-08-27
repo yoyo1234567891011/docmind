@@ -17,13 +17,20 @@ import { Alert, AnalysisSkeleton, Button } from "@/components/ui";
 import { siteConfig } from "@/config/site";
 import { fetchAlerts, fetchHistory, fetchMe } from "@/lib/client";
 import {
+  consumeDashboardStale,
+  isDashboardStale,
+  markDashboardStale,
+  onDashboardRefresh,
+} from "@/lib/client/dashboard-sync";
+import {
   readRecentSearches,
   type RecentSearch,
 } from "@/lib/client/recent-searches";
 import {
   computeDashboardStats,
-  filterRelationAlerts,
-  filterUpcomingDeadlineAlerts,
+  countUpcomingDeadlineAlerts,
+  listRelationAlertsForDisplay,
+  listUpcomingDeadlineAlertsForDisplay,
 } from "@/lib/dashboard-stats";
 import type { DocumentAlert, HistoryListItem } from "@/types";
 
@@ -31,24 +38,70 @@ export function DashboardView() {
   const [items, setItems] = useState<HistoryListItem[]>([]);
   const [deadlines, setDeadlines] = useState<DocumentAlert[]>([]);
   const [relationAlerts, setRelationAlerts] = useState<DocumentAlert[]>([]);
+  const [deadlineTotal, setDeadlineTotal] = useState(0);
   const [searches, setSearches] = useState<RecentSearch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Incrémente pour forcer le refetch des panneaux enfants. */
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const [history, alertsResult, me] = await Promise.all([
+      // Chargement partiel : une API en erreur ne doit pas effacer les autres données valides.
+      const [historyResult, alertsResult, meResult] = await Promise.allSettled([
         fetchHistory({}),
         fetchAlerts({ includeDismissed: false }),
-        fetchMe().catch(() => null),
+        fetchMe(),
       ]);
-      setItems(history);
-      setDeadlines(filterUpcomingDeadlineAlerts(alertsResult.alerts));
-      setRelationAlerts(filterRelationAlerts(alertsResult.alerts));
-      setSearches(readRecentSearches(me?.user?.id));
+
+      const partialErrors: string[] = [];
+
+      if (historyResult.status === "fulfilled") {
+        setItems(historyResult.value);
+      } else {
+        const msg =
+          historyResult.reason instanceof Error
+            ? historyResult.reason.message
+            : "Historique indisponible.";
+        partialErrors.push(msg);
+      }
+
+      if (alertsResult.status === "fulfilled") {
+        const alerts = alertsResult.value.alerts;
+        setDeadlineTotal(countUpcomingDeadlineAlerts(alerts));
+        setDeadlines(listUpcomingDeadlineAlertsForDisplay(alerts));
+        setRelationAlerts(listRelationAlertsForDisplay(alerts));
+      } else {
+        const msg =
+          alertsResult.reason instanceof Error
+            ? alertsResult.reason.message
+            : "Alertes indisponibles.";
+        partialErrors.push(msg);
+      }
+
+      if (meResult.status === "fulfilled") {
+        setSearches(readRecentSearches(meResult.value?.user?.id));
+      }
+      // Échec /api/me : ne pas basculer sur le bucket « anonymous » (fuite de contexte).
+
+      if (partialErrors.length > 0) {
+        // Si l’historique a échoué et qu’on n’a rien d’autre : erreur globale.
+        if (historyResult.status === "rejected") {
+          setError(partialErrors.join(" · "));
+        } else {
+          setError(
+            `Données partielles : ${partialErrors.join(" · ")}`,
+          );
+        }
+      } else {
+        setError(null);
+      }
+
+      setRefreshKey((k) => k + 1);
+      consumeDashboardStale();
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -64,12 +117,44 @@ export function DashboardView() {
     void load();
   }, [load]);
 
+  // Refetch quand une mutation (delete / analyse) a marqué le dashboard stale.
+  useEffect(() => {
+    return onDashboardRefresh(() => {
+      void load();
+    });
+  }, [load]);
+
+  // Retour sur l’onglet / la page après suppression ailleurs.
+  useEffect(() => {
+    const maybeReload = () => {
+      if (isDashboardStale()) {
+        void load();
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") maybeReload();
+    };
+    window.addEventListener("focus", maybeReload);
+    window.addEventListener("pageshow", maybeReload);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", maybeReload);
+      window.removeEventListener("pageshow", maybeReload);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [load]);
+
+  const handleManualRefresh = useCallback(() => {
+    markDashboardStale("manual");
+    void load();
+  }, [load]);
+
   const stats = useMemo(
     () =>
       computeDashboardStats(items, {
-        upcomingDeadlinesCount: deadlines.length,
+        upcomingDeadlinesCount: deadlineTotal,
       }),
-    [items, deadlines.length],
+    [items, deadlineTotal],
   );
 
   return (
@@ -83,7 +168,7 @@ export function DashboardView() {
           aria-hidden
           className="page-grid pointer-events-none absolute inset-0 opacity-50"
         />
-        <div className="relative flex flex-col gap-6 px-6 py-8 sm:flex-row sm:items-end sm:justify-between sm:px-8 sm:py-10">
+        <div className="relative flex flex-col gap-6 px-6 py-8 md:flex-row md:items-end md:justify-between md:px-8 md:py-10">
           <div className="animate-fade-up max-w-2xl text-left">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--accent)]">
               {siteConfig.name}
@@ -114,7 +199,7 @@ export function DashboardView() {
               variant="ghost"
               size="sm"
               className="h-10"
-              onClick={() => void load()}
+              onClick={handleManualRefresh}
             >
               Actualiser
             </Button>
@@ -128,16 +213,16 @@ export function DashboardView() {
         </Alert>
       ) : null}
 
-      <SubscriptionCard />
+      <SubscriptionCard refreshKey={refreshKey} />
 
-      <PremiumMemoryPanel />
+      <PremiumMemoryPanel refreshKey={refreshKey} />
 
       {isLoading ? (
         <AnalysisSkeleton />
       ) : (
         <>
           <section className="space-y-3">
-            <div className="flex items-end justify-between gap-3">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between md:gap-3">
               <h2 className="font-display text-2xl tracking-tight">
                 Statistiques
               </h2>
@@ -150,21 +235,27 @@ export function DashboardView() {
           </section>
 
           {items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-6 py-16 text-center">
-              <p className="font-display text-3xl text-[var(--foreground)]">
-                Votre espace est prêt
-              </p>
-              <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
-                Analysez un premier PDF pour alimenter le tableau de bord :
-                risques, échéances et statistiques.
-              </p>
-              <Link
-                href="/analyser"
-                className="mt-6 inline-flex h-10 items-center justify-center rounded-lg bg-[var(--accent)] px-5 text-sm font-medium text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
-              >
-                Analyser un PDF
-              </Link>
-            </div>
+            <>
+              <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-6 py-16 text-center">
+                <p className="font-display text-3xl text-[var(--foreground)]">
+                  Votre espace est prêt
+                </p>
+                <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
+                  Analysez un premier PDF pour alimenter le tableau de bord :
+                  risques, échéances et statistiques.
+                </p>
+                <Link
+                  href="/analyser"
+                  className="mt-6 inline-flex h-10 items-center justify-center rounded-lg bg-[var(--accent)] px-5 text-sm font-medium text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
+                >
+                  Analyser un PDF
+                </Link>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <CounterpartiesPanel refreshKey={refreshKey} />
+                <DeadlineList alerts={deadlines} />
+              </div>
+            </>
           ) : (
             <>
               <div className="grid gap-4 lg:grid-cols-12">
@@ -196,7 +287,7 @@ export function DashboardView() {
                 </div>
                 <div className="space-y-4 lg:col-span-7">
                   <RecentSearchesList searches={searches} />
-                  <CounterpartiesPanel />
+                  <CounterpartiesPanel refreshKey={refreshKey} />
                 </div>
               </div>
 

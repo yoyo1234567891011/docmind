@@ -159,6 +159,40 @@ export async function pinAlert(
   });
 }
 
+/**
+ * Retire les alertes épinglées liées à une analyse (et l’id « analysis ready »).
+ */
+export async function removeAlertsLinkedToHistory(
+  userId: string,
+  historyId: string,
+): Promise<void> {
+  const state = await readAlertsState(userId);
+  const readyId = `analysis-ready-${historyId}`;
+  const pinned = (state.pinnedAlerts ?? []).filter(
+    (alert) =>
+      alert.historyId !== historyId &&
+      alert.secondaryHistoryId !== historyId &&
+      alert.id !== readyId,
+  );
+  const readIds = state.readIds.filter((id) => id !== readyId);
+  const dismissedIds = state.dismissedIds.filter((id) => id !== readyId);
+
+  if (
+    pinned.length === (state.pinnedAlerts ?? []).length &&
+    readIds.length === state.readIds.length &&
+    dismissedIds.length === state.dismissedIds.length
+  ) {
+    return;
+  }
+
+  await writeAlertsState(userId, {
+    ...state,
+    pinnedAlerts: pinned,
+    readIds,
+    dismissedIds,
+  });
+}
+
 /** Stable id so the same detection stays consistent across regenerations */
 export function buildAlertId(
   historyId: string,

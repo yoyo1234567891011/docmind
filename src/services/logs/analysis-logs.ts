@@ -77,6 +77,25 @@ export async function attachHistoryIdToLatestLog(
   await writeLogs(userId, file);
 }
 
+/** Retire les logs d’analyse liés à un document / historique supprimé. */
+export async function removeAnalysisLogsForDocument(
+  userId: string,
+  input: { documentId?: string | null; historyId?: string | null },
+): Promise<void> {
+  const documentId = input.documentId?.trim() || null;
+  const historyId = input.historyId?.trim() || null;
+  if (!documentId && !historyId) return;
+
+  const file = await readAnalysisLogs(userId);
+  const next = file.entries.filter((entry) => {
+    if (documentId && entry.documentId === documentId) return false;
+    if (historyId && entry.historyId === historyId) return false;
+    return true;
+  });
+  if (next.length === file.entries.length) return;
+  await writeLogs(userId, { entries: next });
+}
+
 export async function getAnalysisLog(
   userId: string,
   id: string,

@@ -28,7 +28,11 @@ function badgeClass(tone: string): string {
   }
 }
 
-export function SubscriptionCard() {
+export function SubscriptionCard({
+  refreshKey = 0,
+}: {
+  refreshKey?: number;
+}) {
   const [data, setData] = useState<BillingApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,9 +51,9 @@ export function SubscriptionCard() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
@@ -97,7 +101,7 @@ export function SubscriptionCard() {
         </span>
       </div>
 
-      <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+      <dl className="mt-4 grid gap-2 text-sm md:grid-cols-2">
         <div>
           <dt className="text-xs text-[var(--muted)]">Actif</dt>
           <dd>{isPremium ? "Oui" : "Non"}</dd>
@@ -124,31 +128,6 @@ export function SubscriptionCard() {
             {subscription.canceledAt
               ? formatDateTime(subscription.canceledAt)
               : "—"}
-          </dd>
-        </div>
-        <div className="sm:col-span-2">
-          <dt className="text-xs text-[var(--muted)]">ID Stripe</dt>
-          <dd className="break-all font-mono text-xs">
-            {subscription.stripeSubscriptionId ||
-              subscription.stripeCustomerId ||
-              "—"}
-          </dd>
-        </div>
-        <div className="sm:col-span-2">
-          <dt className="text-xs text-[var(--muted)]">Dernier webhook</dt>
-          <dd className="text-xs">
-            {subscription.lastWebhookEventType ? (
-              <>
-                <code className="rounded bg-[var(--surface-elevated)] px-1.5 py-0.5">
-                  {subscription.lastWebhookEventType}
-                </code>
-                {subscription.lastWebhookAt
-                  ? ` · ${formatDateTime(subscription.lastWebhookAt)}`
-                  : ""}
-              </>
-            ) : (
-              "—"
-            )}
           </dd>
         </div>
       </dl>

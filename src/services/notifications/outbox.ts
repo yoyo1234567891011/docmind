@@ -86,3 +86,14 @@ export async function processEmailOutbox(
   const pending = await listPendingOutbox(userId, "email");
   return { pending: pending.length };
 }
+
+/** Purge outbox email lié à une analyse supprimée. */
+export async function removeOutboxForHistory(
+  userId: string,
+  historyId: string,
+): Promise<void> {
+  const items = await readOutbox(userId);
+  const next = items.filter((item) => item.payload.historyId !== historyId);
+  if (next.length === items.length) return;
+  await writeOutbox(userId, next);
+}

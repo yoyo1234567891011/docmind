@@ -31,7 +31,7 @@ export {
   scheduleMemoryDualWrite,
   runMemoryDualWrite,
 } from "./dual-write";
-export { purgeMemoryForDocument } from "./purge-document";
+export { purgeMemoryForDocument, clearDerivedMemoryForReindex } from "./purge-document";
 export { migrateUserHistoryToMemory } from "./migrate-history";
 export {
   normalizeEntityKey,

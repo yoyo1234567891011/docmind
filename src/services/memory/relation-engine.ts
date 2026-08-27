@@ -15,7 +15,9 @@ import {
 } from "@/services/memory/metrics";
 import { normalizeEntityKey, parseDateToIso } from "@/services/memory/normalize";
 import {
+  listAllRelations,
   listRelationsForDoc,
+  saveRelationsForDoc,
   upsertRelation,
 } from "@/services/memory/relation-store";
 import { detectP3Relations } from "@/services/memory/detect-p3";
@@ -430,16 +432,46 @@ export async function runRelationEngine(input: {
   const byType: RelationRunMetrics["byType"] = {};
   let potentialFalsePositives = 0;
 
-  const keepUserTouched = (await listRelationsForDoc(userId, document.documentId)).filter(
+  // Les dérivés auto du document ont déjà été purgés en réindex
+  // (clearDerivedMemoryForReindex). On retire encore d’éventuels proposed
+  // restants (1ʳᵉ indexation / skip clear) avant de recalculer.
+  const docId = document.documentId;
+  const previous = await listRelationsForDoc(userId, docId);
+  const keepUserTouched = previous.filter(
     (r) =>
       r.status === "user_confirmed" ||
       r.status === "user_dismissed" ||
       r.status === "user_snoozed",
   );
 
+  const peerIds = new Set<string>();
+  for (const r of await listAllRelations(userId)) {
+    if (r.fromDocId === docId) peerIds.add(r.toDocId);
+    if (r.toDocId === docId) peerIds.add(r.fromDocId);
+  }
+  peerIds.delete(docId);
+
+  await saveRelationsForDoc(userId, docId, keepUserTouched);
+
+  for (const peerId of peerIds) {
+    const existing = await listRelationsForDoc(userId, peerId);
+    const filtered = existing.filter((r) => {
+      const involves = r.fromDocId === docId || r.toDocId === docId;
+      if (!involves) return true;
+      return (
+        r.status === "user_confirmed" ||
+        r.status === "user_dismissed" ||
+        r.status === "user_snoozed"
+      );
+    });
+    if (filtered.length !== existing.length) {
+      await saveRelationsForDoc(userId, peerId, filtered);
+    }
+  }
+
   const pairs = selection.candidates.slice(0, MAX_CANDIDATES);
   for (const cand of pairs) {
-    if (await isNegativeEdge(userId, document.documentId, cand.docId)) {
+    if (await isNegativeEdge(userId, docId, cand.docId)) {
       continue;
     }
     const shared = primaryEntityIds.filter((id) =>
@@ -461,7 +493,7 @@ export async function runRelationEngine(input: {
 
     for (const rel of detected) {
       if (!rel.evidence?.length) continue;
-      await upsertRelation(userId, document.documentId, rel);
+      await upsertRelation(userId, docId, rel);
       await upsertRelation(userId, rel.toDocId, {
         ...rel,
         id: randomUUID(),
@@ -494,10 +526,10 @@ export async function runRelationEngine(input: {
           label: record.analysis.title || document.fileName,
           docIds: [rel.fromDocId, rel.toDocId],
           currentDocId:
-            rel.type === "supersedes" ? rel.fromDocId : document.documentId,
+            rel.type === "supersedes" ? rel.fromDocId : docId,
         });
         document.contractFamilyId = family.id;
-        if (rel.type === "supersedes" && rel.toDocId !== document.documentId) {
+        if (rel.type === "supersedes" && rel.toDocId !== docId) {
           const old = await getMemoryDocument(userId, rel.toDocId);
           if (old) {
             old.status = "possibly_replaced";
@@ -511,13 +543,13 @@ export async function runRelationEngine(input: {
   }
 
   for (const r of keepUserTouched) {
-    await upsertRelation(userId, document.documentId, r);
+    await upsertRelation(userId, docId, r);
   }
 
-  const finalRels = await listRelationsForDoc(userId, document.documentId);
+  const finalRels = await listRelationsForDoc(userId, docId);
   await indexEdgesByDoc(
     userId,
-    document.documentId,
+    docId,
     finalRels.map((r) => r.id),
   );
 

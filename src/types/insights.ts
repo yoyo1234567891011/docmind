@@ -10,8 +10,14 @@ export interface SubscriptionInsight {
   entityId: string | null;
   name: string;
   category: string;
+  /** Clé produit/service (sépare Internet vs Mobile chez le même fournisseur). */
+  productKey: string | null;
   monthlyEur: number | null;
   annualEur: number | null;
+  /** Périodicité extraite (null = inconnue — hors KPI dépenses/mois). */
+  billingPeriod: string | null;
+  /** Montant brut extrait du document source (avant conversion mensuelle). */
+  extractedAmountEur: number | null;
   nextDeadline: {
     date: string;
     label: string;
@@ -57,7 +63,10 @@ export interface SavingsOpportunity {
   kind: SavingsKind;
   title: string;
   message: string;
+  /** Montant uniquement si présent dans les preuves — jamais inventé. */
   estimatedMonthlySavingEur: number | null;
+  /** Toujours potentiel tant que non confirmé par l’utilisateur. */
+  certainty: "potential";
   relationType: string;
   relationId: string;
   score: number;
@@ -65,6 +74,12 @@ export interface SavingsOpportunity {
   secondaryHistoryId: string | null;
   documentId: string;
   documentTitle: string;
+  evidence?: Array<{
+    field: string;
+    left: string;
+    right: string;
+    note?: string;
+  }>;
 }
 
 export interface DigestHighlight {

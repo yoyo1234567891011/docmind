@@ -4,36 +4,71 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { DashboardPanel } from "@/components/dashboard/dashboard-panel";
+import { Alert } from "@/components/ui";
 import { ChevronRightIcon } from "@/components/ui/icons";
 import { fetchInsightsOverview } from "@/lib/client/insights";
 import type { PremiumMemoryDashboard } from "@/types/insights";
 
 function money(n: number): string {
+  if (!Number.isFinite(n)) return "—";
   return `${n.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
 }
 
-export function PremiumMemoryPanel() {
+export function PremiumMemoryPanel({
+  refreshKey = 0,
+}: {
+  refreshKey?: number;
+}) {
   const [data, setData] = useState<PremiumMemoryDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       setData(await fetchInsightsOverview());
       setError(null);
     } catch (err) {
+      // Ne pas effacer les données précédentes : erreur ≠ zéro.
       setError(
         err instanceof Error
           ? err.message
           : "Insights mémoire indisponibles.",
       );
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
-  if (error || !data) {
+  if (loading && !data && !error) {
+    return (
+      <DashboardPanel
+        title="Mémoire documentaire"
+        subtitle="Chargement…"
+      >
+        <p className="text-sm text-[var(--muted)]">Chargement des insights…</p>
+      </DashboardPanel>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <DashboardPanel
+        title="Mémoire documentaire"
+        subtitle="Données indisponibles"
+      >
+        <Alert tone="error" title="Erreur de chargement">
+          {error}
+        </Alert>
+      </DashboardPanel>
+    );
+  }
+
+  if (!data) {
     return null;
   }
 
@@ -51,7 +86,12 @@ export function PremiumMemoryPanel() {
         </Link>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-3">
+      {error ? (
+        <Alert tone="info" title="Actualisation partielle">
+          {error} — affichage de la dernière version connue.
+        </Alert>
+      ) : null}
+      <div className={`grid gap-3 md:grid-cols-3${error ? " mt-3" : ""}`}>
         <div>
           <p className="text-xs text-[var(--muted)]">Dépenses / mois</p>
           <p className="font-display text-xl">{money(data.monthlySpendEur)}</p>

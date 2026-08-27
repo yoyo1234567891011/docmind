@@ -8,8 +8,19 @@ import { listEntities } from "@/services/memory/entity-store";
 import { getDocsByEntity, getCorpusSize } from "@/services/memory/indexes";
 import { listClausesForDoc } from "@/services/memory/clause-store";
 import { listAllRelations } from "@/services/memory/relation-store";
-import { loadRelationSignals } from "@/services/memory/relation-signals";
+import {
+  loadRelationSignals,
+  type DocRelationSignals,
+} from "@/services/memory/relation-signals";
 import { listCounterpartyAggregates } from "@/services/memory/timeline";
+import {
+  amountsClose,
+  pickRecurringAmountEur,
+  resolveProductSignal,
+  subscriptionAggregateId,
+  subscriptionDisplayName,
+  type ProductSignal,
+} from "@/services/insights/subscription-identity";
 import type {
   FinanceCategoryBucket,
   FinanceInsight,
@@ -20,7 +31,11 @@ import type {
   SavingsOpportunity,
   SubscriptionInsight,
 } from "@/types/insights";
-import type { MemoryDocumentNode, MemoryRelation } from "@/types/memory";
+import type {
+  MemoryDeadline,
+  MemoryDocumentNode,
+  MemoryRelation,
+} from "@/types/memory";
 
 const SUB_CATEGORIES = new Set([
   "assurance",
@@ -39,15 +54,28 @@ const CATEGORY_LABELS: Record<string, string> = {
   autre: "Autre",
 };
 
-function toMonthly(
+const RECURRING_PERIODS = new Set([
+  "mensuel",
+  "annuel",
+  "trimestriel",
+  "hebdomadaire",
+]);
+
+/**
+ * Convertit un montant en équivalent mensuel UNIQUEMENT si la périodicité
+ * est explicite. Fréquence inconnue / facture ponctuelle → null (jamais d’hypothèse).
+ */
+export function toMonthlySpendEur(
   amount: number | null,
   period: string | null,
 ): number | null {
   if (amount == null || amount <= 0) return null;
+  if (!period || !RECURRING_PERIODS.has(period)) return null;
+  if (period === "mensuel") return Math.round(amount * 100) / 100;
   if (period === "annuel") return Math.round((amount / 12) * 100) / 100;
   if (period === "trimestriel") return Math.round((amount / 3) * 100) / 100;
   if (period === "hebdomadaire") return Math.round(amount * 4.33 * 100) / 100;
-  return amount; // mensuel ou inconnu → traiter comme mensuel
+  return null;
 }
 
 function toAnnual(monthly: number | null): number | null {
@@ -72,80 +100,263 @@ async function loadDocsForEntity(
   return docs;
 }
 
+function isDocSpendEligible(
+  doc: MemoryDocumentNode,
+  deadlines: MemoryDeadline[],
+): boolean {
+  if (doc.status === "possibly_replaced" || doc.status === "archived") {
+    return false;
+  }
+  if (
+    deadlines.some((d) => d.kind === "resiliation" && d.status === "past")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+type SubGroup = {
+  orgId: string;
+  orgName: string;
+  product: ProductSignal;
+  docs: MemoryDocumentNode[];
+};
+
+type DocSpendView = {
+  doc: MemoryDocumentNode;
+  signals: DocRelationSignals | null;
+  picked: number | null;
+  monthly: number | null;
+  eligible: boolean;
+};
+
+function amountClusterKey(monthly: number | null): string {
+  if (monthly == null) return "na";
+  return String(Math.round(monthly * 100) / 100);
+}
+
+function clusterDocsByAmount(views: DocSpendView[]): DocSpendView[][] {
+  const clusters: DocSpendView[][] = [];
+  for (const v of views) {
+    if (v.monthly == null) {
+      clusters.push([v]);
+      continue;
+    }
+    const hit = clusters.find((c) => {
+      const ref = c.find((x) => x.monthly != null)?.monthly;
+      return ref != null && amountsClose(ref, v.monthly!);
+    });
+    if (hit) hit.push(v);
+    else clusters.push([v]);
+  }
+  return clusters;
+}
+
+async function buildSubscriptionFromDocs(
+  userId: string,
+  group: SubGroup,
+  docs: MemoryDocumentNode[],
+  amountSuffix: string | null,
+  loadDl: (documentId: string) => Promise<MemoryDeadline[]>,
+): Promise<SubscriptionInsight | null> {
+  const sorted = [...docs].sort((a, b) =>
+    b.analyzedAt.localeCompare(a.analyzedAt),
+  );
+
+  let primary: MemoryDocumentNode | null = null;
+  let primarySignals: DocRelationSignals | null = null;
+  let picked: number | null = null;
+  let monthly: number | null = null;
+  let eligible = false;
+
+  for (const doc of sorted) {
+    const dls = await loadDl(doc.documentId);
+    if (!isDocSpendEligible(doc, dls)) continue;
+    primary = doc;
+    eligible = true;
+    primarySignals = await loadRelationSignals(userId, doc.documentId);
+    const amountText = [
+      primarySignals?.productHints ?? "",
+      primarySignals?.title ?? "",
+      doc.displayName ?? "",
+      doc.fileName ?? "",
+    ].join(" ");
+    picked = pickRecurringAmountEur(
+      primarySignals?.amounts ?? [],
+      primarySignals?.period ?? null,
+      amountText,
+    );
+    monthly = toMonthlySpendEur(picked, primarySignals?.period ?? null);
+    break;
+  }
+
+  if (!primary) {
+    primary = sorted[0] ?? null;
+    if (!primary) return null;
+    primarySignals = await loadRelationSignals(userId, primary.documentId);
+    const amountText = [
+      primarySignals?.productHints ?? "",
+      primarySignals?.title ?? "",
+      primary.displayName ?? "",
+      primary.fileName ?? "",
+    ].join(" ");
+    picked = pickRecurringAmountEur(
+      primarySignals?.amounts ?? [],
+      primarySignals?.period ?? null,
+      amountText,
+    );
+    monthly = toMonthlySpendEur(picked, primarySignals?.period ?? null);
+    eligible = false;
+  }
+
+  let nextDeadline: SubscriptionInsight["nextDeadline"] = null;
+  let terminationHint: string | null = null;
+  for (const doc of docs) {
+    const deadlines = await loadDl(doc.documentId);
+    for (const d of deadlines) {
+      if (!d.dueDate) continue;
+      if (d.status === "past") continue;
+      if (!nextDeadline || d.dueDate < nextDeadline.date) {
+        nextDeadline = {
+          date: d.dueDate,
+          label: d.label,
+          kind: d.kind,
+        };
+      }
+      if (d.kind === "resiliation" && !terminationHint) {
+        terminationHint = d.label;
+      }
+    }
+    const clauses = await listClausesForDoc(userId, doc.documentId);
+    const preavis = clauses.find((c) => c.clauseType === "preavis");
+    if (preavis && !terminationHint) {
+      terminationHint =
+        preavis.normalizedValue != null
+          ? `Préavis : ${preavis.normalizedValue} jours`
+          : preavis.textSpan.slice(0, 80);
+    }
+  }
+
+  const status: SubscriptionInsight["status"] = !eligible
+    ? "possibly_replaced"
+    : primary.status === "possibly_replaced"
+      ? "possibly_replaced"
+      : primary.status === "active"
+        ? "active"
+        : "unknown";
+
+  return {
+    id: subscriptionAggregateId(group.orgId, group.product.key, amountSuffix),
+    entityId: group.orgId,
+    name: subscriptionDisplayName(group.orgName, group.product),
+    category: primary.category,
+    productKey: group.product.key,
+    monthlyEur: eligible ? monthly : null,
+    annualEur: eligible ? toAnnual(monthly) : null,
+    billingPeriod: primarySignals?.period ?? null,
+    extractedAmountEur: picked,
+    nextDeadline,
+    terminationHint,
+    documentCount: docs.length,
+    primaryHistoryId: primary.historyId,
+    primaryDocumentId: primary.documentId,
+    status,
+  };
+}
+
 export async function listSubscriptionInsights(
   userId: string,
 ): Promise<SubscriptionInsight[]> {
   const orgs = (await listEntities(userId)).filter(
     (e) => e.kind === "organization",
   );
-  const out: SubscriptionInsight[] = [];
+  const groups = new Map<string, SubGroup>();
 
   for (const org of orgs.slice(0, 60)) {
     const docs = await loadDocsForEntity(userId, org.id);
-    const relevant = docs.filter((d) => SUB_CATEGORIES.has(d.category));
-    if (relevant.length === 0) continue;
+    for (const doc of docs) {
+      if (!SUB_CATEGORIES.has(doc.category)) continue;
+      const signals = await loadRelationSignals(userId, doc.documentId);
+      if (doc.category === "facture" && !signals?.period) continue;
 
-    const newest = [...relevant].sort((a, b) =>
-      b.analyzedAt.localeCompare(a.analyzedAt),
-    )[0];
-    const signals = await loadRelationSignals(userId, newest.documentId);
-    const monthly = toMonthly(
-      signals?.amounts?.[0] ?? null,
-      signals?.period ?? null,
-    );
+      const product = resolveProductSignal(doc, signals, org.canonicalName);
+      const gid = subscriptionAggregateId(org.id, product.key);
+      const cur = groups.get(gid) ?? {
+        orgId: org.id,
+        orgName: org.canonicalName,
+        product,
+        docs: [],
+      };
+      cur.docs.push(doc);
+      groups.set(gid, cur);
+    }
+  }
 
-    let nextDeadline: SubscriptionInsight["nextDeadline"] = null;
-    let terminationHint: string | null = null;
-    for (const doc of relevant) {
-      const deadlines = await listDeadlinesForDoc(userId, doc.documentId);
-      for (const d of deadlines) {
-        if (!d.dueDate) continue;
-        if (d.status === "past") continue;
-        if (
-          !nextDeadline ||
-          d.dueDate < nextDeadline.date
-        ) {
-          nextDeadline = {
-            date: d.dueDate,
-            label: d.label,
-            kind: d.kind,
-          };
-        }
-        if (d.kind === "resiliation" && !terminationHint) {
-          terminationHint = d.label;
-        }
+  const out: SubscriptionInsight[] = [];
+
+  for (const group of [...groups.values()].slice(0, 80)) {
+    const deadlineCache = new Map<string, MemoryDeadline[]>();
+    const loadDl = async (documentId: string) => {
+      if (!deadlineCache.has(documentId)) {
+        deadlineCache.set(
+          documentId,
+          await listDeadlinesForDoc(userId, documentId),
+        );
       }
-      const clauses = await listClausesForDoc(userId, doc.documentId);
-      const preavis = clauses.find((c) => c.clauseType === "preavis");
-      if (preavis && !terminationHint) {
-        terminationHint =
-          preavis.normalizedValue != null
-            ? `Préavis : ${preavis.normalizedValue} jours`
-            : preavis.textSpan.slice(0, 80);
-      }
+      return deadlineCache.get(documentId)!;
+    };
+
+    const views: DocSpendView[] = [];
+    for (const doc of group.docs) {
+      const signals = await loadRelationSignals(userId, doc.documentId);
+      const amountText = [
+        signals?.productHints ?? "",
+        signals?.title ?? "",
+        doc.displayName ?? "",
+        doc.fileName ?? "",
+      ].join(" ");
+      const picked = pickRecurringAmountEur(
+        signals?.amounts ?? [],
+        signals?.period ?? null,
+        amountText,
+      );
+      const monthly = toMonthlySpendEur(picked, signals?.period ?? null);
+      const eligible = isDocSpendEligible(doc, await loadDl(doc.documentId));
+      views.push({ doc, signals, picked, monthly, eligible });
     }
 
-    const status: SubscriptionInsight["status"] =
-      newest.status === "possibly_replaced"
-        ? "possibly_replaced"
-        : newest.status === "active"
-          ? "active"
-          : "unknown";
+    const hasVersionSignal = group.docs.some(
+      (d) => d.status === "possibly_replaced",
+    );
+    const eligibleViews = views.filter((v) => v.eligible);
+    const clusters = clusterDocsByAmount(
+      eligibleViews.length > 0 ? eligibleViews : views,
+    );
 
-    out.push({
-      id: org.id,
-      entityId: org.id,
-      name: org.canonicalName,
-      category: newest.category,
-      monthlyEur: monthly,
-      annualEur: toAnnual(monthly),
-      nextDeadline,
-      terminationHint,
-      documentCount: relevant.length,
-      primaryHistoryId: newest.historyId,
-      primaryDocumentId: newest.documentId,
-      status,
-    });
+    if (clusters.length <= 1 || hasVersionSignal) {
+      const insight = await buildSubscriptionFromDocs(
+        userId,
+        group,
+        group.docs,
+        null,
+        loadDl,
+      );
+      if (insight) out.push(insight);
+      continue;
+    }
+
+    for (const cluster of clusters) {
+      const docs = cluster.map((c) => c.doc);
+      const suffix = amountClusterKey(cluster[0]?.monthly ?? null);
+      const insight = await buildSubscriptionFromDocs(
+        userId,
+        group,
+        docs,
+        suffix,
+        loadDl,
+      );
+      if (insight) out.push(insight);
+    }
   }
 
   return out.sort((a, b) => (b.monthlyEur ?? 0) - (a.monthlyEur ?? 0));
@@ -161,6 +372,7 @@ export async function buildFinanceInsight(
   for (const s of subs) {
     const m = s.monthlyEur ?? 0;
     monthlyTotal += m;
+    if (m <= 0) continue;
     const cur = byCat.get(s.category) ?? {
       category: s.category,
       label: CATEGORY_LABELS[s.category] || s.category,
@@ -174,26 +386,22 @@ export async function buildFinanceInsight(
     byCat.set(s.category, cur);
   }
 
-  // Série temporelle : montants signalés à la date d'analyse
+  // Série : un point par abonnement actif (évite double-compte multi-docs).
   const seriesMap = new Map<string, FinanceMonthPoint>();
-  const orgs = (await listEntities(userId)).filter(
-    (e) => e.kind === "organization",
-  );
-  for (const org of orgs.slice(0, 40)) {
-    for (const doc of await loadDocsForEntity(userId, org.id)) {
-      const sig = await loadRelationSignals(userId, doc.documentId);
-      const monthly = toMonthly(sig?.amounts?.[0] ?? null, sig?.period ?? null);
-      if (monthly == null) continue;
-      const key = monthKey(doc.analyzedAt);
-      const cur = seriesMap.get(key) ?? {
-        month: key,
-        totalEur: 0,
-        documentCount: 0,
-      };
-      cur.totalEur += monthly;
-      cur.documentCount += 1;
-      seriesMap.set(key, cur);
-    }
+  for (const s of subs) {
+    if (s.monthlyEur == null || s.monthlyEur <= 0) continue;
+    if (!s.primaryDocumentId) continue;
+    const doc = await getMemoryDocument(userId, s.primaryDocumentId);
+    if (!doc) continue;
+    const key = monthKey(doc.analyzedAt);
+    const cur = seriesMap.get(key) ?? {
+      month: key,
+      totalEur: 0,
+      documentCount: 0,
+    };
+    cur.totalEur += s.monthlyEur;
+    cur.documentCount += 1;
+    seriesMap.set(key, cur);
   }
 
   const series = [...seriesMap.values()].sort((a, b) =>
@@ -220,10 +428,6 @@ function estimateSaving(rel: MemoryRelation): number | null {
     const n = Number(amount.left.replace(",", "."));
     if (Number.isFinite(n) && n > 0) return Math.round(n * 100) / 100;
   }
-  if (rel.type === "covers_same_risk" || rel.type === "same_guarantee") {
-    return null; // inconnu sans montant
-  }
-  if (rel.type === "duplicate_of") return null;
   return null;
 }
 
@@ -240,26 +444,29 @@ export async function listSavingsOpportunities(
       { kind: SavingsOpportunity["kind"]; title: string }
     >
   > = {
-    duplicate_of: { kind: "duplicate", title: "Document en doublon" },
+    duplicate_of: {
+      kind: "duplicate",
+      title: "Opportunité potentielle — document en doublon",
+    },
     covers_same_risk: {
       kind: "redundant_insurance",
-      title: "Assurance / risque redondant",
+      title: "Opportunité potentielle — assurance / risque redondant",
     },
     same_guarantee: {
       kind: "redundant_insurance",
-      title: "Garantie déjà couverte",
+      title: "Opportunité potentielle — garantie déjà couverte",
     },
     redundant_payment: {
       kind: "redundant_payment",
-      title: "Paiement potentiellement en double",
+      title: "Opportunité potentielle — paiement en double",
     },
     contradicts_clause: {
       kind: "contradiction",
-      title: "Contradiction contractuelle",
+      title: "Contradiction potentielle (preuves textuelles)",
     },
     obsoletes_fact: {
       kind: "obsolete_fact",
-      title: "Information obsolète à mettre à jour",
+      title: "Information potentiellement obsolète",
     },
   };
 
@@ -277,22 +484,26 @@ export async function listSavingsOpportunities(
 
     const fromDoc = await getMemoryDocument(userId, rel.fromDocId);
     const toDoc = await getMemoryDocument(userId, rel.toDocId);
-    if (!fromDoc) continue;
+    // Les deux documents doivent encore exister (pas de piste fantôme).
+    if (!fromDoc || !toDoc) continue;
 
-    const peer = toDoc?.displayName || toDoc?.fileName || "autre document";
+    const peer = toDoc.displayName || toDoc.fileName || "autre document";
+    const estimated = estimateSaving(rel);
     out.push({
       id: `save:${pairKey}`,
       kind: meta.kind,
       title: meta.title,
-      message: `Lien « ${rel.type} » avec « ${peer} » (score ${Math.round(rel.score * 100)}%).`,
-      estimatedMonthlySavingEur: estimateSaving(rel),
+      message: `Relation proposée « ${rel.type} » avec « ${peer} » (score ${Math.round(rel.score * 100)} %). À vérifier — ce n’est pas une économie/contradiction certaine.${estimated != null ? ` Montant lié aux preuves : ${estimated} €.` : ""}`,
+      estimatedMonthlySavingEur: estimated,
+      certainty: "potential",
       relationType: rel.type,
       relationId: rel.id,
       score: rel.score,
       historyId: fromDoc.historyId,
-      secondaryHistoryId: toDoc?.historyId ?? null,
+      secondaryHistoryId: toDoc.historyId,
       documentId: fromDoc.documentId,
       documentTitle: fromDoc.displayName || fromDoc.fileName,
+      evidence: rel.evidence,
     });
   }
 
@@ -374,25 +585,26 @@ export async function listRelationLetterIntents(
       case "duplicate":
       case "redundant_insurance":
         letterType = "resiliation";
-        title = "Résilier un contrat redondant";
+        title = "Résilier un contrat potentiellement redondant";
         reason =
-          "La mémoire a détecté une couverture ou un document en doublon.";
+          "La mémoire a détecté une couverture ou un document potentiellement en doublon (à vérifier).";
         break;
       case "redundant_payment":
         letterType = "remboursement";
         title = "Demander un remboursement / régularisation";
-        reason = "Paiement potentiellement en double détecté.";
+        reason = "Paiement potentiellement en double détecté (à vérifier).";
         break;
       case "contradiction":
         letterType = "contestation";
-        title = "Contester une clause contradictoire";
-        reason = "Deux documents présentent des clauses incompatibles.";
+        title = "Contester une clause potentiellement contradictoire";
+        reason =
+          "Deux documents présentent des preuves textuelles de clauses incompatibles (à vérifier).";
         break;
       case "obsolete_fact":
         letterType = "reponse_administrative";
         title = "Signaler un changement (adresse / tarif)";
         reason =
-          "Un fait obsolète (adresse, tarif…) a été détecté entre documents.";
+          "Un fait potentiellement obsolète (adresse, tarif…) a été détecté entre documents.";
         break;
       default:
         break;
@@ -453,9 +665,9 @@ export async function buildPremiumMemoryDashboard(
     digest,
     letterIntents: letters.slice(0, 5),
     uniqueValuePoints: [
-      `${subs.length} abonnement(s) reconstruits depuis vos PDF — pas une estimation chat`,
-      `${savings.length} piste(s) d’économie issues de relations entre documents`,
-      `${contradictionCount} contradiction(s) clause-à-clause détectée(s)`,
+      `${subs.length} ligne(s) d’abonnement reconstruite(s) depuis vos PDF`,
+      `${savings.length} piste(s) d’économie potentielle(s) (relations à vérifier)`,
+      `${contradictionCount} contradiction(s) potentielle(s) basée(s) sur des preuves textuelles`,
       `Timeline et contreparties sur ${corpus} document(s) indexés`,
       digest.summary,
     ],

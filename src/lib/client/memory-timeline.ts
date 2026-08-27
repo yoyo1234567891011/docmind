@@ -24,7 +24,7 @@ export async function fetchDocumentTimeline(
 }> {
   const res = await fetch(
     `/api/memory/timeline?documentId=${encodeURIComponent(documentId)}`,
-    { credentials: "include" },
+    { credentials: "include", cache: "no-store" },
   );
   return parse(res);
 }
@@ -34,6 +34,7 @@ export async function fetchCounterparties(): Promise<{
 }> {
   const res = await fetch("/api/memory/timeline?view=counterparties", {
     credentials: "include",
+    cache: "no-store",
   });
   return parse(res);
 }

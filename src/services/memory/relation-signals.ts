@@ -12,6 +12,11 @@ export interface DocRelationSignals {
   documentId: string;
   category: string;
   title: string;
+  /**
+   * Indices produit/service (titre, résumé, points importants…)
+   * pour distinguer plusieurs contrats chez le même fournisseur.
+   */
+  productHints?: string;
   guaranteeLabels: string[];
   riskLabels: string[];
   amounts: number[];
