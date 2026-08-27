@@ -5,6 +5,7 @@ import {
   setCachedAnalysis,
 } from "@/ai/optimizations";
 import { runMultiAgentAnalysis } from "@/ai/agents";
+import { assertPublishableLlmAnalysis } from "@/ai/agents/core-bundle-outcome";
 import {
   documentAnalysisLockKey,
   getDocumentAnalysisInFlight,
@@ -296,6 +297,12 @@ async function analyzeDocumentTextUnlocked(
     }
 
     const durationMs = Date.now() - started;
+    assertPublishableLlmAnalysis({
+      resultSource: "agents",
+      totalTokens: tokens.total,
+      summary: analysis.summary,
+    });
+
     const result: AnalyzeDocumentResult = {
       documentId: request.documentId,
       classification,

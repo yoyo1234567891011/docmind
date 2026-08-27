@@ -142,3 +142,26 @@ export async function refundQuota(
 ): Promise<void> {
   await decrementUserUsage(userId, metric, 1);
 }
+
+/**
+ * Débite 1 analyze après P2 completed (mode progressif / worker).
+ * Idempotent par jobId — évite double débit si retry worker.
+ */
+export async function consumeAnalyzeQuotaOnJobSuccess(
+  userId: string,
+  jobId: string,
+): Promise<void> {
+  const { tryClaimAnalysisJobQuotaCharge, releaseAnalysisJobQuotaCharge } =
+    await import("@/services/analysis-jobs/store");
+  const claimed = await tryClaimAnalysisJobQuotaCharge(jobId);
+  if (!claimed) return;
+  try {
+    await consumeQuota(userId, "analyze");
+  } catch (error) {
+    await releaseAnalysisJobQuotaCharge(jobId).catch(() => undefined);
+    console.error(
+      `[quotas] analyze charge failed job=${jobId} user=${userId}`,
+      error instanceof Error ? error.message : error,
+    );
+  }
+}

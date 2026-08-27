@@ -19,6 +19,10 @@ export type AnalysisJobMetrics = {
   totalMs: number;
   /** Tokens LLM consommés (P2). */
   totalTokens?: number;
+  /** Diagnostic latence détaillé (temporaire — observabilité). */
+  latencyDiag?: import("./latency-diag").LatencyDiag;
+  /** Débit analyze effectué pour ce job (idempotence). */
+  quotaCharged?: boolean;
 };
 
 export type AnalysisJob = {

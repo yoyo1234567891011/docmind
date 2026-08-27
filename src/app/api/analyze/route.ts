@@ -20,7 +20,10 @@ import { saveHistoryRecord } from "@/services/history";
 import { attachHistoryIdToLatestLog } from "@/services/logs";
 import { appendMonitoringEvent } from "@/services/monitoring/store";
 import { notifyForHistoryRecord } from "@/services/notifications";
-import { consumeQuota } from "@/services/quotas/enforce";
+import {
+  assertQuotaAvailable,
+  consumeQuota,
+} from "@/services/quotas/enforce";
 
 export const runtime = "nodejs";
 /** Hobby Vercel ≤ 300s ; Pro peut remonter à 480. */
@@ -152,11 +155,13 @@ export async function POST(request: Request) {
     const progressiveFlightKey = `${flightKey}:progressive`;
 
     if (progressive) {
-      // Single-flight + quota leader-only : évite double historique / double quota.
+      // P2 async : quota vérifié avant enqueue, débité au complete worker.
+      if (!skipHistory) {
+        await assertQuotaAvailable(user.id, "analyze");
+      }
+      // Single-flight leader-only : évite double historique / double enqueue.
       const { result: progressivePayload } =
         await withDocumentAnalysisSingleFlight(progressiveFlightKey, async () => {
-          await consumeQuota(user.id, "analyze");
-
           const p1Started = Date.now();
           const preview = await quickAnalyzeDocumentText({
             userId: user.id,
@@ -274,9 +279,12 @@ export async function POST(request: Request) {
         skipReadyReply: skipReadyReply ?? true,
         onInFlight,
         beforeLeaderRun: async () => {
-          await consumeQuota(user.id, "analyze");
+          await assertQuotaAvailable(user.id, "analyze");
         },
       });
+      if (!result.coalescedFromInFlight) {
+        await consumeQuota(user.id, "analyze");
+      }
     } catch (error) {
       await appendMonitoringEvent({
         name: "analysis.error",

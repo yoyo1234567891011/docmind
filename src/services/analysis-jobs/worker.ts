@@ -18,7 +18,10 @@ import {
   notifyAnalysisReady,
   notifyForHistoryRecord,
 } from "@/services/notifications";
-import { isLlmAnalysisSuccess } from "@/ai/agents/core-bundle-outcome";
+import {
+  assertPublishableLlmAnalysis,
+  isLlmAnalysisSuccess,
+} from "@/ai/agents/core-bundle-outcome";
 import { EMPTY_READY_REPLY } from "@/types";
 
 import {
@@ -150,6 +153,13 @@ async function defaultRunP2(
       500,
     );
   }
+
+  assertPublishableLlmAnalysis({
+    resultSource: full.resultSource,
+    totalTokens: full.totalTokens,
+    generateMs: timing.generateMs,
+    summary: full.analysis.summary,
+  });
 
   // Contrat beta : salvage / fallback local ≠ succès LLM (pas de complete + mémoire).
   if (!isLlmAnalysisSuccess(full.resultSource)) {
@@ -333,7 +343,13 @@ export async function processOneAnalysisJob(
       metrics.totalMs =
         metrics.queueWaitMs + Math.max(0, Date.now() - wallStarted);
     }
-    await complete(job.id, metrics);
+    const didComplete = await complete(job.id, metrics);
+    if (didComplete) {
+      const { consumeAnalyzeQuotaOnJobSuccess } = await import(
+        "@/services/quotas/enforce"
+      );
+      await consumeAnalyzeQuotaOnJobSuccess(job.userId, job.id);
+    }
     await noteP2Success().catch(() => undefined);
     return "completed";
   } catch (error) {

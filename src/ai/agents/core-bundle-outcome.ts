@@ -3,7 +3,7 @@
  * Séparé du chemin Ollama pour tests unitaires sans réseau.
  */
 import type { OllamaGenerateResult } from "@/ai/models/types";
-import { tryParseJsonObject } from "@/ai/validation/json";
+import { asStringArray, tryParseJsonObject } from "@/ai/validation/json";
 import { AppError } from "@/lib/errors";
 import {
   parseImportantPointDrafts,
@@ -41,6 +41,8 @@ export function isCoreBundleSchemaValid(parsed: CoreBundleParsed): boolean {
     typeof parsed.summary === "string" && parsed.summary.trim().length > 0;
   const points = parseImportantPointDrafts(parsed.important_points);
   const findings = parseRiskFindings(parsed.risk_findings);
+  const risks = asStringArray(parsed.risks);
+  const actions = asStringArray(parsed.actions);
   const documentType =
     typeof parsed.document_type === "string" &&
     parsed.document_type.trim().length > 0;
@@ -50,8 +52,67 @@ export function isCoreBundleSchemaValid(parsed: CoreBundleParsed): boolean {
     summary ||
     points.length > 0 ||
     findings.length > 0 ||
+    risks.length > 0 ||
+    actions.length > 0 ||
     (documentType && title)
   );
+}
+
+/** Complète un bundle LLM trop maigre (Groq sporadique) avec des fallbacks locaux. */
+export function enrichThinCoreBundle(
+  parsed: CoreBundleParsed,
+  fallbacks: {
+    categoryLabel: string;
+    fileName?: string;
+    amounts?: string[];
+    deadlines?: string[];
+  },
+): CoreBundleParsed {
+  const enriched: CoreBundleParsed = { ...parsed };
+  const documentType =
+    typeof enriched.document_type === "string"
+      ? enriched.document_type.trim()
+      : "";
+  const title =
+    typeof enriched.title === "string" ? enriched.title.trim() : "";
+  const summary =
+    typeof enriched.summary === "string" ? enriched.summary.trim() : "";
+
+  if (!documentType) {
+    enriched.document_type = fallbacks.categoryLabel;
+  }
+  if (!title) {
+    enriched.title =
+      fallbacks.fileName?.replace(/\.pdf$/i, "") || fallbacks.categoryLabel;
+  }
+  if (!summary) {
+    const risks = asStringArray(enriched.risks);
+    const findings = parseRiskFindings(enriched.risk_findings);
+    const points = parseImportantPointDrafts(enriched.important_points);
+    if (risks.length > 0) {
+      enriched.summary = `Éléments repérés : ${risks.slice(0, 3).join(" ; ")}.`;
+    } else if (findings.length > 0) {
+      enriched.summary = findings
+        .map((f) => f.description)
+        .slice(0, 2)
+        .join(" ");
+    } else if (points.length > 0) {
+      enriched.summary = points
+        .map((p) => p.statement)
+        .slice(0, 2)
+        .join(" ");
+    } else {
+      const bits = [
+        ...(fallbacks.amounts ?? []).slice(0, 2),
+        ...(fallbacks.deadlines ?? []).slice(0, 2),
+      ];
+      enriched.summary =
+        bits.length > 0
+          ? `Document ${fallbacks.categoryLabel} — ${bits.join(", ")}.`
+          : `Analyse partielle du document (${fallbacks.categoryLabel}).`;
+    }
+  }
+  return enriched;
 }
 
 /**
@@ -124,4 +185,51 @@ export function isLlmAnalysisSuccess(
   resultSource: "agents" | "salvage" | "cache" | undefined,
 ): boolean {
   return resultSource === "agents" || resultSource === "cache";
+}
+
+const SALVAGE_SUMMARY_MARKERS = [
+  "Analyse de secours",
+  "Analyse partielle : le modèle n'a pas renvoyé",
+  "Analyse multi-agents incomplète",
+] as const;
+
+export function isSalvageAnalysisSummary(summary: string | undefined): boolean {
+  const s = summary?.trim() ?? "";
+  if (!s) return false;
+  return SALVAGE_SUMMARY_MARKERS.some((m) => s.includes(m));
+}
+
+/**
+ * Bloque la publication d’un résultat sans vraie passe LLM
+ * (fallback local masqué en succès).
+ */
+export function assertPublishableLlmAnalysis(input: {
+  resultSource?: "agents" | "salvage" | "cache";
+  totalTokens?: number;
+  generateMs?: number;
+  summary?: string;
+}): void {
+  if (!isLlmAnalysisSuccess(input.resultSource)) {
+    throw new AppError(
+      "ANALYSIS_FAILED",
+      "Analyse LLM indisponible — fallback local non publié.",
+      502,
+    );
+  }
+  if (isSalvageAnalysisSummary(input.summary)) {
+    throw new AppError(
+      "ANALYSIS_FAILED",
+      "Analyse LLM indisponible — extraction locale seule (relancez l’analyse).",
+      502,
+    );
+  }
+  const tokens = input.totalTokens ?? 0;
+  const generateMs = input.generateMs ?? 0;
+  if (tokens < 1 && generateMs < 50) {
+    throw new AppError(
+      "ANALYSIS_FAILED",
+      "Aucune génération LLM enregistrée pour cette analyse.",
+      502,
+    );
+  }
 }

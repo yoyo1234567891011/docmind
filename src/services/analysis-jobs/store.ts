@@ -648,10 +648,10 @@ export async function heartbeatAnalysisJob(
 export async function completeAnalysisJob(
   jobId: string,
   metrics?: AnalysisJobMetrics,
-): Promise<void> {
+): Promise<boolean> {
   const now = new Date().toISOString();
   if (usePersistentStorage()) {
-    await query(
+    const result = await query(
       `update public.app_analysis_jobs
        set status = 'completed',
            completed_at = timezone('utc', now()),
@@ -662,11 +662,13 @@ export async function completeAnalysisJob(
        where id = $1 and status = 'processing'`,
       [jobId, metrics ? JSON.stringify(metrics) : null],
     );
-    return;
+    return (result.rowCount ?? 0) > 0;
   }
   const jobs = await readFsJobs();
-  const idx = jobs.findIndex((j) => j.id === jobId);
-  if (idx < 0) return;
+  const idx = jobs.findIndex(
+    (j) => j.id === jobId && j.status === "processing",
+  );
+  if (idx < 0) return false;
   jobs[idx] = {
     ...jobs[idx]!,
     status: "completed",
@@ -675,6 +677,73 @@ export async function completeAnalysisJob(
     lastError: undefined,
     metrics: metrics ?? jobs[idx]!.metrics,
     updatedAt: now,
+  };
+  await writeFsJobs(jobs);
+  return true;
+}
+
+/** Marque le job comme facturé — retourne true si ce worker doit débiter. */
+export async function tryClaimAnalysisJobQuotaCharge(
+  jobId: string,
+): Promise<boolean> {
+  if (usePersistentStorage()) {
+    const result = await query(
+      `update public.app_analysis_jobs
+       set metrics = jsonb_set(
+             coalesce(metrics, '{}'::jsonb),
+             '{quotaCharged}',
+             'true'::jsonb,
+             true
+           ),
+           updated_at = timezone('utc', now())
+       where id = $1
+         and status = 'completed'
+         and coalesce((metrics->>'quotaCharged')::boolean, false) = false
+       returning id`,
+      [jobId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+  const jobs = await readFsJobs();
+  const idx = jobs.findIndex(
+    (j) =>
+      j.id === jobId &&
+      j.status === "completed" &&
+      !j.metrics?.quotaCharged,
+  );
+  if (idx < 0) return false;
+  jobs[idx] = {
+    ...jobs[idx]!,
+    metrics: { ...jobs[idx]!.metrics, quotaCharged: true },
+    updatedAt: new Date().toISOString(),
+  };
+  await writeFsJobs(jobs);
+  return true;
+}
+
+/** Annule le claim quota (si consumeQuota a échoué après complete). */
+export async function releaseAnalysisJobQuotaCharge(
+  jobId: string,
+): Promise<void> {
+  if (usePersistentStorage()) {
+    await query(
+      `update public.app_analysis_jobs
+       set metrics = (coalesce(metrics, '{}'::jsonb) - 'quotaCharged'),
+           updated_at = timezone('utc', now())
+       where id = $1 and status = 'completed'`,
+      [jobId],
+    );
+    return;
+  }
+  const jobs = await readFsJobs();
+  const idx = jobs.findIndex((j) => j.id === jobId && j.status === "completed");
+  if (idx < 0) return;
+  const metrics = { ...jobs[idx]!.metrics };
+  delete metrics.quotaCharged;
+  jobs[idx] = {
+    ...jobs[idx]!,
+    metrics: Object.keys(metrics).length > 0 ? metrics : undefined,
+    updatedAt: new Date().toISOString(),
   };
   await writeFsJobs(jobs);
 }
