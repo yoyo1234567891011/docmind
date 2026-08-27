@@ -15,6 +15,8 @@ export interface ExtractedDocumentText {
   pageCount: number;
   /** Texte brut par page (index 0 = page 1) */
   pages: string[];
+  /** ok = texte natif ; likely_scan = images / OCR absent ; empty = rien */
+  textQuality?: "ok" | "likely_scan" | "empty";
   /** SHA-256 du texte (doublons exacts) — calculé à l’extraction. */
   contentHash?: string;
   /** SimHash 64-bit hex (near-duplicates) — calculé à l’extraction. */

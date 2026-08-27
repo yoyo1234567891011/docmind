@@ -28,6 +28,8 @@ interface AnalysisResultsProps {
   documentId?: string;
   /** preview = P1 locale ; complete = P2 juridique */
   phase?: "preview" | "complete";
+  /** Analyse P2 encore en cours (false si échec ou terminé). */
+  backgroundPending?: boolean;
   /** Phase graphe mémoire (progressive enhancement). */
   relationsPhase?: MemoryRelationsPhase;
   onLetterDrafted?: (letter: ReadyReply) => void;

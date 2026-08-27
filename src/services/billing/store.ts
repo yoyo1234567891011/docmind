@@ -87,13 +87,28 @@ export async function saveUserSubscription(
 /**
  * Patch abonnement sous mutex user — évite lost-update
  * (refund ↔ renewal / webhook ↔ sync).
+ *
+ * `webhookCreatedSec` : si fourni, ignore le patch si un événement plus récent
+ * a déjà été appliqué (relecture sous le même verrou — anti hors-ordre concurrent).
+ * Retourne `null` si l’événement est stale (ignoré).
  */
 export async function upsertSubscriptionPatch(
   userId: string,
   patch: Partial<Omit<UserSubscriptionRecord, "userId" | "createdAt">>,
-): Promise<UserSubscriptionRecord> {
+  options?: { webhookCreatedSec?: number },
+): Promise<UserSubscriptionRecord | null> {
   return withKeyedLock(`billing:sub:${userId}`, async () => {
     const current = await getUserSubscription(userId);
+    if (
+      options?.webhookCreatedSec != null &&
+      current.lastWebhookAt
+    ) {
+      const prevMs = Date.parse(current.lastWebhookAt);
+      const eventMs = options.webhookCreatedSec * 1000;
+      if (!Number.isNaN(prevMs) && eventMs < prevMs) {
+        return null;
+      }
+    }
     return saveUserSubscription({
       ...current,
       ...patch,
