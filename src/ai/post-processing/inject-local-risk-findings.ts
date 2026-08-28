@@ -7,6 +7,8 @@ import {
 import {
   LOCAL_INJECT_CRITERIA_BY_FAMILY,
   resolveWatchDocFamily,
+  isFactureTtcWatchTitle,
+  isRecouvrementTotalWatchTitle,
   type WatchDocFamily,
   type WatchFamilyContext,
 } from "@/ai/post-processing/watch-ranking";
@@ -908,8 +910,11 @@ function makeLocalFinding(
 ): RiskFinding | null {
   const meta = LOCAL_FINDING_META[id];
   if (!meta) return null;
+  const label = description ?? describeLocalFinding(id, excerpt, family);
+  const pinnedTotal =
+    isRecouvrementTotalWatchTitle(label) || isFactureTtcWatchTitle(label);
   return {
-    description: description ?? describeLocalFinding(id, excerpt, family),
+    description: label,
     why: meta.why,
     implication: meta.implication,
     consequence: meta.consequence,
@@ -917,10 +922,10 @@ function makeLocalFinding(
     justification: meta.why,
     impact: meta.implication,
     excerpt,
-    confidence: meta.confidence,
+    confidence: pinnedTotal ? Math.max(meta.confidence, 0.92) : meta.confidence,
     severity: meta.severity,
     criterion_id: id,
-    status: "ambiguous",
+    status: pinnedTotal ? "confirmed" : "ambiguous",
   };
 }
 

@@ -1,6 +1,7 @@
 import { verifyAnalysisDraft } from "@/ai/reasoning/verify-analysis";
 import { scrubAnalysisForDisplay } from "@/ai/post-processing/enrich";
 import { mergeWithLocalRiskFindings } from "@/ai/post-processing/inject-local-risk-findings";
+import { rankFindingsForWatch } from "@/ai/post-processing/watch-ranking";
 import { scoreRiskFromFindings } from "@/services/risk/score-from-findings";
 import { assessDocumentRisk } from "@/ai/scoring";
 import { hasRiskExplanations, type DocumentAnalysis, type RiskFinding } from "@/types";
@@ -138,6 +139,7 @@ function assembleDraft(state: Parameters<AnalysisAgent["run"]>[0]) {
         category: state.classification?.category,
         documentType: legal?.document_type,
         title: legal?.title,
+        textHint: state.documentText?.slice(0, 1200),
       },
     ),
   };
@@ -158,7 +160,18 @@ export const verifyAgent: AnalysisAgent = {
       state.documentText,
       state.pages,
     );
-    const findings: RiskFinding[] = verified.risk_findings ?? [];
+    let findings: RiskFinding[] = verified.risk_findings ?? [];
+    const watchCtx = {
+      category: state.classification?.category,
+      documentType: verified.document_type,
+      title: verified.title,
+      textHint: state.documentText?.slice(0, 1200),
+    };
+    const rankable = findings.filter((f) => f.status !== "rejected");
+    const rejectedFindings = findings.filter((f) => f.status === "rejected");
+    const rankedWatch = rankFindingsForWatch(rankable, watchCtx, 12);
+    findings = [...rankedWatch, ...rejectedFindings];
+
     const confirmedCount = findings.filter((f) => f.status === "confirmed").length;
 
     // Score : findings confirmés ; sinon regex document (évite 0/100 si LLM ambigu seulement).
