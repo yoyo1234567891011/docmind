@@ -279,6 +279,18 @@ export function verifyAnalysisDraft(
     }
 
     const citation = locateExcerptCitation(finding.excerpt, loci);
+    const pinnedAmountWatch =
+      isRecouvrementTotalWatchTitle(finding.description) ||
+      isFactureTtcWatchTitle(finding.description);
+
+    if (!citation && pinnedAmountWatch && /\d/.test(finding.description)) {
+      verifiedFindings.push({ ...finding, status: "confirmed" });
+      notes.push(
+        `confirmed(montant ancré): ${finding.description.slice(0, 60)}`,
+      );
+      continue;
+    }
+
     if (!citation) {
       verifiedFindings.push({ ...finding, status: "rejected" });
       notes.push(

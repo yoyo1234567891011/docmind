@@ -260,6 +260,21 @@ export function resolveWatchDocFamily(
     return "facture";
   }
 
+  const strongRecouvrement =
+    /(?:^|[\n\r])[^\n]{0,100}(?:1[èe]re\s+relance|mise\s+en\s+demeure\s+de\s+payer|montant\s+impay[ée]|total\s+r[ée]clam[ée]\s*:)/i.test(
+      blob,
+    ) ||
+    /huissier|commandement\s+de\s+payer|recouvrement\s+judiciaire/.test(blob);
+
+  const looksFacture =
+    /\bfacture\b|total\s+ttc|net\s+[àa]\s+payer|n[°o]\s*(?:de\s*)?facture|[ée]lectricit[ée]/i.test(
+      blob,
+    );
+
+  if (looksFacture && !strongRecouvrement) {
+    return "facture";
+  }
+
   if (
     /mise\s+en\s+demeure|recouvrement|huissier|commandement\s+de\s+payer|cr[ée]ance|relance(?:\s+de\s+)?paiement|montant\s+impay[ée]|1[èe]re\s+relance|2[eè]me\s+relance/.test(
       blob,
