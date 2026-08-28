@@ -380,6 +380,7 @@ assert.equal(
       ),
     ),
   );
+  assert.ok(/^Total\s+r[ée]clam/i.test(top[0] ?? ""), "total réclamé en premier");
 }
 
 // Bail : loyer / charges / dépôt / durée / préavis avant délai générique
@@ -507,6 +508,7 @@ Pénalités de retard : 40 € par mois de retard.
   const top = titles(ranked).slice(0, 5);
   console.log("FACTURE_TOP", top);
   assert.ok(/^Total\s+TTC/i.test(top[0] ?? "") || /120/.test(top[0] ?? ""));
+  assert.ok(/^Total\s+TTC/i.test(top[0] ?? ""), "total TTC en premier");
   const ttcIdx = top.findIndex((t) => /total\s+ttc|120/i.test(t));
   const fraisIdx = top.findIndex((t) => /frais\s+de\s+dossier|15/i.test(t));
   if (ttcIdx >= 0 && fraisIdx >= 0) {

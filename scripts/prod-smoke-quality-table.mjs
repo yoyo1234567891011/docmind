@@ -282,7 +282,11 @@ async function main() {
     const token = csrfJson?.data?.token;
     const header = csrfJson?.data?.headerName || "x-csrf-token";
 
-    for (const doc of DOCS) {
+    const only = process.argv.slice(2);
+    const docs =
+      only.length > 0 ? DOCS.filter((d) => only.includes(d.id)) : DOCS;
+
+    for (const doc of docs) {
       console.log(`\n=== ${doc.type} ===`);
       try {
         rows.push(await analyzeOne(page, header, token, doc));

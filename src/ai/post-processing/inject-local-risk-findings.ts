@@ -1050,7 +1050,7 @@ export function buildMissingLocalRiskFindings(
           family,
           `Total réclamé : ${total.amount}`,
         );
-        if (finding) injected.push(finding);
+        if (finding) injected.unshift(finding);
       }
     }
   }
@@ -1190,7 +1190,7 @@ export function buildMissingLocalRiskFindings(
           family,
           `Total TTC : ${amount}`,
         );
-        if (finding) injected.push(finding);
+        if (finding) injected.unshift(finding);
       }
     }
   }

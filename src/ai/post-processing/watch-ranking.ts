@@ -368,6 +368,24 @@ export function isBailEconomicWatchTitle(description: string): boolean {
   return bailTitlePriority(description) <= 2;
 }
 
+/** Total dû en tête — mise en demeure / recouvrement. */
+export function isRecouvrementTotalWatchTitle(description: string): boolean {
+  const t = description.trim();
+  if (!/\d/.test(t)) return false;
+  return /total\s+r[ée]clam|somme\s+totale|montant\s+total|montant\s+d[ûu]/i.test(
+    t,
+  );
+}
+
+/** Montant principal en tête — facture. */
+export function isFactureTtcWatchTitle(description: string): boolean {
+  const t = description.trim();
+  if (!/\d/.test(t)) return false;
+  return /total\s+ttc|net\s+[àa]\s+payer|montant\s+[àa]\s+payer|montant\s+d[ûu]/i.test(
+    t,
+  );
+}
+
 /** Ordre d’affichage impôts / taxe / avis de prélèvement. */
 function administratifTitlePriority(description: string): number {
   const t = description.toLowerCase();
@@ -645,6 +663,22 @@ export function rankFindingsForWatch(
     );
     const rest = out.filter((f) => !isBailEconomicWatchTitle(f.description));
     return [...economic, ...rest].slice(0, limit);
+  }
+
+  if (family === "recouvrement" && out.length > 0) {
+    const total = out.filter((f) =>
+      isRecouvrementTotalWatchTitle(f.description),
+    );
+    const rest = out.filter(
+      (f) => !isRecouvrementTotalWatchTitle(f.description),
+    );
+    return [...total, ...rest].slice(0, limit);
+  }
+
+  if (family === "facture" && out.length > 0) {
+    const ttc = out.filter((f) => isFactureTtcWatchTitle(f.description));
+    const rest = out.filter((f) => !isFactureTtcWatchTitle(f.description));
+    return [...ttc, ...rest].slice(0, limit);
   }
 
   return out;

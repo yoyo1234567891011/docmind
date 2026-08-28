@@ -17,7 +17,10 @@ import {
   type VerificationReport,
 } from "@/ai/reasoning";
 import { mergeWithLocalRiskFindings } from "@/ai/post-processing/inject-local-risk-findings";
-import { filterGenericImportantPoints } from "@/ai/post-processing/watch-ranking";
+import {
+  filterGenericImportantPoints,
+  rankFindingsForWatch,
+} from "@/ai/post-processing/watch-ranking";
 import {
   assessDocumentRisk,
   buildLegalRiskFindings,
@@ -249,8 +252,23 @@ function enrichReasoning(
   const verified = verifyAnalysisDraft(draft, documentText);
   let analysis = scrubAnalysisProseAmounts(projectVerifiedAnalysis(verified));
 
+  const familyCtx = {
+    category: classification.category,
+    documentType: analysis.document_type,
+    title: analysis.title,
+    textHint: documentText.slice(0, 1200),
+  };
+  const confirmed = (analysis.risk_findings ?? []).filter(
+    (f) => f.status !== "rejected",
+  );
+  const rejected = (analysis.risk_findings ?? []).filter(
+    (f) => f.status === "rejected",
+  );
+  const rankedWatch = rankFindingsForWatch(confirmed, familyCtx, 12);
+
   analysis = {
     ...analysis,
+    risk_findings: [...rankedWatch, ...rejected],
     summary:
       cleanSummaryForDisplay(analysis.summary) ||
       "Résumé indisponible — texte incomplet écarté.",
