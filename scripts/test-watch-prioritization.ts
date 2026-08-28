@@ -517,3 +517,69 @@ Pénalités de retard : 40 € par mois de retard.
 }
 
 console.log("OK watch prioritization by document family");
+
+const EDF_FACTURE = `
+FACTURE ÉLECTRICITÉ EDF
+Abonnement : 21,50 €
+Total TTC à payer : 90,37 €
+Date limite de paiement : 15/09/2025
+Pénalités de retard : 10 € après échéance.
+En l'absence de règlement, coupure possible.
+`;
+
+const RELANCE = `
+1ère relance de paiement
+Montant impayé : 749,02 €
+Principal : 749,02 €
+Pénalités de retard : 43 €
+Frais de recouvrement : 30 €
+Total réclamé : 822 €
+Règlement exigé sous 8 jours, au plus tard le 25/05/2026.
+Transmission à un huissier possible.
+Contester par écrit sous 10 jours si désaccord.
+`;
+
+// Facture électricité : Total TTC #1, abonnement non confondu
+{
+  const merged = mergeWithLocalRiskFindings([], EDF_FACTURE, {
+    category: "facture",
+    documentType: "Facture électricité",
+    textHint: EDF_FACTURE,
+  });
+  const ranked = rankFindingsForWatch(merged, {
+    category: "facture",
+    documentType: "Facture électricité",
+    textHint: EDF_FACTURE,
+  });
+  const top = titles(ranked).slice(0, 6);
+  console.log("EDF_FACTURE_TOP", top);
+  assert.ok(/^Total\s+TTC/i.test(top[0] ?? ""), "total TTC en premier");
+  assert.ok(!top.some((t) => /abonnement.*total\s+ttc/i.test(t)), "pas abonnement en total TTC");
+}
+
+// 1ère relance : total/principal, labels justes, pas de résilier
+{
+  const merged = mergeWithLocalRiskFindings([], RELANCE, {
+    documentType: "1ère relance de paiement",
+    textHint: RELANCE,
+  });
+  const ranked = rankFindingsForWatch(merged, {
+    documentType: "1ère relance de paiement",
+    textHint: RELANCE,
+  });
+  const top = titles(ranked).slice(0, 8);
+  console.log("RELANCE_TOP", top);
+  assert.ok(
+    /^Total\s+r[ée]clam|^Principal\s*\/\s*montant\s+impay/i.test(top[0] ?? ""),
+    "total ou principal en premier",
+  );
+  assert.ok(top.some((t) => /P[ée]nalit.*43/i.test(t)), "pénalités chiffrées");
+  assert.ok(!top.some((t) => /r[ée]silier\s*\/\s*modifier/i.test(t)), "pas de résilier");
+  assert.ok(
+    !top.some(
+      (t) =>
+        /Principal|749/.test(t) && /P[ée]nalit/i.test(t) && !/impay/i.test(t),
+    ),
+    "principal non labellé pénalités",
+  );
+}

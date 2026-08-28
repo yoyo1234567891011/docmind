@@ -164,17 +164,49 @@ const LABEL_RULES: LabelRule[] = [
     priority: 7,
   },
   {
+    id: "abonnement",
+    patterns: [
+      /abonnement(?:\s+mensuel|\s+forfaitaire)?/i,
+      /part\s+fixe/i,
+      /forfait\s+(?:de\s+)?(?:base|mensuel)/i,
+    ],
+    label: "Abonnement",
+    period: "mensuel",
+    importance: "primary",
+    priority: 11,
+  },
+  {
     id: "total_ttc",
     patterns: [
-      /total\s+ttc/i,
+      /total\s+ttc(?:\s+[àa]\s+payer)?/i,
       /montant\s+total\s+ttc/i,
-      /net\s+[àa]\s+payer/i,
       /total\s+facture/i,
     ],
     label: "Total TTC",
     period: "unique",
     importance: "primary",
     priority: 9,
+  },
+  {
+    id: "montant_impaye",
+    patterns: [
+      /montant\s+impay[ée]/i,
+      /cr[ée]ance\s+impay[ée]/i,
+      /solde\s+impay[ée]/i,
+      /principal\s+(?:d[ûu]|impay[ée])/i,
+    ],
+    label: "Principal / montant impayé",
+    period: "unique",
+    importance: "primary",
+    priority: 8,
+  },
+  {
+    id: "principal_du",
+    patterns: [/principal\s*:/i, /^principal\b/i],
+    label: "Principal / montant impayé",
+    period: "unique",
+    importance: "primary",
+    priority: 8,
   },
   {
     id: "loyer",
@@ -360,6 +392,10 @@ function normalizeAmount(value: string): string {
  * Évite que « Loyer… » de la ligne précédente pollue le montant suivant.
  */
 function contextForLabel(text: string, index: number): string {
+  const lineStart = Math.max(0, text.lastIndexOf("\n", index - 1) + 1);
+  const onLine = text.slice(lineStart, index).replace(/\s+/g, " ").trim();
+  if (onLine.length >= 4) return onLine;
+
   const slice = text.slice(Math.max(0, index - 140), index);
   const breakAt = Math.max(
     slice.lastIndexOf("\n"),
@@ -373,6 +409,20 @@ function contextForLabel(text: string, index: number): string {
     return slice.replace(/\s+/g, " ").trim();
   }
   return cleaned;
+}
+
+/** Texte après le montant, limité à la même ligne (évite la pollution inter-lignes). */
+function contextAfterOnSameLine(
+  text: string,
+  index: number,
+  length: number,
+): string {
+  const lineEnd = text.indexOf("\n", index);
+  const end = lineEnd === -1 ? text.length : lineEnd;
+  return text
+    .slice(index + length, end)
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function contextAfterAmount(
@@ -454,10 +504,17 @@ export function extractLabeledAmounts(text: string): LabeledAmount[] {
   while ((m = re.exec(text)) !== null) {
     const value = normalizeAmount(m[0]);
     const before = contextForLabel(text, m.index);
+    const afterOnLine = contextAfterOnSameLine(text, m.index, m[0].length);
     const after = contextAfterAmount(text, m.index, m[0].length);
-    // Match aussi un peu après le montant (« … 1 178 € sera prélevé »)
+    // Même ligne d’abord ; extension après seulement si ancrage « sera prélevé ».
     const rule =
-      matchLabel(before) ?? matchLabel(`${before} ${after}`.slice(0, 180));
+      matchLabel(before) ??
+      matchLabel(afterOnLine) ??
+      (/\bsera\s+pr[ée]lev|pr[ée]l[eè]vement\s+(?:de|le)\b/i.test(
+        `${before} ${afterOnLine} ${after}`,
+      )
+        ? matchLabel(`${before} ${afterOnLine} ${after}`.slice(0, 180))
+        : null);
     if (isNoiseAmount(value, before, after, rule)) continue;
 
     const ruleId = rule?.id ?? "unlabeled";
@@ -556,7 +613,7 @@ function isPlausibleUnlabeledFallback(item: LabeledAmount): boolean {
 function isUserDueAmountLabel(raw: string): boolean {
   return (
     EXPLICIT_USER_DUE.test(raw) ||
-    /pr[ée]lever|[àa]\s+payer|taxe\s+fonci|imp[oô]t|loyer|charges|d[ée]p[ôo]t|mensualit|p[ée]nalit|honoraires|frais|cotisation|total\s+r[ée]clam/i.test(
+    /pr[ée]lever|[àa]\s+payer|taxe\s+fonci|imp[oô]t|loyer|charges|d[ée]p[ôo]t|mensualit|p[ée]nalit|honoraires|frais|cotisation|total\s+r[ée]clam|abonnement|principal|montant\s+impay/i.test(
       raw,
     )
   );

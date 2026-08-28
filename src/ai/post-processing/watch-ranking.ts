@@ -256,8 +256,12 @@ export function resolveWatchDocFamily(
     .join(" \n ")
     .toLowerCase();
 
+  if (ctx.category === "facture") {
+    return "facture";
+  }
+
   if (
-    /mise\s+en\s+demeure|recouvrement|huissier|commandement\s+de\s+payer|cr[ée]ance/.test(
+    /mise\s+en\s+demeure|recouvrement|huissier|commandement\s+de\s+payer|cr[ée]ance|relance(?:\s+de\s+)?paiement|montant\s+impay[ée]|1[èe]re\s+relance|2[eè]me\s+relance/.test(
       blob,
     )
   ) {
@@ -372,7 +376,7 @@ export function isBailEconomicWatchTitle(description: string): boolean {
 export function isRecouvrementTotalWatchTitle(description: string): boolean {
   const t = description.trim();
   if (!/\d/.test(t)) return false;
-  return /total\s+r[ée]clam|somme\s+totale|montant\s+total|montant\s+d[ûu]/i.test(
+  return /total\s+r[ée]clam|somme\s+totale|montant\s+total|montant\s+d[ûu]|principal\s*\/\s*montant\s+impay|montant\s+impay/i.test(
     t,
   );
 }
@@ -409,15 +413,19 @@ function administratifTitlePriority(description: string): number {
 
 function recouvrementTitlePriority(description: string): number {
   const t = description.toLowerCase();
-  if (/total\s+r[ée]clam|somme\s+totale|montant\s+total|montant\s+d[ûu]/.test(t)) {
+  if (/total\s+r[ée]clam|somme\s+totale|montant\s+total/.test(t)) {
     return 0;
+  }
+  if (/principal\s*\/\s*montant\s+impay|montant\s+impay|^principal\b/.test(t)) {
+    return 1;
   }
   if (/p[ée]nalit|retard/.test(t)) return 2;
   if (/frais\s+de\s+recouvrement|huissier/.test(t)) return 3;
-  if (/contester|d[ée]lai|sous\s+\d+\s*jours?|8\s*jours|10\s*jours/.test(t)) {
+  if (/contester|d[ée]lai|sous\s+\d+\s*jours?|8\s*jours|10\s*jours|paiement/.test(t)) {
     return 4;
   }
   if (/frais\s+de\s+dossier|frais\s+annexes/.test(t)) return 80;
+  if (/r[ée]silier|modifier\s+l['']abonnement/.test(t)) return 200;
   return 50;
 }
 
@@ -439,8 +447,9 @@ function factureTitlePriority(description: string): number {
   if (/total\s+ttc|net\s+[àa]\s+payer|montant\s+[àa]\s+payer|montant\s+d[ûu]/.test(t)) {
     return 0;
   }
-  if (/[ée]ch[ée]ance|date\s+limite/.test(t)) return 2;
-  if (/p[ée]nalit|retard|majoration/.test(t)) return 3;
+  if (/[ée]ch[ée]ance|date\s+limite\s+de\s+paiement/.test(t)) return 2;
+  if (/p[ée]nalit|retard|majoration|coupure|mise\s+en\s+demeure/.test(t)) return 3;
+  if (/abonnement|forfait/.test(t)) return 85;
   if (/frais\s+(?:annexes|de\s+dossier)/.test(t)) return 80;
   return 50;
 }
@@ -501,6 +510,23 @@ export function watchRankScore(
       finding.criterion_id === "resiliation" ||
       finding.criterion_id === "renouvellement_tacite" ||
       finding.criterion_id === "engagement"
+    ) {
+      genericPenalty += 100;
+    }
+  }
+  // Recouvrement : pas de « résilier / modifier » (définitions contractuelles).
+  if (family === "recouvrement") {
+    if (
+      VACUOUS_RESILIATION_TITLE_RE.test(finding.description) ||
+      /date\s+limite\s+pour\s+r[ée]silier|r[ée]silier\s*\/\s*modifier/i.test(
+        finding.description,
+      )
+    ) {
+      genericPenalty += 150;
+    }
+    if (
+      finding.criterion_id === "resiliation" ||
+      finding.criterion_id === "renouvellement_tacite"
     ) {
       genericPenalty += 100;
     }
@@ -600,6 +626,21 @@ export function rankFindingsForWatch(
       ) {
         continue;
       }
+    }
+
+    if (
+      family === "recouvrement" &&
+      (VACUOUS_RESILIATION_TITLE_RE.test(finding.description) ||
+        /date\s+limite\s+pour\s+r[ée]silier|r[ée]silier\s*\/\s*modifier/i.test(
+          finding.description,
+        ) ||
+        finding.criterion_id === "resiliation" ||
+        finding.criterion_id === "renouvellement_tacite") &&
+      !/huissier|recouvrement|p[ée]nalit|principal|montant\s+impay|total\s+r[ée]clam/i.test(
+        finding.description,
+      )
+    ) {
+      continue;
     }
 
     // Hors recouvrement : masquer les titres vagues si des points concrets existent.

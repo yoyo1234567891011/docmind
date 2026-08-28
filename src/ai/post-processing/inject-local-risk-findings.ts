@@ -169,6 +169,18 @@ export function describeLocalFinding(
 
   switch (criterionId) {
     case "penalites": {
+      if (
+        family === "recouvrement" &&
+        /principal|montant\s+impay[ée]|cr[ée]ance\s+impay[ée]/i.test(excerpt) &&
+        !/p[ée]nalit|majoration|retard/i.test(excerpt)
+      ) {
+        const amount =
+          euroAmountNear(excerpt, /principal|montant\s+impay/) ||
+          firstEuroAmount(excerpt);
+        return amount
+          ? `Principal / montant impayé : ${amount}`
+          : "Principal / montant impayé";
+      }
       if (/mat[ée]riel|non[\s-]retour|box|routeur|d[ée]codeur/i.test(excerpt)) {
         const amount = firstEuroAmount(excerpt);
         return amount
@@ -261,6 +273,10 @@ export function describeLocalFinding(
         if (/total\s+ttc|net\s+[àa]\s+payer/i.test(excerpt)) {
           const amount = firstEuroAmount(excerpt);
           return amount ? `Total TTC : ${amount}` : "Total TTC";
+        }
+        if (/abonnement|forfait|part\s+fixe/i.test(excerpt)) {
+          const amount = euroAmountNear(excerpt, /abonnement|forfait/) || firstEuroAmount(excerpt);
+          return amount ? `Abonnement : ${amount}` : "Abonnement";
         }
         if (/[ée]ch[ée]ance/i.test(excerpt)) {
           return "Date d'échéance de paiement";
@@ -360,6 +376,8 @@ export function describeLocalFinding(
       }
       if (
         family !== "administratif" &&
+        family !== "recouvrement" &&
+        family !== "facture" &&
         /r[ée]sili|d[ée]nonc|modifier|modification|cong[eé]/i.test(excerpt)
       ) {
         return days
@@ -370,7 +388,17 @@ export function describeLocalFinding(
         return "Date d’échéance à surveiller";
       }
       if (family === "recouvrement") {
-        return days ? `Délai très court : ${days}` : "Délai court pour agir ou payer";
+        const dateMatch = excerpt.match(
+          /(\d{1,2}[/.]\d{1,2}[/.]\d{2,4}|\d{1,2}\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)\s+\d{4})/i,
+        );
+        const dateLabel = dateMatch?.[1]?.replace(/\s+/g, " ").trim();
+        if (days && dateLabel) {
+          return `Délai de paiement : ${days} (au plus tard le ${dateLabel})`;
+        }
+        if (dateLabel && /payer|r[èe]glement|exig/i.test(excerpt)) {
+          return `Date limite de paiement : ${dateLabel}`;
+        }
+        return days ? `Délai de paiement : ${days}` : "Délai court pour agir ou payer";
       }
       return days ? `Délai / préavis : ${days}` : "Délai ou échéance à noter";
     }
@@ -463,21 +491,129 @@ export function describeLocalFinding(
 function findClaimedTotalSnippet(documentText: string): {
   excerpt: string;
   amount: string;
+  label: "total" | "principal";
 } | null {
-  const patterns = [
-    /somme\s+totale\s+(?:de\s+)?(\d+(?:[.,]\d+)?)\s*(?:€|euros?\b)/i,
-    /montant\s+total\s+(?:de\s+)?(\d+(?:[.,]\d+)?)\s*(?:€|euros?\b)/i,
-    /total\s+(?:r[ée]clam[ée]|d[ûu]|[àa]\s+payer)\s*:?\s*(\d+(?:[.,]\d+)?)\s*(?:€|euros?\b)/i,
+  const amountGap = String.raw`[^0-9*]{0,20}(?:\*{0,2})?`;
+  const amountGroup = String.raw`(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)`;
+  const euroSuffix = String.raw`\s*(?:\*{0,2})?(?:€|euros?\b)`;
+  const patterns: Array<{ re: RegExp; label: "total" | "principal" }> = [
+    {
+      label: "total",
+      re: new RegExp(
+        `total\\s+r[ée]clam[ée]\\s*:?${amountGap}${amountGroup}${euroSuffix}`,
+        "i",
+      ),
+    },
+    {
+      label: "total",
+      re: new RegExp(
+        `somme\\s+totale\\s*:?${amountGap}${amountGroup}${euroSuffix}`,
+        "i",
+      ),
+    },
+    {
+      label: "total",
+      re: new RegExp(
+        `montant\\s+total\\s*:?${amountGap}${amountGroup}${euroSuffix}`,
+        "i",
+      ),
+    },
+    {
+      label: "principal",
+      re: new RegExp(
+        `montant\\s+impay[ée]\\s*:?${amountGap}${amountGroup}${euroSuffix}`,
+        "i",
+      ),
+    },
+    {
+      label: "principal",
+      re: new RegExp(
+        `principal\\s*:?${amountGap}${amountGroup}${euroSuffix}`,
+        "i",
+      ),
+    },
+    {
+      label: "total",
+      re: new RegExp(
+        `total\\s+(?:d[ûu]|[àa]\\s+payer)\\s*:?${amountGap}${amountGroup}${euroSuffix}`,
+        "i",
+      ),
+    },
   ];
-  for (const re of patterns) {
+  for (const { re, label } of patterns) {
     const m = documentText.match(re);
     if (!m) continue;
-    const amount = `${m[1]!.replace(/\s/g, "")} €`;
+    const amount = `${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
     const idx = m.index ?? 0;
     const excerpt = snippetAround(documentText, idx, m[0]!.length);
-    return { excerpt, amount };
+    return { excerpt, amount, label };
   }
   return null;
+}
+
+type RecouvrementLabeledFact = {
+  criterionId: RiskCriterionId;
+  description: string;
+  excerpt: string;
+  pinFirst?: boolean;
+};
+
+function findRecouvrementLabeledFacts(
+  documentText: string,
+): RecouvrementLabeledFact[] {
+  const facts: RecouvrementLabeledFact[] = [];
+
+  const total = findLabeledEuroFact(
+    documentText,
+    /total\s+r[ée]clam[ée]|somme\s+totale|montant\s+total/i,
+  );
+  if (total) {
+    facts.push({
+      criterionId: "frais_caches",
+      description: `Total réclamé : ${total.amount}`,
+      excerpt: total.excerpt,
+      pinFirst: true,
+    });
+  }
+
+  const principal = findLabeledEuroFact(
+    documentText,
+    /montant\s+impay[ée]|principal|cr[ée]ance\s+impay[ée]/i,
+  );
+  if (principal) {
+    facts.push({
+      criterionId: "frais_caches",
+      description: `Principal / montant impayé : ${principal.amount}`,
+      excerpt: principal.excerpt,
+      pinFirst: !total,
+    });
+  }
+
+  const penalites = findLabeledEuroFact(
+    documentText,
+    /p[ée]nalit[ée]s?(?:\s+de\s+retard)?|majoration|int[ée]r[êe]ts?\s+de\s+retard/i,
+  );
+  if (penalites) {
+    facts.push({
+      criterionId: "penalites",
+      description: `Pénalités de retard : ${penalites.amount}`,
+      excerpt: penalites.excerpt,
+    });
+  }
+
+  const fraisRec = findLabeledEuroFact(
+    documentText,
+    /frais\s+de\s+recouvrement|indemnit[ée]\s+forfaitaire\s+(?:de\s+)?recouvrement/i,
+  );
+  if (fraisRec) {
+    facts.push({
+      criterionId: "frais_caches",
+      description: `Frais de recouvrement : ${fraisRec.amount}`,
+      excerpt: fraisRec.excerpt,
+    });
+  }
+
+  return facts;
 }
 
 /** Contexte hors sujet (agence, RCS, totaux nationaux fiscaux…). */
@@ -852,7 +988,14 @@ function pickBestExcerpt(
           reasons.find((r) => /recouvrement|frais/i.test(r) && /\d/.test(r) && !IRRELEVANT_MONEY_CONTEXT.test(r)) ||
           reasons.find((r) => /recouvrement|r[ée]siliation/i.test(r))
         : id === "penalites"
-          ? reasons.find((r) => /mat[ée]riel|non[\s-]retour/i.test(r)) ||
+          ? (family === "recouvrement"
+              ? reasons.find(
+                  (r) =>
+                    /p[ée]nalit|majoration|retard/i.test(r) &&
+                    !/principal|montant\s+impay/i.test(r),
+                )
+              : undefined) ||
+            reasons.find((r) => /mat[ée]riel|non[\s-]retour/i.test(r)) ||
             reasons.find((r) => /majoration|p[ée]nalit/i.test(r) && /\d/.test(r)) ||
             reasons.find((r) => /p[ée]nalit/i.test(r))
           : id === "obligations_importantes"
@@ -871,7 +1014,9 @@ function pickBestExcerpt(
                 reasons.find((r) => /r[ée]sili|d[ée]nonc|modifier/i.test(r)) ||
                 (family === "recouvrement"
                   ? reasons.find((r) =>
-                      /sous\s+8\s*jours|sous\s+huit|payer.{0,40}jours/i.test(r),
+                      /sous\s+\d+\s*jours|sous\s+huit|r[èe]glement\s+exig|payer.{0,40}jours|au\s+plus\s+tard/i.test(
+                        r,
+                      ),
                     )
                   : undefined) ||
                 reasons.find((r) =>
@@ -1043,8 +1188,39 @@ export function buildMissingLocalRiskFindings(
   }
 
   if (family === "recouvrement") {
+    const labeled = findRecouvrementLabeledFacts(documentText);
+    for (const fact of labeled) {
+      const dupIdx = [...existing, ...injected].findIndex((f) => {
+        const sameTitle =
+          f.description.toLowerCase() === fact.description.toLowerCase();
+        const sameKind =
+          (/total\s+r[ée]clam/i.test(f.description) &&
+            /total\s+r[ée]clam/i.test(fact.description)) ||
+          (/principal\s*\/\s*montant\s+impay/i.test(f.description) &&
+            /principal\s*\/\s*montant\s+impay/i.test(fact.description)) ||
+          (/p[ée]nalit/i.test(f.description) &&
+            /p[ée]nalit/i.test(fact.description) &&
+            f.criterion_id === "penalites" &&
+            fact.criterionId === "penalites") ||
+          (/frais\s+de\s+recouvrement/i.test(f.description) &&
+            /frais\s+de\s+recouvrement/i.test(fact.description));
+        return sameTitle || sameKind;
+      });
+      if (dupIdx >= 0) continue;
+
+      const finding = makeLocalFinding(
+        fact.criterionId,
+        fact.excerpt,
+        family,
+        fact.description,
+      );
+      if (!finding) continue;
+      if (fact.pinFirst) injected.unshift(finding);
+      else injected.push(finding);
+    }
+
     const total = findClaimedTotalSnippet(documentText);
-    if (total) {
+    if (total && total.label === "total") {
       const alreadyLabeled = [...existing, ...injected].some((f) =>
         isRecouvrementTotalWatchTitle(f.description),
       );
@@ -1181,10 +1357,10 @@ export function buildMissingLocalRiskFindings(
   if (family === "facture" || /\bfacture\b|total\s+ttc/i.test(documentText)) {
     const totalTtc =
       documentText.match(
-        /total\s+ttc\s*:?\s*(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?)?/i,
+        /total\s+ttc(?:\s+[àa]\s+payer)?\s*:?\s*(?:\*{0,2})?(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:\*{0,2})?(?:€|euros?)?/i,
       ) ||
       documentText.match(
-        /net\s+[àa]\s+payer\s*:?\s*(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?)?/i,
+        /net\s+[àa]\s+payer\s*:?\s*(?:\*{0,2})?(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:\*{0,2})?(?:€|euros?)?/i,
       );
     if (totalTtc) {
       const idx = totalTtc.index ?? 0;
@@ -1200,6 +1376,26 @@ export function buildMissingLocalRiskFindings(
           `Total TTC : ${amount}`,
         );
         if (finding) injected.unshift(finding);
+      }
+    }
+
+    const paymentDeadline = documentText.match(
+      /date\s+limite\s+de\s+paiement\s*:?\s*(?:\*{0,2})?(\d{1,2}[/.]\d{1,2}[/.]\d{2,4}|\d{1,2}\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)\s+\d{4})/i,
+    );
+    if (paymentDeadline?.[1]) {
+      const dateLabel = paymentDeadline[1].replace(/\s+/g, " ").trim();
+      const already = [...existing, ...injected].some((f) =>
+        /date\s+limite\s+de\s+paiement/i.test(f.description),
+      );
+      if (!already) {
+        const idx = paymentDeadline.index ?? 0;
+        const finding = makeLocalFinding(
+          "delais",
+          snippetAround(documentText, idx, paymentDeadline[0]!.length),
+          "facture",
+          `Date limite de paiement : ${dateLabel}`,
+        );
+        if (finding) injected.push(finding);
       }
     }
   }
@@ -1247,6 +1443,22 @@ export function mergeWithLocalRiskFindings(
       (f) => !/^loyer\b|^charges\b|d[ée]p[ôo]t\s+de\s+garantie/i.test(f.description),
     );
     return [...economic, ...other].slice(0, 12);
+  }
+
+  if (family === "recouvrement") {
+    const total = merged.filter((f) =>
+      isRecouvrementTotalWatchTitle(f.description),
+    );
+    const rest = merged.filter(
+      (f) => !isRecouvrementTotalWatchTitle(f.description),
+    );
+    return [...total, ...rest].slice(0, 12);
+  }
+
+  if (family === "facture") {
+    const ttc = merged.filter((f) => isFactureTtcWatchTitle(f.description));
+    const rest = merged.filter((f) => !isFactureTtcWatchTitle(f.description));
+    return [...ttc, ...rest].slice(0, 12);
   }
 
   return merged.slice(0, 10);
