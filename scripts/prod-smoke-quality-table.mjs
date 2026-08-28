@@ -45,6 +45,22 @@ const DOCS = [
     ],
   },
   {
+    type: "1ère relance",
+    id: "relance",
+    file: "quality-relance.pdf",
+    lines: [
+      "1ère relance de paiement",
+      "Montant impayé : 749,02 €",
+      "Principal : 749,02 €",
+      "Pénalités de retard : 43 €",
+      "Frais de recouvrement : 30 €",
+      "Total réclamé : 822 €",
+      "Règlement exigé sous 8 jours, au plus tard le 25/05/2026.",
+      "Transmission à un huissier possible.",
+      "Contester par écrit sous 10 jours si désaccord.",
+    ],
+  },
+  {
     type: "Bail",
     id: "bail",
     file: "quality-bail.pdf",
@@ -73,15 +89,16 @@ const DOCS = [
     ],
   },
   {
-    type: "Facture",
+    type: "Facture électricité",
     id: "facture",
     file: "quality-facture.pdf",
     lines: [
-      "FACTURE N° 2025-042",
-      "Date d'échéance : 15/03/2025",
-      "Total TTC : 120,00 €",
-      "Frais de dossier : 15,00 €",
-      "Pénalités de retard : 40 € par mois.",
+      "FACTURE ÉLECTRICITÉ",
+      "Abonnement : 21,50 €",
+      "Total TTC à payer : 90,37 €",
+      "Date limite de paiement : 15/09/2025",
+      "Pénalités de retard : 10 € après échéance.",
+      "En l'absence de règlement sous 15 jours, mise en demeure puis coupure possible.",
     ],
   },
 ];
@@ -230,6 +247,7 @@ async function analyzeOne(page, csrfHeader, csrfToken, doc) {
     generateMs: metrics.generateMs ?? null,
     totalTokens: metrics.totalTokens ?? null,
     topPoints: watchTitles(analysis).slice(0, 5),
+    amounts: (analysis.amounts || []).slice(0, 6),
     secours: isSalvage(analysis),
     jsonRetry,
     error: jobFinal?.lastError || null,
@@ -310,6 +328,41 @@ async function main() {
 
   console.log("\n--- TABLE_JSON ---");
   console.log(JSON.stringify(rows, null, 2));
+
+  const checks = {
+    facture: (r) => {
+      const top = r.topPoints[0] || "";
+      const amounts = (r.amounts || []).join(" | ");
+      return {
+        ttcFirst: /^Total\s+TTC/i.test(top),
+        aboNotTtc:
+          !/abonnement.*total\s+ttc/i.test(amounts) &&
+          (!amounts.includes("21,50") || /abonnement/i.test(amounts)),
+      };
+    },
+    relance: (r) => {
+      const joined = r.topPoints.join(" | ");
+      return {
+        totalOrPrincipal:
+          /^Total\s+r[ée]clam|^Principal\s*\/\s*montant\s+impay/i.test(
+            r.topPoints[0] || "",
+          ),
+        noResilier: !/r[ée]silier\s*\/\s*modifier/i.test(joined),
+        penalites: /p[ée]nalit.*43|43.*p[ée]nalit/i.test(joined),
+      };
+    },
+    med: (r) => ({
+      totalFirst: /^Total\s+r[ée]clam/i.test(r.topPoints[0] || ""),
+    }),
+  };
+
+  console.log("\n--- QUALITY_CHECKS ---");
+  for (const r of rows) {
+    const id = DOCS.find((d) => d.type === r.type)?.id;
+    if (id && checks[id]) {
+      console.log(id, checks[id](r));
+    }
+  }
 
   const allOk = rows.every(
     (r) =>
