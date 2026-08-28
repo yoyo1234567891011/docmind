@@ -1178,10 +1178,14 @@ export function buildMissingLocalRiskFindings(
     }
   }
 
-  if (family === "facture") {
-    const totalTtc = documentText.match(
-      /total\s+ttc[^0-9]{0,30}(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?)/i,
-    );
+  if (family === "facture" || /\bfacture\b|total\s+ttc/i.test(documentText)) {
+    const totalTtc =
+      documentText.match(
+        /total\s+ttc\s*:?\s*(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?)?/i,
+      ) ||
+      documentText.match(
+        /net\s+[àa]\s+payer\s*:?\s*(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?)?/i,
+      );
     if (totalTtc) {
       const idx = totalTtc.index ?? 0;
       const amount = `${totalTtc[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
@@ -1192,7 +1196,7 @@ export function buildMissingLocalRiskFindings(
         const finding = makeLocalFinding(
           "frais_caches",
           snippetAround(documentText, idx, totalTtc[0]!.length),
-          family,
+          "facture",
           `Total TTC : ${amount}`,
         );
         if (finding) injected.unshift(finding);
