@@ -6,6 +6,10 @@ import {
 import { excerptExistsInDocument } from "@/ai/reasoning/normalize-text";
 import { sanitizeDeadlines } from "@/ai/extraction";
 import { criterionSupportedByExcerpt } from "@/ai/post-processing/inject-local-risk-findings";
+import {
+  isFactureTtcWatchTitle,
+  isRecouvrementTotalWatchTitle,
+} from "@/ai/post-processing/watch-ranking";
 import type { CitedConclusion } from "@/types/citation";
 import {
   hasRiskExplanations,
@@ -291,6 +295,8 @@ export function verifyAnalysisDraft(
 
     if (
       withCitation.criterion_id &&
+      !isRecouvrementTotalWatchTitle(withCitation.description) &&
+      !isFactureTtcWatchTitle(withCitation.description) &&
       !criterionSupportedByExcerpt(
         withCitation.criterion_id,
         withCitation.excerpt,

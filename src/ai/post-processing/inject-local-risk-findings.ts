@@ -1046,7 +1046,7 @@ export function buildMissingLocalRiskFindings(
     const total = findClaimedTotalSnippet(documentText);
     if (total) {
       const alreadyLabeled = [...existing, ...injected].some((f) =>
-        /total\s+r[ée]clam/i.test(f.description),
+        isRecouvrementTotalWatchTitle(f.description),
       );
       if (!alreadyLabeled) {
         const finding = makeLocalFinding(
@@ -1186,7 +1186,7 @@ export function buildMissingLocalRiskFindings(
       const idx = totalTtc.index ?? 0;
       const amount = `${totalTtc[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
       const already = [...existing, ...injected].some((f) =>
-        /total\s+ttc/i.test(f.description),
+        isFactureTtcWatchTitle(f.description),
       );
       if (!already) {
         const finding = makeLocalFinding(
