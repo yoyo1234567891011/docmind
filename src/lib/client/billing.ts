@@ -5,7 +5,10 @@ import type {
   PaidBillingPlanId,
 } from "@/types";
 
+import { abortSignalTimeout } from "@/lib/client/abort-signal";
 import { csrfHeaders } from "@/lib/client/csrf";
+
+const CHECKOUT_TIMEOUT_MS = 45_000;
 
 export type BillingApiResponse = BillingOverview & {
   plans: BillingPlanDefinition[];
@@ -40,12 +43,23 @@ export async function startPlanCheckout(
   | { url: string; changed?: false }
   | { changed: true; plan: PaidBillingPlanId; url?: undefined }
 > {
-  const response = await fetch("/api/billing/checkout", {
-    method: "POST",
-    headers: await csrfHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ plan }),
-    credentials: "same-origin",
-  });
+  let response: Response;
+  try {
+    response = await fetch("/api/billing/checkout", {
+      method: "POST",
+      headers: await csrfHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ plan }),
+      credentials: "same-origin",
+      signal: abortSignalTimeout(CHECKOUT_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      throw new Error(
+        "Le changement de plan a pris trop de temps. Réessayez ou actualisez la page.",
+      );
+    }
+    throw error;
+  }
   return parse(response);
 }
 

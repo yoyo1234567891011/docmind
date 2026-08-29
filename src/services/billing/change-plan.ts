@@ -14,10 +14,13 @@ import type { PaidBillingPlanId } from "@/types/billing";
  * Change le price Stripe d’un abonnement existant (upgrade / downgrade).
  * Applique immédiatement l’état local via applyStripeSubscription.
  */
-export async function changeSubscriptionPlan(input: {
-  userId: string;
-  plan: PaidBillingPlanId;
-}): Promise<{ plan: PaidBillingPlanId }> {
+export async function changeSubscriptionPlan(
+  input: {
+    userId: string;
+    plan: PaidBillingPlanId;
+  },
+  options?: { skipLock?: boolean },
+): Promise<{ plan: PaidBillingPlanId }> {
   requireStripeConfigured();
 
   const targetPlan = input.plan;
@@ -34,7 +37,7 @@ export async function changeSubscriptionPlan(input: {
     );
   }
 
-  return withKeyedLock(`billing:checkout:${input.userId}`, async () => {
+  const execute = async (): Promise<{ plan: PaidBillingPlanId }> => {
     const sub = await getUserSubscription(input.userId);
     if (!sub.stripeSubscriptionId) {
       throw new AppError(
@@ -83,5 +86,11 @@ export async function changeSubscriptionPlan(input: {
     });
 
     return { plan: targetPlan };
-  });
+  };
+
+  if (options?.skipLock) {
+    return execute();
+  }
+
+  return withKeyedLock(`billing:checkout:${input.userId}`, execute);
 }

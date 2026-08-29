@@ -31,7 +31,10 @@ export async function POST(request: Request) {
       email: user.email,
       plan,
     });
-    return apiSuccess(session);
+    if (session.mode === "changed") {
+      return apiSuccess({ changed: true as const, plan: session.plan });
+    }
+    return apiSuccess({ url: session.url });
   } catch (error) {
     return apiFromUnknownError(error);
   }

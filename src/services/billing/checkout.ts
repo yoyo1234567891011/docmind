@@ -46,10 +46,13 @@ export async function createPlanCheckoutSession(input: {
     });
 
     if (stillPaid) {
-      const changed = await changeSubscriptionPlan({
-        userId: input.userId,
-        plan,
-      });
+      const changed = await changeSubscriptionPlan(
+        {
+          userId: input.userId,
+          plan,
+        },
+        { skipLock: true },
+      );
       return { mode: "changed", plan: changed.plan };
     }
 
