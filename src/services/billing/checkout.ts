@@ -9,15 +9,20 @@ import { withKeyedLock } from "@/lib/keyed-lock";
 import { getStripe, requireStripeConfigured } from "@/lib/stripe";
 import { trackAnalyticsEvent } from "@/services/analytics";
 import { hasPaidAccess } from "@/services/billing/access";
+import { changeSubscriptionPlan } from "@/services/billing/change-plan";
 import { getOrCreateStripeCustomer } from "@/services/billing/customers";
 import { getUserSubscription } from "@/services/billing/store";
 import type { PaidBillingPlanId } from "@/types/billing";
+
+export type PlanCheckoutResult =
+  | { mode: "redirect"; url: string }
+  | { mode: "changed"; plan: PaidBillingPlanId };
 
 export async function createPlanCheckoutSession(input: {
   userId: string;
   email: string | null;
   plan: PaidBillingPlanId;
-}): Promise<{ url: string }> {
+}): Promise<PlanCheckoutResult> {
   requireStripeConfigured();
 
   const plan = input.plan;
@@ -40,20 +45,12 @@ export async function createPlanCheckoutSession(input: {
       currentPeriodEnd: sub.currentPeriodEnd,
     });
 
-    if (stillPaid && sub.cancelAtPeriodEnd) {
-      throw new AppError(
-        "BAD_REQUEST",
-        "Votre abonnement est encore actif jusqu’à la fin de période. Réactivez le renouvellement depuis Facturation (ou le portail Stripe) au lieu de créer un nouvel abonnement.",
-        400,
-      );
-    }
-
     if (stillPaid) {
-      throw new AppError(
-        "BAD_REQUEST",
-        "Vous avez déjà un abonnement actif. Gérez-le depuis Facturation ou le portail Stripe (changement d’offre).",
-        400,
-      );
+      const changed = await changeSubscriptionPlan({
+        userId: input.userId,
+        plan,
+      });
+      return { mode: "changed", plan: changed.plan };
     }
 
     if (sub.stripeSubscriptionId && sub.status !== "canceled") {
@@ -118,7 +115,7 @@ export async function createPlanCheckoutSession(input: {
       },
     });
 
-    return { url: session.url };
+    return { mode: "redirect", url: session.url };
   });
 }
 
@@ -126,7 +123,7 @@ export async function createPlanCheckoutSession(input: {
 export async function createPremiumCheckoutSession(input: {
   userId: string;
   email: string | null;
-}): Promise<{ url: string }> {
+}): Promise<PlanCheckoutResult> {
   return createPlanCheckoutSession({ ...input, plan: "pro" });
 }
 

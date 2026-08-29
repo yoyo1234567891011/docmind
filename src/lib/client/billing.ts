@@ -36,7 +36,10 @@ export async function syncBilling(options?: {
 
 export async function startPlanCheckout(
   plan: PaidBillingPlanId = "pro",
-): Promise<{ url: string }> {
+): Promise<
+  | { url: string; changed?: false }
+  | { changed: true; plan: PaidBillingPlanId; url?: undefined }
+> {
   const response = await fetch("/api/billing/checkout", {
     method: "POST",
     headers: await csrfHeaders({ "Content-Type": "application/json" }),
@@ -47,7 +50,9 @@ export async function startPlanCheckout(
 }
 
 /** @deprecated Prefer startPlanCheckout("pro") */
-export async function startPremiumCheckout(): Promise<{ url: string }> {
+export async function startPremiumCheckout(): ReturnType<
+  typeof startPlanCheckout
+> {
   return startPlanCheckout("pro");
 }
 

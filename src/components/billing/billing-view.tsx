@@ -291,8 +291,10 @@ export function BillingView() {
               disabled={Boolean(busy) || !stripeConfigured}
               onClick={() =>
                 void run("checkout-pro", async () => {
-                  const { url } = await startPlanCheckout("pro");
-                  window.location.href = url;
+                  const result = await startPlanCheckout("pro");
+                  if ("url" in result && result.url) {
+                    window.location.href = result.url;
+                  }
                 })
               }
             >
@@ -416,15 +418,23 @@ export function BillingView() {
                     const checkoutPlan = item.id;
                     if (!isPaidPlanId(checkoutPlan)) return;
                     void run(`checkout-${checkoutPlan}`, async () => {
-                      const { url } = await startPlanCheckout(checkoutPlan);
-                      window.location.href = url;
+                      const result = await startPlanCheckout(checkoutPlan);
+                      if ("url" in result && result.url) {
+                        window.location.href = result.url;
+                        return;
+                      }
+                      if (result.changed) {
+                        setInfo(
+                          `Plan ${plans.find((p) => p.id === result.plan)?.name ?? result.plan} activé.`,
+                        );
+                      }
                     });
                   }}
                 >
                   {busy === `checkout-${item.id}` ? (
                     <SpinnerIcon className="h-4 w-4" />
                   ) : null}
-                  Choisir {item.name}
+                  {isPremium ? `Passer à ${item.name}` : `Choisir ${item.name}`}
                 </Button>
               ) : null}
             </article>

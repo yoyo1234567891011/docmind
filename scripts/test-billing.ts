@@ -4,7 +4,7 @@
 import assert from "assert";
 import { rm } from "fs/promises";
 
-import { BILLING_PLANS, getBillingPlan } from "../src/config/billing";
+import { BILLING_PLANS, buildStripePriceToPlanMap, getBillingPlan, planIdFromStripePriceId } from "../src/config/billing";
 import { userSubscriptionFile } from "../src/config/paths";
 import { isStripeConfigured } from "../src/lib/stripe";
 import {
@@ -29,7 +29,8 @@ import { AppError } from "../src/lib/errors";
 async function main() {
   // Catalogue
   assert.equal(BILLING_PLANS.free.priceMonthlyEur, null);
-  assert.equal(BILLING_PLANS.premium.priceMonthlyEur, 10);
+  assert.equal(BILLING_PLANS.premium.priceMonthlyEur, 34.99);
+  assert.equal(BILLING_PLANS.extra.priceMonthlyEur, 59.99);
   assert.ok(BILLING_PLANS.free.entitlements.includes("analyze"));
   assert.ok(!BILLING_PLANS.free.entitlements.includes("letter_agent"));
   assert.ok(getBillingPlan("premium").entitlements.includes("letter_agent"));
@@ -66,6 +67,12 @@ async function main() {
       } as never),
       "premium",
     );
+  }
+
+  const extraPrice = process.env.STRIPE_PRICE_EXTRA?.trim();
+  if (extraPrice) {
+    assert.equal(planIdFromStripePriceId(extraPrice), "extra");
+    assert.equal(buildStripePriceToPlanMap().get(extraPrice), "extra");
   }
 
   // Fail-open : documenté — en test local sans Stripe, true par défaut

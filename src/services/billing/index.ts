@@ -22,7 +22,9 @@ export {
   createPremiumCheckoutSession,
   createPlanCheckoutSession,
   parseCheckoutPlan,
+  type PlanCheckoutResult,
 } from "./checkout";
+export { changeSubscriptionPlan } from "./change-plan";
 export { createBillingPortalSession } from "./portal";
 export {
   cancelPremiumSubscription,
