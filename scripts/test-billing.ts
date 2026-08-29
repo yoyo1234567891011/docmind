@@ -70,9 +70,26 @@ async function main() {
   }
 
   const extraPrice = process.env.STRIPE_PRICE_EXTRA?.trim();
+  const proPrice = process.env.STRIPE_PRICE_PRO?.trim();
   if (extraPrice) {
     assert.equal(planIdFromStripePriceId(extraPrice), "extra");
     assert.equal(buildStripePriceToPlanMap().get(extraPrice), "extra");
+  }
+
+  // Prod : metadata seule ne doit pas surclasser le price Stripe (bug Pro→Extra fictif).
+  if (proPrice && extraPrice) {
+    const withMetaOnly = planFromSubscription({
+      status: "active",
+      metadata: { docmind_plan: "extra", plan: "extra" },
+      items: {
+        data: [{ price: { id: proPrice } }],
+      },
+    } as never);
+    assert.equal(
+      withMetaOnly,
+      "pro",
+      "metadata extra ignorée si price Stripe = pro",
+    );
   }
 
   // Fail-open : documenté — en test local sans Stripe, true par défaut

@@ -1,6 +1,7 @@
 import type Stripe from "stripe";
 
 import {
+  areStripePaidPricesConfigured,
   isPaidBillingPlanId,
   isPlanTierUpgrade,
   normalizeBillingPlanId,
@@ -58,7 +59,12 @@ export function planFromSubscription(sub: Stripe.Subscription): BillingPlanId {
   const fromPrice = planIdFromStripePriceId(priceId);
   if (fromPrice !== "free") return fromPrice;
 
-  // Dev sans prices configurés : metadata explicite.
+  // En prod (prices configurés) : le price Stripe est la seule source de vérité.
+  // Évite un plan « Extra » local alors que Stripe est resté sur Pro (metadata seule).
+  if (areStripePaidPricesConfigured()) {
+    return "free";
+  }
+
   const meta =
     sub.metadata?.docmind_plan?.trim() || sub.metadata?.plan?.trim() || "";
   const fromMeta = normalizeBillingPlanId(meta);
