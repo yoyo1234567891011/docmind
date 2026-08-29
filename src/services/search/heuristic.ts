@@ -1,8 +1,10 @@
 import {
   DOCUMENT_CATEGORIES,
   type DocumentCategory,
+  type RiskLevel,
   type SmartSearchIntent,
 } from "@/types";
+import { normalizeText } from "@/services/search/parse-values";
 
 function currentYear(): number {
   return new Date().getFullYear();
@@ -85,6 +87,8 @@ export function parseIntentHeuristic(query: string): SmartSearchIntent {
   let interpretedAs = "Recherche textuelle dans vos fiches documentaires";
   let amount: SmartSearchIntent["amount"] = null;
   let date: SmartSearchIntent["date"] = null;
+  let riskLevels: RiskLevel[] = [];
+  let needsAction: boolean | null = null;
 
   // Organizations / brands frequently searched
   const orgPatterns: Array<[RegExp, string]> = [
@@ -143,6 +147,39 @@ export function parseIntentHeuristic(query: string): SmartSearchIntent {
       "Documents mentionnant une clause de renouvellement automatique";
   } else if (/\bclause\b/i.test(raw)) {
     keywords.push("clause");
+  }
+
+  // Risque élevé / critique (ASCII normalisé : \b JS ne marche pas après « é »)
+  const normalized = normalizeText(raw);
+  if (
+    /(?:^|[^a-z0-9])risque\s+(?:eleve|elevee|critique)(?:[^a-z0-9]|$)/.test(
+      normalized,
+    ) ||
+    /(?:^|[^a-z0-9])(?:eleve|critique)\s+(?:risque|niveau)(?:[^a-z0-9]|$)/.test(
+      normalized,
+    ) ||
+    /(?:^|[^a-z0-9])documents?\s+a\s+risque\s+(?:eleve|critique)(?:[^a-z0-9]|$)/.test(
+      normalized,
+    )
+  ) {
+    riskLevels = ["eleve", "critique"];
+    interpretedAs = "Documents à risque élevé ou critique";
+  }
+
+  // Documents nécessitant une action
+  if (
+    /(?:^|[^a-z0-9])necessitant\s+une\s+action(?:[^a-z0-9]|$)/.test(
+      normalized,
+    ) ||
+    /(?:^|[^a-z0-9])documents?\s+a\s+traiter(?:[^a-z0-9]|$)/.test(
+      normalized,
+    ) ||
+    /(?:^|[^a-z0-9])a\s+traiter(?:[^a-z0-9]|$)/.test(normalized) ||
+    /(?:^|[^a-z0-9])relance(?:[^a-z0-9]|$)/.test(normalized) ||
+    /(?:^|[^a-z0-9])mise\s+en\s+demeure(?:[^a-z0-9]|$)/.test(normalized)
+  ) {
+    needsAction = true;
+    interpretedAs = "Documents nécessitant une action";
   }
 
   // Amount: "plus de 50 €", "dépassent 40 €", "> 50 euros"
@@ -232,8 +269,8 @@ export function parseIntentHeuristic(query: string): SmartSearchIntent {
     categories: validCategories,
     amount,
     date,
-    riskLevels: [],
-    needsAction: null,
+    riskLevels,
+    needsAction,
     limit: 20,
     source: "heuristic",
   };

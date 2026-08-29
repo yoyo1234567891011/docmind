@@ -5,6 +5,7 @@ import assert from "assert";
 
 import { parseIntentHeuristic } from "../src/services/search/heuristic";
 import { matchRecordsToIntent } from "../src/services/search/match";
+import { includesNormalized } from "../src/services/search/parse-values";
 import { buildDocumentSheetFromAnalysis } from "../src/services/sheets";
 import { RISK_CRITERIA } from "../src/services/risk/criteria";
 import type {
@@ -168,6 +169,39 @@ const records: HistoryRecord[] = [
       amounts: ["22 €"],
     }),
   }),
+  makeRecord({
+    id: "releve-banque",
+    fileName: "releve-bnp.pdf",
+    classification: {
+      category: "banque",
+      label: "Banque",
+      confidence: 0.8,
+    },
+    analysis: baseAnalysis({
+      document_type: "Relevé de compte",
+      title: "Relevé BNP mars",
+      organizations: ["BNP Paribas"],
+      summary: "Relevé mensuel compte courant.",
+    }),
+  }),
+  makeRecord({
+    id: "urssaf-relance",
+    fileName: "relance-urssaf.pdf",
+    classification: {
+      category: "courrier-administratif",
+      label: "Courrier administratif",
+      confidence: 0.85,
+    },
+    analysis: baseAnalysis({
+      document_type: "Mise en demeure",
+      title: "Relance URSSAF cotisations",
+      organizations: ["URSSAF"],
+      amounts: ["1 240 €"],
+      summary: "Relance pour cotisations impayées.",
+      risk_level: "eleve",
+      actions: [`Payer avant le 15/04/${year}`],
+    }),
+  }),
 ];
 
 function ids(hits: { item: { id: string } }[]): string[] {
@@ -216,11 +250,51 @@ function main() {
   assert.ok(ids(h4).includes("cgv-renouvellement"));
   assert.equal(h4[0].matchedOn, "document", "clause absente de la fiche → doc");
 
+  assert.equal(
+    includesNormalized("Relevé BNP mars", "élevé"),
+    false,
+    "élevé ne doit pas matcher relevé",
+  );
+  assert.equal(
+    includesNormalized("risque élevé sur le contrat", "élevé"),
+    true,
+    "élevé mot entier",
+  );
+
+  const q5 = "Mes documents à risque élevé";
+  const i5 = parseIntentHeuristic(q5);
+  assert.ok(
+    i5.riskLevels?.includes("eleve"),
+    "intent risque élevé",
+  );
+  const h5 = matchRecordsToIntent(records, i5);
+  assert.ok(ids(h5).includes("urssaf-relance"), "relance URSSAF à risque");
+  assert.ok(!ids(h5).includes("releve-banque"), "pas de faux positif relevé");
+
+  const q6 = "Quelles factures Orange ?";
+  const i6 = parseIntentHeuristic(q6);
+  assert.ok(i6.organizations.includes("Orange"));
+  assert.ok(i6.documentTypes.includes("facture"));
+  const h6 = matchRecordsToIntent(records, i6);
+  assert.ok(
+    ids(h6).includes("abo-orange"),
+    "fallback org seul si facture Orange absente",
+  );
+
+  const q7 = "Documents nécessitant une action";
+  const i7 = parseIntentHeuristic(q7);
+  assert.equal(i7.needsAction, true, "intent needsAction");
+  const h7 = matchRecordsToIntent(records, i7);
+  assert.ok(ids(h7).includes("urssaf-relance"), "document avec action");
+
   console.log("OK test-smart-search", {
     q1: ids(h1),
     q2: ids(h2),
     q3: ids(h3),
     q4: ids(h4),
+    q5: ids(h5),
+    q6: ids(h6),
+    q7: ids(h7),
   });
 }
 

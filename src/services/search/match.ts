@@ -342,7 +342,7 @@ function scoreRecord(
  * 1) fiches structurées uniquement
  * 2) texte complet uniquement pour les documents non trouvés en passe 1
  */
-export function matchRecordsToIntent(
+function matchRecordsToIntentPass(
   records: HistoryRecord[],
   intent: SmartSearchIntent,
 ): SmartSearchHit[] {
@@ -364,4 +364,29 @@ export function matchRecordsToIntent(
   }
 
   return hits.sort((a, b) => b.score - a.score).slice(0, intent.limit);
+}
+
+export function matchRecordsToIntent(
+  records: HistoryRecord[],
+  intent: SmartSearchIntent,
+): SmartSearchHit[] {
+  const hits = matchRecordsToIntentPass(records, intent);
+
+  // Si org + type ne donne rien, élargir à l'organisation seule.
+  if (
+    hits.length === 0 &&
+    intent.organizations.length > 0 &&
+    intent.documentTypes.length > 0
+  ) {
+    const relaxed: SmartSearchIntent = {
+      ...intent,
+      documentTypes: [],
+    };
+    return matchRecordsToIntentPass(records, relaxed).map((hit) => ({
+      ...hit,
+      score: Math.max(1, hit.score - 2),
+    }));
+  }
+
+  return hits;
 }

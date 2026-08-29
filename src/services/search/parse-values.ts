@@ -82,7 +82,20 @@ export function normalizeText(value: string): string {
     .toLowerCase();
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Match insensible aux accents, avec frontières de mot (évite « élevé » dans « relevé »). */
 export function includesNormalized(haystack: string, needle: string): boolean {
-  if (!needle.trim()) return false;
-  return normalizeText(haystack).includes(normalizeText(needle));
+  const trimmed = needle.trim();
+  if (!trimmed) return false;
+
+  const normalizedHaystack = normalizeText(haystack);
+  const normalizedNeedle = normalizeText(trimmed);
+  const escaped = escapeRegExp(normalizedNeedle);
+  const pattern = new RegExp(
+    `(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`,
+  );
+  return pattern.test(normalizedHaystack);
 }
