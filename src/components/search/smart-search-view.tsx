@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { getRiskToneClass } from "@/components/dashboard/dashboard-panel";
+import { SearchQuotaBanner } from "@/components/search/search-quota-banner";
 import { Alert, Button } from "@/components/ui";
 import { ChevronRightIcon, SearchIcon, SpinnerIcon } from "@/components/ui/icons";
-import { fetchMe, smartSearch } from "@/lib/client";
+import {
+  fetchMe,
+  fetchQuotas,
+  isQuotaExceededError,
+  smartSearch,
+} from "@/lib/client";
+import type { QuotaStatus } from "@/lib/client/quotas";
 import { recordRecentSearch } from "@/lib/client/recent-searches";
 import { formatDateTime, getRiskLevelLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -27,7 +34,28 @@ export function SmartSearchView() {
   const [result, setResult] = useState<SmartSearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quotaError, setQuotaError] = useState(false);
+  const [quotas, setQuotas] = useState<QuotaStatus | null>(null);
   const autoRan = useRef(false);
+
+  const refreshQuotas = useCallback(async () => {
+    try {
+      const data = await fetchQuotas();
+      setQuotas(data);
+    } catch {
+      // Non bloquant — la recherche reste utilisable.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshQuotas();
+  }, [refreshQuotas]);
+
+  const searchQuota = quotas?.items.find((i) => i.metric === "search");
+  const searchExhausted =
+    searchQuota != null &&
+    !searchQuota.unlimited &&
+    searchQuota.remaining <= 0;
 
   const run = async (nextQuery: string) => {
     const trimmed = nextQuery.trim();
@@ -36,19 +64,27 @@ export function SmartSearchView() {
     setQuery(trimmed);
     setIsLoading(true);
     setError(null);
+    setQuotaError(false);
 
     try {
       const data = await smartSearch({ query: trimmed });
       setResult(data);
       const me = await fetchMe().catch(() => null);
       recordRecentSearch(trimmed, data.total, me?.user?.id);
+      await refreshQuotas();
     } catch (searchError) {
       setResult(null);
-      setError(
-        searchError instanceof Error
-          ? searchError.message
-          : "La recherche intelligente a échoué.",
-      );
+      if (isQuotaExceededError(searchError)) {
+        setQuotaError(true);
+        setError(searchError.message);
+        await refreshQuotas();
+      } else {
+        setError(
+          searchError instanceof Error
+            ? searchError.message
+            : "La recherche intelligente a échoué.",
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -78,6 +114,8 @@ export function SmartSearchView() {
         </p>
       </div>
 
+      {quotas ? <SearchQuotaBanner quotas={quotas} /> : null}
+
       <form
         onSubmit={handleSubmit}
         className="surface-panel animate-fade-up-delay-1 rounded-2xl p-4 sm:p-5"
@@ -86,7 +124,7 @@ export function SmartSearchView() {
           <span className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
             Votre requête
           </span>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative min-w-0 flex-1">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
               <input
@@ -96,7 +134,10 @@ export function SmartSearchView() {
                 className="h-11 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] py-2 pl-10 pr-3 text-sm outline-none transition-colors focus:border-[var(--accent)]"
               />
             </div>
-            <Button type="submit" disabled={isLoading || !query.trim()}>
+            <Button
+              type="submit"
+              disabled={isLoading || !query.trim() || searchExhausted}
+            >
               {isLoading ? (
                 <>
                   <SpinnerIcon className="h-4 w-4" />
@@ -114,10 +155,11 @@ export function SmartSearchView() {
             <button
               key={example}
               type="button"
+              disabled={searchExhausted}
               onClick={() => {
                 void run(example);
               }}
-              className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-left text-xs text-[var(--muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-left text-xs text-[var(--muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {example}
             </button>
@@ -126,8 +168,19 @@ export function SmartSearchView() {
       </form>
 
       {error ? (
-        <Alert tone="error" title="Recherche impossible">
+        <Alert
+          tone="error"
+          title={quotaError ? "Quota recherche atteint" : "Recherche impossible"}
+        >
           {error}
+          {quotaError ? (
+            <Link
+              href="/facturation"
+              className="mt-2 inline-block font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+            >
+              Voir les offres
+            </Link>
+          ) : null}
         </Alert>
       ) : null}
 

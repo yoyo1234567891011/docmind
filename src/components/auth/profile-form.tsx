@@ -18,7 +18,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { QUOTA_METRIC_LABELS } from "@/config/quotas";
 import { BILLING_PLANS } from "@/config/billing";
-import { formatAnalyzeQuotaRemaining } from "@/lib/quotas/display";
+import { formatAnalyzeQuotaRemaining, formatSearchQuotaRemaining } from "@/lib/quotas/display";
 import type { BillingPlanId } from "@/types/billing";
 
 interface ProfileFormProps {
@@ -194,6 +194,11 @@ export function ProfileForm({ email, fullName: initialName }: ProfileFormProps) 
                   {item.metric === "analyze" && !item.unlimited ? (
                     <span className="mt-0.5 block text-xs text-[var(--muted)]">
                       {formatAnalyzeQuotaRemaining(item)}
+                    </span>
+                  ) : null}
+                  {item.metric === "search" && !item.unlimited ? (
+                    <span className="mt-0.5 block text-xs text-[var(--muted)]">
+                      {formatSearchQuotaRemaining(item)}
                     </span>
                   ) : null}
                 </span>

@@ -1,5 +1,7 @@
 import type { ApiResponse, SmartSearchRequest, SmartSearchResult } from "@/types";
 
+import { ClientApiError } from "@/lib/client/api-error";
+
 export async function smartSearch(
   request: SmartSearchRequest,
 ): Promise<SmartSearchResult> {
@@ -12,7 +14,7 @@ export async function smartSearch(
   const payload = (await response.json()) as ApiResponse<SmartSearchResult>;
 
   if (!payload.success) {
-    throw new Error(payload.error.message);
+    throw new ClientApiError(payload.error.code, payload.error.message);
   }
 
   return payload.data;

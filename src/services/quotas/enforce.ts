@@ -58,6 +58,13 @@ export function quotaExceededMessage(
     return `Quota ${planName} atteint pour ce mois (${item.limit} analyses). Passez à une offre supérieure ou réessayez le mois prochain.`;
   }
 
+  if (metric === "search") {
+    if (status.plan === "free") {
+      return `Vous avez utilisé vos ${item.limit} recherches du mois. Passez à Basique ou supérieur pour continuer.`;
+    }
+    return `Quota ${planName} atteint pour ce mois (${item.limit} recherches). Passez à une offre supérieure ou réessayez le mois prochain.`;
+  }
+
   return status.plan === "free"
     ? `Quota mensuel atteint (${item.used}/${item.limit}). Choisissez un abonnement depuis Facturation ou attendez le mois prochain.`
     : `Quota mensuel ${planName} atteint (${item.used}/${item.limit}). Réessayez le mois prochain ou passez à une offre supérieure.`;

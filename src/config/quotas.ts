@@ -26,11 +26,11 @@ function envInt(key: string, fallback: number): number {
 }
 
 const DEFAULTS: Record<BillingPlanId, PlanQuotaLimits> = {
-  free: { analyze: 5, upload: 10, letter: 0, search: 50 },
-  basique: { analyze: 15, upload: 30, letter: 0, search: 200 },
-  pro: { analyze: 40, upload: 80, letter: 20, search: 500 },
-  premium: { analyze: 75, upload: 150, letter: 40, search: 1_000 },
-  extra: { analyze: 150, upload: 300, letter: 75, search: 2_000 },
+  free: { analyze: 5, upload: 10, letter: 0, search: 5 },
+  basique: { analyze: 15, upload: 30, letter: 0, search: 40 },
+  pro: { analyze: 40, upload: 80, letter: 20, search: 120 },
+  premium: { analyze: 75, upload: 150, letter: 40, search: 250 },
+  extra: { analyze: 150, upload: 300, letter: 75, search: 500 },
 };
 
 const ENV_PREFIX: Record<BillingPlanId, string> = {
