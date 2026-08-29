@@ -423,15 +423,9 @@ export function BillingView() {
                         window.location.href = result.url;
                         return;
                       }
-                      const changedPlan =
-                        result.changed === true
-                          ? result.plan
-                          : "mode" in result && result.mode === "changed"
-                            ? result.plan
-                            : null;
-                      if (changedPlan) {
+                      if (result.changed) {
                         setInfo(
-                          `Plan ${plans.find((p) => p.id === changedPlan)?.name ?? changedPlan} activé.`,
+                          `Plan ${plans.find((p) => p.id === result.plan)?.name ?? result.plan} activé.`,
                         );
                       }
                     });

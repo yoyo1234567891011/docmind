@@ -60,7 +60,23 @@ export async function startPlanCheckout(
     }
     throw error;
   }
-  return parse(response);
+  const data = await parse<
+    | { url: string }
+    | { changed: true; plan: PaidBillingPlanId }
+    | { mode: "changed"; plan: PaidBillingPlanId }
+  >(response);
+  if (
+    data &&
+    typeof data === "object" &&
+    "mode" in data &&
+    data.mode === "changed" &&
+    "plan" in data
+  ) {
+    return { changed: true as const, plan: data.plan };
+  }
+  return data as
+    | { url: string; changed?: false }
+    | { changed: true; plan: PaidBillingPlanId; url?: undefined };
 }
 
 /** @deprecated Prefer startPlanCheckout("pro") */
