@@ -55,8 +55,8 @@ export function BillingView() {
         : null,
   );
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setIsLoading(true);
     setError(null);
     try {
       setData(await fetchBilling());
@@ -67,7 +67,7 @@ export function BillingView() {
           : "Impossible de charger la facturation.",
       );
     } finally {
-      setIsLoading(false);
+      if (!options?.silent) setIsLoading(false);
     }
   }, []);
 
@@ -129,7 +129,7 @@ export function BillingView() {
     setError(null);
     try {
       await action();
-      await load();
+      await load({ silent: true });
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -423,9 +423,15 @@ export function BillingView() {
                         window.location.href = result.url;
                         return;
                       }
-                      if (result.changed) {
+                      const changedPlan =
+                        result.changed === true
+                          ? result.plan
+                          : "mode" in result && result.mode === "changed"
+                            ? result.plan
+                            : null;
+                      if (changedPlan) {
                         setInfo(
-                          `Plan ${plans.find((p) => p.id === result.plan)?.name ?? result.plan} activé.`,
+                          `Plan ${plans.find((p) => p.id === changedPlan)?.name ?? changedPlan} activé.`,
                         );
                       }
                     });
