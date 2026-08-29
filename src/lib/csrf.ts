@@ -6,8 +6,13 @@ import { matchEvalApiKey } from "@/lib/auth/eval-key";
 const CSRF_COOKIE = "docmind_csrf";
 const CSRF_HEADER = "x-csrf-token";
 
-/** Routes mutantes exemptées (webhook signé Stripe). */
-const CSRF_EXEMPT_PREFIXES = ["/api/stripe/webhook", "/api/csrf"];
+/** Routes mutantes exemptées (webhook signé Stripe, cron secret). */
+const CSRF_EXEMPT_PREFIXES = [
+  "/api/stripe/webhook",
+  "/api/billing/webhook",
+  "/api/csrf",
+  "/api/cron",
+];
 
 /**
  * Actions critiques : Origin/Referer + token CSRF obligatoire.

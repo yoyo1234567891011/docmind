@@ -5,7 +5,13 @@
 const CSRF_COOKIE = "docmind_csrf";
 const CSRF_HEADER = "x-csrf-token";
 
-const EXEMPT = ["/api/stripe/webhook", "/api/csrf"];
+/** Aligné sur src/lib/csrf.ts — webhook signé, CSRF bootstrap, cron Bearer. */
+const EXEMPT = [
+  "/api/stripe/webhook",
+  "/api/billing/webhook",
+  "/api/csrf",
+  "/api/cron",
+];
 
 const CRITICAL = [
   "/api/account/delete",

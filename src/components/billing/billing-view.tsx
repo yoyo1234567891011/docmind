@@ -186,9 +186,25 @@ export function BillingView() {
           Facturation
         </h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Choisissez un plan. Statut synchronisé via les webhooks Stripe.
+          Plan synchronisé avec Stripe (price_id). Les changements de plan
+          prennent effet immédiatement ; le prorata est facturé sur la prochaine
+          facture.
         </p>
       </header>
+
+      {subscription.status === "past_due" ? (
+        <Alert tone="info" title="Paiement en retard">
+          Votre dernier prélèvement a échoué. Mettez à jour votre moyen de
+          paiement via le portail Stripe pour éviter la suspension de
+          l’abonnement.
+        </Alert>
+      ) : null}
+      {subscription.status === "unpaid" ? (
+        <Alert tone="error" title="Abonnement impayé">
+          L’accès payant a été révoqué. Régularisez votre paiement dans le
+          portail Stripe pour réactiver votre plan.
+        </Alert>
+      ) : null}
 
       {info ? (
         <Alert tone="success" title="Information">
@@ -227,6 +243,14 @@ export function BillingView() {
           <div>
             <p className="text-xs text-[var(--muted)]">Plan</p>
             <p className="font-display text-3xl">{plan.name}</p>
+            {plan.priceMonthlyEur != null ? (
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                {plan.priceMonthlyEur.toLocaleString("fr-FR", {
+                  minimumFractionDigits: 2,
+                })}{" "}
+                € / mois (facturé par Stripe)
+              </p>
+            ) : null}
             <p className="mt-1 text-sm text-[var(--muted)]">
               {accessBadge.description}
             </p>
@@ -424,8 +448,11 @@ export function BillingView() {
                         return;
                       }
                       if (result.changed) {
+                        const planName =
+                          plans.find((p) => p.id === result.plan)?.name ??
+                          result.plan;
                         setInfo(
-                          `Plan ${plans.find((p) => p.id === result.plan)?.name ?? result.plan} activé.`,
+                          `Plan ${planName} activé immédiatement. L’ajustement (prorata) sera ajouté à votre prochaine facture Stripe — pas de prélèvement séparé au moment du clic.`,
                         );
                       }
                     });

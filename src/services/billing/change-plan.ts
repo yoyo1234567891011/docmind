@@ -1,4 +1,5 @@
 import {
+  areStripePaidPricesConfigured,
   getStripePriceIdForPlan,
   isPaidBillingPlanId,
   planIdFromStripePriceId,
@@ -68,8 +69,10 @@ function assertStripePlanMatches(
   const fromPrice = planIdFromStripePriceId(priceId);
   if (fromPrice === targetPlan) return;
 
-  const fromCatalog = planFromSubscription(sub);
-  if (fromCatalog === targetPlan) return;
+  if (!areStripePaidPricesConfigured()) {
+    const fromCatalog = planFromSubscription(sub);
+    if (fromCatalog === targetPlan) return;
+  }
 
   throw new AppError(
     "INTERNAL_ERROR",

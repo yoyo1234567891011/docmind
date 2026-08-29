@@ -409,7 +409,6 @@ async function dispatchStripeWebhookEvent(
             session.metadata?.docmind_user_id ||
             session.client_reference_id ||
             "",
-          plan: "premium",
         };
       }
       await syncSubscription(sub, event);

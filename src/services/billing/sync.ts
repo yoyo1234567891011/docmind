@@ -4,7 +4,6 @@ import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { AppError } from "@/lib/errors";
 import {
   applyStripeSubscription,
-  isStripePremiumStatus,
 } from "@/services/billing/apply-subscription";
 import {
   getUserSubscription,
@@ -138,14 +137,6 @@ export async function syncUserSubscriptionFromStripe(
     type: "sync.stripe",
     created: Math.floor(Date.now() / 1000),
   });
-
-  // Si le meilleur abonnement n’est plus premium, forcer free
-  if (!isStripePremiumStatus(sub.status)) {
-    await upsertSubscriptionPatch(userId, {
-      plan: "free",
-      status: sub.status as UserSubscriptionRecord["status"],
-    });
-  }
 
   const subscription = await getUserSubscription(userId);
   return { subscription, synced: true, source };
