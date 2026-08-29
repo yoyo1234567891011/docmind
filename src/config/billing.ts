@@ -118,6 +118,28 @@ export function normalizeBillingPlanId(raw: unknown): BillingPlanId {
   return "free";
 }
 
+/** Ordre des paliers (free → extra) pour détecter un upgrade. */
+const PLAN_TIER_ORDER: readonly BillingPlanId[] = [
+  "free",
+  "basique",
+  "pro",
+  "premium",
+  "extra",
+];
+
+export function planTierRank(plan: BillingPlanId): number {
+  const idx = PLAN_TIER_ORDER.indexOf(normalizeBillingPlanId(plan));
+  return idx >= 0 ? idx : 0;
+}
+
+/** Vrai si le plan effectif monte d’un palier (pas un renouvellement ni downgrade). */
+export function isPlanTierUpgrade(
+  fromPlan: BillingPlanId,
+  toPlan: BillingPlanId,
+): boolean {
+  return planTierRank(toPlan) > planTierRank(fromPlan);
+}
+
 function trimEnv(name: string): string | undefined {
   const v = process.env[name]?.trim();
   return v || undefined;

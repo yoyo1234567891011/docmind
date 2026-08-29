@@ -34,6 +34,7 @@
     "validate:prod-gate": "tsx --tsconfig tsconfig.json scripts/validate-production-gate.ts",
     "measure:ollama": "tsx --tsconfig tsconfig.json scripts/measure-ollama-latency.ts",
     "test:search": "tsx --tsconfig tsconfig.json scripts/test-smart-search.ts",
+    "test:quota-upgrade": "tsx --tsconfig tsconfig.json scripts/test-quota-upgrade-reset.ts",
     "test:alerts": "tsx --tsconfig tsconfig.json scripts/test-alerts-engine.ts",
     "test:history-cascade": "tsx --tsconfig tsconfig.json scripts/test-history-cascade-delete.ts",
     "test:letter": "tsx --tsconfig tsconfig.json scripts/test-letter-agent.ts",

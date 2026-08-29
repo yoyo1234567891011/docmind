@@ -2,14 +2,17 @@ import type Stripe from "stripe";
 
 import {
   isPaidBillingPlanId,
+  isPlanTierUpgrade,
   normalizeBillingPlanId,
   planIdFromStripePriceId,
 } from "@/config/billing";
 import { trackAnalyticsEvent } from "@/services/analytics";
+import { resolveEffectivePlan } from "@/services/billing/access";
 import {
   getUserSubscription,
   upsertSubscriptionPatch,
 } from "@/services/billing/store";
+import { resetQuotasOnPlanUpgrade } from "@/services/quotas/upgrade-reset";
 import type {
   BillingPlanId,
   BillingSubscriptionStatus,
@@ -147,6 +150,18 @@ export async function applyStripeSubscription(
   );
 
   if (!applied) return;
+
+  const previousEffective = previous
+    ? resolveEffectivePlan(previous.plan, previous.status, {
+        currentPeriodEnd: previous.currentPeriodEnd,
+      })
+    : "free";
+  const nextEffective = resolveEffectivePlan(nextPlan, status, {
+    currentPeriodEnd: periodEnd,
+  });
+  if (isPlanTierUpgrade(previousEffective, nextEffective)) {
+    await resetQuotasOnPlanUpgrade(userId);
+  }
 
   const wasPaid =
     previous != null &&

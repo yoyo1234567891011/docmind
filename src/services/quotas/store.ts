@@ -9,6 +9,7 @@ import {
   pgDecrementUserUsage,
   pgGetUserUsage,
   pgIncrementUserUsage,
+  pgResetUserUsageMetrics,
 } from "@/services/persistence/usage-pg";
 
 export interface UserUsageMonth {
@@ -92,6 +93,46 @@ export async function incrementUserUsage(
       [metric]: used + by,
       updatedAt: new Date().toISOString(),
     };
+    if (!canUseLocalFilesystem()) {
+      throw new Error(
+        "[docmind:storage] Quota FS indisponible — DOCMIND_STORAGE=persistent requis.",
+      );
+    }
+    await mkdir(path.dirname(usageFile(userId)), { recursive: true });
+    await writeFile(usageFile(userId), JSON.stringify(next, null, 2), "utf8");
+    return next;
+  });
+}
+
+/**
+ * Remet à 0 les compteurs du mois en cours (ex. upgrade de plan).
+ */
+export async function resetUserUsageMetrics(
+  userId: string,
+  metrics: QuotaMetric[],
+): Promise<UserUsageMonth> {
+  const month = currentUsageMonth();
+  const uniqueMetrics = [...new Set(metrics)];
+
+  return withKeyedLock(`quota:${userId}:${month}`, async () => {
+    if (usePersistentStorage()) {
+      return pgResetUserUsageMetrics(
+        userId,
+        month,
+        uniqueMetrics,
+        emptyMonth(month),
+      );
+    }
+
+    const current = await getUserUsage(userId);
+    const next: UserUsageMonth = {
+      ...current,
+      month,
+      updatedAt: new Date().toISOString(),
+    };
+    for (const metric of uniqueMetrics) {
+      next[metric] = 0;
+    }
     if (!canUseLocalFilesystem()) {
       throw new Error(
         "[docmind:storage] Quota FS indisponible — DOCMIND_STORAGE=persistent requis.",

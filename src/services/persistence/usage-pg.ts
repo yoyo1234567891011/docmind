@@ -117,3 +117,32 @@ export async function pgDecrementUserUsage(
   );
   return updated.rows[0]?.data ?? null;
 }
+
+/** Remet à 0 les métriques indiquées pour le mois en cours. */
+export async function pgResetUserUsageMetrics(
+  userId: string,
+  month: string,
+  metrics: QuotaMetric[],
+  empty: UserUsageMonth,
+): Promise<UserUsageMonth> {
+  await query(
+    `insert into public.app_usage (user_id, month, data, updated_at)
+     values ($1, $2, $3::jsonb, timezone('utc', now()))
+     on conflict (user_id, month) do nothing`,
+    [userId, month, JSON.stringify(empty)],
+  );
+
+  const existing = await pgGetUserUsage(userId, month);
+  const next: UserUsageMonth = {
+    ...empty,
+    ...existing,
+    month,
+    updatedAt: new Date().toISOString(),
+  };
+  for (const metric of metrics) {
+    next[metric] = 0;
+  }
+
+  await pgSaveUserUsage(userId, next);
+  return next;
+}
