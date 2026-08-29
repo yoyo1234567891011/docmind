@@ -1,10 +1,11 @@
 import {
   DOCUMENT_CATEGORIES,
   type DocumentCategory,
-  type RiskLevel,
   type SmartSearchIntent,
 } from "@/types";
 import { normalizeText } from "@/services/search/parse-values";
+
+type SearchRiskLevel = NonNullable<SmartSearchIntent["riskLevels"]>[number];
 
 function currentYear(): number {
   return new Date().getFullYear();
@@ -87,7 +88,7 @@ export function parseIntentHeuristic(query: string): SmartSearchIntent {
   let interpretedAs = "Recherche textuelle dans vos fiches documentaires";
   let amount: SmartSearchIntent["amount"] = null;
   let date: SmartSearchIntent["date"] = null;
-  let riskLevels: RiskLevel[] = [];
+  let riskLevels: SearchRiskLevel[] = [];
   let needsAction: boolean | null = null;
 
   // Organizations / brands frequently searched
