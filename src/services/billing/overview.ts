@@ -32,15 +32,16 @@ function shouldReconcile(subscription: {
 
 export async function getBillingOverview(
   userId: string,
-  options?: { reconcile?: boolean },
+  options?: { reconcile?: boolean | "force" },
 ): Promise<BillingOverview> {
   let subscription = await getUserSubscription(userId);
   const stripeConfigured = isStripeConfigured();
+  const forceReconcile = options?.reconcile === "force";
 
   if (
     options?.reconcile !== false &&
     stripeConfigured &&
-    shouldReconcile(subscription)
+    (forceReconcile || shouldReconcile(subscription))
   ) {
     try {
       await syncUserSubscriptionFromStripe(userId);

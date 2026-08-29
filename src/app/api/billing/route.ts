@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   try {
     const user = await requireUser(request);
-    const overview = await getBillingOverview(user.id);
+    const overview = await getBillingOverview(user.id, { reconcile: "force" });
     return apiSuccess({
       ...toClientBillingOverview(overview),
       plans: Object.values(BILLING_PLANS),
