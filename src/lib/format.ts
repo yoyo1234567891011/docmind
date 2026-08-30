@@ -1,5 +1,15 @@
 const DISPLAY_TIME_ZONE = "Europe/Paris";
 
+export function formatMoneyEur(
+  amount: number,
+  options?: { minimumFractionDigits?: number },
+): string {
+  return `${amount.toLocaleString("fr-FR", {
+    minimumFractionDigits: options?.minimumFractionDigits ?? 2,
+    maximumFractionDigits: 2,
+  })} €`;
+}
+
 export function formatDateTime(value: string): string {
   const date = new Date(value);
 

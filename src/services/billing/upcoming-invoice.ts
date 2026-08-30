@@ -163,7 +163,7 @@ export async function getUserUpcomingInvoice(
   }
 
   try {
-    const upcoming = await stripe.invoices.retrieveUpcoming({
+    const upcoming = await stripe.invoices.createPreview({
       customer: sub.stripeCustomerId,
       subscription: sub.stripeSubscriptionId,
     });

@@ -108,8 +108,7 @@ export async function previewPlanChange(
       immediateAmountDue: centsToUnits(preview.amount_due),
       currency: (preview.currency || "eur").toUpperCase(),
       isUpgrade,
-      nextBillingDate:
-        toIso(stripeSub.current_period_end) ?? sub.currentPeriodEnd,
+      nextBillingDate: sub.currentPeriodEnd,
       nextMonthlyEur: targetDef.priceMonthlyEur,
       available: true,
       note: null,
@@ -125,8 +124,7 @@ export async function previewPlanChange(
       immediateAmountDue: null,
       currency: "EUR",
       isUpgrade,
-      nextBillingDate:
-        toIso(stripeSub.current_period_end) ?? sub.currentPeriodEnd,
+      nextBillingDate: sub.currentPeriodEnd,
       nextMonthlyEur: targetDef.priceMonthlyEur,
       available: false,
       note:
