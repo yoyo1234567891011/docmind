@@ -107,6 +107,60 @@ export interface BillingInvoiceSummary {
   periodEnd: string | null;
 }
 
+/** Prochaine facture Stripe (upcoming) ou facture ouverte (past_due). */
+export type BillingUpcomingInvoiceStatus =
+  | "available"
+  | "open"
+  | "none_expected"
+  | "unavailable";
+
+export interface BillingUpcomingInvoice {
+  status: BillingUpcomingInvoiceStatus;
+  /** Date estimée du prochain prélèvement (ou échéance facture ouverte). */
+  billingDate: string | null;
+  /** Montant total dû (EUR). `isEstimate` indique si c’est une projection Stripe. */
+  amountDue: number | null;
+  currency: string;
+  /** true pour `invoices.retrieveUpcoming` (peut varier légèrement au moment du prélèvement). */
+  isEstimate: boolean;
+  hasProration: boolean;
+  prorationAmount: number | null;
+  recurringAmount: number | null;
+  /** Explication lisible si montant absent ou cas particulier. */
+  note: string | null;
+}
+
+/** Facture Stripe émise immédiatement lors d’un changement de plan (prorata). */
+export interface BillingImmediateInvoice {
+  id: string;
+  number: string | null;
+  status: string | null;
+  amountDue: number;
+  amountPaid: number;
+  currency: string;
+  createdAt: string;
+  hostedInvoiceUrl: string | null;
+}
+
+/** Aperçu Stripe avant confirmation d’un changement de plan payant → payant. */
+export interface BillingPlanChangePreview {
+  currentPlan: BillingPlanId;
+  targetPlan: PaidBillingPlanId;
+  currentPlanName: string;
+  targetPlanName: string;
+  currentMonthlyEur: number | null;
+  targetMonthlyEur: number | null;
+  /** Montant prélevé maintenant (prorata / différence). Peut être 0 (downgrade). */
+  immediateAmountDue: number | null;
+  currency: string;
+  isUpgrade: boolean;
+  nextBillingDate: string | null;
+  /** Tarif mensuel du nouveau plan à la prochaine échéance. */
+  nextMonthlyEur: number | null;
+  available: boolean;
+  note: string | null;
+}
+
 export interface BillingOverview {
   subscription: UserSubscriptionRecord;
   plan: BillingPlanDefinition;
@@ -123,6 +177,7 @@ export interface BillingOverview {
   /** true si entitlements en mode dev fail-open (Stripe absent). */
   entitlementsDevBypass: boolean;
   invoices: BillingInvoiceSummary[];
+  upcomingInvoice: BillingUpcomingInvoice;
 }
 
 export const EMPTY_FREE_SUBSCRIPTION = (

@@ -12,11 +12,15 @@ import { hasPaidAccess } from "@/services/billing/access";
 import { changeSubscriptionPlan } from "@/services/billing/change-plan";
 import { getOrCreateStripeCustomer } from "@/services/billing/customers";
 import { getUserSubscription } from "@/services/billing/store";
-import type { PaidBillingPlanId } from "@/types/billing";
+import type { BillingImmediateInvoice, PaidBillingPlanId } from "@/types/billing";
 
 export type PlanCheckoutResult =
   | { mode: "redirect"; url: string }
-  | { mode: "changed"; plan: PaidBillingPlanId };
+  | {
+      mode: "changed";
+      plan: PaidBillingPlanId;
+      immediateInvoice: BillingImmediateInvoice | null;
+    };
 
 export async function createPlanCheckoutSession(input: {
   userId: string;
@@ -53,7 +57,11 @@ export async function createPlanCheckoutSession(input: {
         },
         { skipLock: true },
       );
-      return { mode: "changed", plan: changed.plan };
+      return {
+        mode: "changed",
+        plan: changed.plan,
+        immediateInvoice: changed.immediateInvoice,
+      };
     }
 
     if (sub.stripeSubscriptionId && sub.status !== "canceled") {

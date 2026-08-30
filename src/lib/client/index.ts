@@ -67,6 +67,7 @@ export { ClientApiError, isQuotaExceededError } from "./api-error";
 export { trackClientAnalytics } from "./analytics";
 export {
   fetchBilling,
+  fetchPlanChangePreview,
   syncBilling,
   startPlanCheckout,
   startPremiumCheckout,

@@ -32,7 +32,11 @@ export async function POST(request: Request) {
       plan,
     });
     if (session.mode === "changed") {
-      return apiSuccess({ changed: true as const, plan: session.plan });
+      return apiSuccess({
+        changed: true as const,
+        plan: session.plan,
+        immediateInvoice: session.immediateInvoice,
+      });
     }
     return apiSuccess({ url: session.url });
   } catch (error) {

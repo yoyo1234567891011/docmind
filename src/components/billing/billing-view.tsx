@@ -9,15 +9,22 @@ import { SpinnerIcon } from "@/components/ui/icons";
 import {
   cancelSubscription,
   fetchBilling,
+  fetchPlanChangePreview,
   openBillingPortal,
   resumeSubscription,
   startPlanCheckout,
   syncBilling,
   type BillingApiResponse,
 } from "@/lib/client";
+import {
+  describePlanChangeMessage,
+  describePlanChangePreview,
+  describeUpcomingInvoice,
+  PLAN_CHANGE_HINT,
+} from "@/lib/billing/upcoming-display";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { PaidBillingPlanId } from "@/types";
+import type { BillingPlanChangePreview, PaidBillingPlanId } from "@/types";
 
 function badgeClass(tone: string): string {
   switch (tone) {
@@ -54,6 +61,10 @@ export function BillingView() {
         ? "Checkout annulé — aucun prélèvement."
         : null,
   );
+  const [planChangeConfirm, setPlanChangeConfirm] = useState<{
+    targetPlan: PaidBillingPlanId;
+    preview: BillingPlanChangePreview;
+  } | null>(null);
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) setIsLoading(true);
@@ -167,12 +178,19 @@ export function BillingView() {
     stripeConfigured,
     entitlementsDevBypass,
     invoices,
+    upcomingInvoice,
     plans,
   } = data;
 
   const renewalLabel = subscription.cancelAtPeriodEnd
     ? "Fin d’accès"
     : "Prochain renouvellement";
+
+  const showUpcomingBilling =
+    isPremium && stripeConfigured && !entitlementsDevBypass;
+  const upcomingView = showUpcomingBilling
+    ? describeUpcomingInvoice(upcomingInvoice, plan, subscription)
+    : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-5 py-10 sm:px-6">
@@ -186,17 +204,20 @@ export function BillingView() {
           Facturation
         </h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Plan synchronisé avec Stripe (price_id). Les changements de plan
-          prennent effet immédiatement ; le prorata est facturé sur la prochaine
-          facture.
+          Plan synchronisé avec Stripe. Un changement de plan payant active le
+          nouveau tarif immédiatement et peut déclencher un prélèvement au
+          prorata sur votre carte enregistrée.
         </p>
       </header>
 
       {subscription.status === "past_due" ? (
         <Alert tone="info" title="Paiement en retard">
-          Votre dernier prélèvement a échoué. Mettez à jour votre moyen de
-          paiement via le portail Stripe pour éviter la suspension de
-          l’abonnement.
+          Votre dernier prélèvement a échoué.
+          {upcomingInvoice.status === "open" && upcomingInvoice.amountDue != null
+            ? ` Montant dû : ${upcomingInvoice.amountDue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €.`
+            : null}{" "}
+          Mettez à jour votre moyen de paiement via le portail Stripe pour éviter
+          la suspension de l’abonnement.
         </Alert>
       ) : null}
       {subscription.status === "unpaid" ? (
@@ -389,6 +410,109 @@ export function BillingView() {
         </div>
       </section>
 
+      {showUpcomingBilling && upcomingView ? (
+        <section
+          className={cn(
+            "rounded-xl border p-6",
+            upcomingInvoice.status === "open"
+              ? "border-[var(--warning)] bg-[var(--warning-soft)]"
+              : "border-[var(--border)] bg-[var(--surface)]",
+          )}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                {upcomingView.title}
+              </p>
+              <ul className="mt-3 space-y-2 text-sm text-[var(--foreground)]">
+                {upcomingView.lines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
+            {upcomingView.showPortalHint ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={Boolean(busy)}
+                onClick={() =>
+                  void run("portal-upcoming", async () => {
+                    const { url } = await openBillingPortal();
+                    window.location.href = url;
+                  })
+                }
+              >
+                Voir le détail sur Stripe
+              </Button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {planChangeConfirm ? (
+        <section className="rounded-xl border border-[var(--accent)] bg-[var(--surface)] p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+            Confirmer le changement de plan
+          </p>
+          <p className="mt-2 font-display text-2xl">
+            {planChangeConfirm.preview.currentPlanName} →{" "}
+            {planChangeConfirm.preview.targetPlanName}
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-[var(--foreground)]">
+            {describePlanChangePreview(planChangeConfirm.preview).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Button
+              disabled={Boolean(busy)}
+              onClick={() => {
+                const targetPlan = planChangeConfirm.targetPlan;
+                void run(`confirm-${targetPlan}`, async () => {
+                  const result = await startPlanCheckout(targetPlan);
+                  setPlanChangeConfirm(null);
+                  if ("url" in result && result.url) {
+                    window.location.href = result.url;
+                    return;
+                  }
+                  if (result.changed) {
+                    const refreshed = await fetchBilling();
+                    setData(refreshed);
+                    const planName =
+                      plans.find((p) => p.id === result.plan)?.name ??
+                      result.plan;
+                    const targetMonthly =
+                      plans.find((p) => p.id === result.plan)
+                        ?.priceMonthlyEur ?? null;
+                    setInfo(
+                      describePlanChangeMessage({
+                        planName,
+                        targetMonthlyEur: targetMonthly,
+                        immediateInvoice: result.immediateInvoice,
+                        upcoming: refreshed.upcomingInvoice,
+                        subscription: refreshed.subscription,
+                      }),
+                    );
+                  }
+                });
+              }}
+            >
+              {busy?.startsWith("confirm-") ? (
+                <SpinnerIcon className="h-4 w-4" />
+              ) : null}
+              Confirmer le changement
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={Boolean(busy)}
+              onClick={() => setPlanChangeConfirm(null)}
+            >
+              Annuler
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {plans.map((item) => {
           const active = item.id === plan.id;
@@ -433,6 +557,11 @@ export function BillingView() {
                   <li key={feature}>— {feature}</li>
                 ))}
               </ul>
+              {canCheckout && isPremium ? (
+                <p className="mt-3 text-xs text-[var(--muted)]">
+                  {PLAN_CHANGE_HINT}
+                </p>
+              ) : null}
               {canCheckout ? (
                 <Button
                   className="mt-5 w-full"
@@ -441,19 +570,34 @@ export function BillingView() {
                   onClick={() => {
                     const checkoutPlan = item.id;
                     if (!isPaidPlanId(checkoutPlan)) return;
+                    if (isPremium) {
+                      void (async () => {
+                        setBusy(`preview-${checkoutPlan}`);
+                        setError(null);
+                        try {
+                          const preview = await fetchPlanChangePreview(
+                            checkoutPlan,
+                          );
+                          setPlanChangeConfirm({
+                            targetPlan: checkoutPlan,
+                            preview,
+                          });
+                        } catch (previewError) {
+                          setError(
+                            previewError instanceof Error
+                              ? previewError.message
+                              : "Impossible de prévisualiser le changement.",
+                          );
+                        } finally {
+                          setBusy(null);
+                        }
+                      })();
+                      return;
+                    }
                     void run(`checkout-${checkoutPlan}`, async () => {
                       const result = await startPlanCheckout(checkoutPlan);
                       if ("url" in result && result.url) {
                         window.location.href = result.url;
-                        return;
-                      }
-                      if (result.changed) {
-                        const planName =
-                          plans.find((p) => p.id === result.plan)?.name ??
-                          result.plan;
-                        setInfo(
-                          `Plan ${planName} activé immédiatement. L’ajustement (prorata) sera ajouté à votre prochaine facture Stripe — pas de prélèvement séparé au moment du clic.`,
-                        );
                       }
                     });
                   }}

@@ -1,6 +1,8 @@
 import type {
   ApiResponse,
+  BillingImmediateInvoice,
   BillingOverview,
+  BillingPlanChangePreview,
   BillingPlanDefinition,
   PaidBillingPlanId,
 } from "@/types";
@@ -37,11 +39,26 @@ export async function syncBilling(options?: {
   return parse(response);
 }
 
+export async function fetchPlanChangePreview(
+  plan: PaidBillingPlanId,
+): Promise<BillingPlanChangePreview> {
+  const response = await fetch(
+    `/api/billing/plan-change-preview?plan=${encodeURIComponent(plan)}`,
+    { cache: "no-store" },
+  );
+  return parse(response);
+}
+
 export async function startPlanCheckout(
   plan: PaidBillingPlanId = "pro",
 ): Promise<
   | { url: string; changed?: false }
-  | { changed: true; plan: PaidBillingPlanId; url?: undefined }
+  | {
+      changed: true;
+      plan: PaidBillingPlanId;
+      immediateInvoice: BillingImmediateInvoice | null;
+      url?: undefined;
+    }
 > {
   let response: Response;
   try {
@@ -62,7 +79,11 @@ export async function startPlanCheckout(
   }
   const data = await parse<
     | { url: string }
-    | { changed: true; plan: PaidBillingPlanId }
+    | {
+        changed: true;
+        plan: PaidBillingPlanId;
+        immediateInvoice?: BillingImmediateInvoice | null;
+      }
     | { mode: "changed"; plan: PaidBillingPlanId }
   >(response);
   if (
@@ -72,11 +93,29 @@ export async function startPlanCheckout(
     data.mode === "changed" &&
     "plan" in data
   ) {
-    return { changed: true as const, plan: data.plan };
+    return { changed: true as const, plan: data.plan, immediateInvoice: null };
+  }
+  if (
+    data &&
+    typeof data === "object" &&
+    "changed" in data &&
+    data.changed === true &&
+    "plan" in data
+  ) {
+    return {
+      changed: true as const,
+      plan: data.plan,
+      immediateInvoice: data.immediateInvoice ?? null,
+    };
   }
   return data as
     | { url: string; changed?: false }
-    | { changed: true; plan: PaidBillingPlanId; url?: undefined };
+    | {
+        changed: true;
+        plan: PaidBillingPlanId;
+        immediateInvoice: BillingImmediateInvoice | null;
+        url?: undefined;
+      };
 }
 
 /** @deprecated Prefer startPlanCheckout("pro") */

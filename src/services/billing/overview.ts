@@ -10,6 +10,7 @@ import {
   getUserEntitlements,
 } from "@/services/billing/entitlements";
 import { listUserInvoices } from "@/services/billing/invoices";
+import { getUserUpcomingInvoice } from "@/services/billing/upcoming-invoice";
 import { getUserSubscription } from "@/services/billing/store";
 import { syncUserSubscriptionFromStripe } from "@/services/billing/sync";
 import type { BillingOverview } from "@/types/billing";
@@ -64,7 +65,10 @@ export async function getBillingOverview(
         currentPeriodEnd: subscription.currentPeriodEnd,
       });
   const plan = getBillingPlan(effectivePlan);
-  const invoices = await listUserInvoices(userId);
+  const [invoices, upcomingInvoice] = await Promise.all([
+    listUserInvoices(userId),
+    getUserUpcomingInvoice(userId),
+  ]);
   const accessBadge = resolveAccessBadge(subscription, {
     entitlementsDevBypass,
   });
@@ -79,5 +83,6 @@ export async function getBillingOverview(
     stripeConfigured,
     entitlementsDevBypass,
     invoices,
+    upcomingInvoice,
   };
 }

@@ -14,12 +14,17 @@ import {
 } from "@/services/billing/apply-subscription";
 import { resolveEffectivePlan } from "@/services/billing/access";
 import { getUserSubscription } from "@/services/billing/store";
-import type { PaidBillingPlanId } from "@/types/billing";
+import { syncUserSubscriptionFromStripe } from "@/services/billing/sync";
+import { toStripeBillingAppError } from "@/services/billing/stripe-payment-errors";
+import type {
+  BillingImmediateInvoice,
+  PaidBillingPlanId,
+} from "@/types/billing";
 import type Stripe from "stripe";
 
 const SUBSCRIPTION_EXPAND = ["items.data.price"] as const;
 
-function resolveBillableSubscriptionItem(
+export function resolveBillableSubscriptionItem(
   stripeSub: Stripe.Subscription,
   hintPriceId?: string | null,
 ): Stripe.SubscriptionItem {
@@ -81,9 +86,25 @@ function assertStripePlanMatches(
   );
 }
 
+function toImmediateInvoice(
+  invoice: Stripe.Invoice,
+): BillingImmediateInvoice {
+  return {
+    id: invoice.id,
+    number: invoice.number,
+    status: invoice.status,
+    amountDue: (invoice.amount_due ?? 0) / 100,
+    amountPaid: (invoice.amount_paid ?? 0) / 100,
+    currency: (invoice.currency || "eur").toUpperCase(),
+    createdAt: new Date((invoice.created ?? 0) * 1000).toISOString(),
+    hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+  };
+}
+
 /**
  * Change le price Stripe d’un abonnement existant (upgrade / downgrade).
- * N’applique le plan local qu’après confirmation du price côté Stripe.
+ * Facture le prorata immédiatement (`always_invoice`).
+ * Si le paiement échoue, Stripe annule la mise à jour — le plan local n’est pas modifié.
  */
 export async function changeSubscriptionPlan(
   input: {
@@ -91,7 +112,10 @@ export async function changeSubscriptionPlan(
     plan: PaidBillingPlanId;
   },
   options?: { skipLock?: boolean },
-): Promise<{ plan: PaidBillingPlanId }> {
+): Promise<{
+  plan: PaidBillingPlanId;
+  immediateInvoice: BillingImmediateInvoice | null;
+}> {
   requireStripeConfigured();
 
   const targetPlan = input.plan;
@@ -108,7 +132,10 @@ export async function changeSubscriptionPlan(
     );
   }
 
-  const execute = async (): Promise<{ plan: PaidBillingPlanId }> => {
+  const execute = async (): Promise<{
+    plan: PaidBillingPlanId;
+    immediateInvoice: BillingImmediateInvoice | null;
+  }> => {
     const sub = await getUserSubscription(input.userId);
     if (!sub.stripeSubscriptionId) {
       throw new AppError(
@@ -135,23 +162,47 @@ export async function changeSubscriptionPlan(
       sub.stripePriceId,
     );
 
-    await stripe.subscriptions.update(sub.stripeSubscriptionId, {
-      items: [{ id: item.id, price: priceId }],
-      proration_behavior: "create_prorations",
-      cancel_at_period_end: false,
-      metadata: {
-        ...stripeSub.metadata,
-        docmind_user_id: input.userId,
-        docmind_plan: targetPlan,
-        plan: targetPlan,
-      },
-    });
+    let verified: Stripe.Subscription;
+    let immediateInvoice: BillingImmediateInvoice | null = null;
 
-    const verified = await retrieveSubscriptionHydrated(
-      stripe,
-      sub.stripeSubscriptionId,
-    );
-    assertStripePlanMatches(verified, targetPlan);
+    try {
+      await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+        items: [{ id: item.id, price: priceId }],
+        proration_behavior: "always_invoice",
+        payment_behavior: "error_if_incomplete",
+        cancel_at_period_end: false,
+        metadata: {
+          ...stripeSub.metadata,
+          docmind_user_id: input.userId,
+          docmind_plan: targetPlan,
+          plan: targetPlan,
+        },
+        expand: ["latest_invoice"],
+      });
+
+      verified = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId, {
+        expand: [...SUBSCRIPTION_EXPAND, "latest_invoice"],
+      });
+      assertStripePlanMatches(verified, targetPlan);
+
+      const latestRaw = verified.latest_invoice;
+      const latestId =
+        typeof latestRaw === "string" ? latestRaw : latestRaw?.id;
+      if (latestId) {
+        const invoice =
+          typeof latestRaw === "object" && latestRaw && "amount_due" in latestRaw
+            ? latestRaw
+            : await stripe.invoices.retrieve(latestId);
+        immediateInvoice = toImmediateInvoice(invoice);
+      }
+    } catch (error) {
+      try {
+        await syncUserSubscriptionFromStripe(input.userId);
+      } catch {
+        // garde l’état local si resync impossible
+      }
+      throw toStripeBillingAppError(error);
+    }
 
     await applyStripeSubscription(input.userId, verified, {
       id: `plan_change_${verified.id}_${targetPlan}_${readSubscriptionPriceId(verified) ?? "na"}`,
@@ -168,7 +219,7 @@ export async function changeSubscriptionPlan(
       );
     }
 
-    return { plan: appliedPlan };
+    return { plan: appliedPlan, immediateInvoice };
   };
 
   if (options?.skipLock) {

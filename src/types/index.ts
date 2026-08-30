@@ -97,6 +97,10 @@ export type {
   BillingAccessBadge,
   UserSubscriptionRecord,
   BillingInvoiceSummary,
+  BillingUpcomingInvoice,
+  BillingUpcomingInvoiceStatus,
+  BillingImmediateInvoice,
+  BillingPlanChangePreview,
   BillingOverview,
 } from "./billing";
 export { EMPTY_FREE_SUBSCRIPTION, PAID_BILLING_PLAN_IDS } from "./billing";
