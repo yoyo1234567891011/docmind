@@ -22,7 +22,7 @@ import {
   clearCustomerBalanceBeforeFullPriceChange,
   PLAN_CHANGE_FULL_PRICE_UPDATE,
 } from "@/services/billing/plan-change-full-price";
-import { reconcileRenewalPreviewToCatalog } from "@/services/billing/renewal-catalog";
+import { clearPendingDocmindAdjustmentItems } from "@/services/billing/renewal-catalog";
 import type {
   BillingImmediateInvoice,
   PaidBillingPlanId,
@@ -183,6 +183,8 @@ export async function changeSubscriptionPlan(
         );
       }
 
+      await clearPendingDocmindAdjustmentItems(stripe, sub.stripeCustomerId);
+
       await clearCustomerBalanceBeforeFullPriceChange(
         stripe,
         sub.stripeCustomerId,
@@ -235,14 +237,6 @@ export async function changeSubscriptionPlan(
       type: "customer.subscription.updated",
       created: Math.floor(Date.now() / 1000),
     });
-
-    if (sub.stripeCustomerId) {
-      await reconcileRenewalPreviewToCatalog(stripe, {
-        customerId: sub.stripeCustomerId,
-        subscriptionId: sub.stripeSubscriptionId,
-        catalogMonthlyEur: expectedCatalogCharge,
-      });
-    }
 
     const appliedPlan = planFromSubscription(verified);
     if (!isPaidBillingPlanId(appliedPlan) || appliedPlan !== targetPlan) {

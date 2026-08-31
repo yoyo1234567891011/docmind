@@ -35,11 +35,11 @@ export function catalogPlanMonthlyEur(plan: PaidBillingPlanId): number {
   return monthly;
 }
 
-/** Tolérance centimes (arrondis Stripe). */
+/** Tolérance centimes (arrondis Stripe) — 1 centime max pour catalogue strict. */
 export function catalogChargeMatchesInvoice(
   catalogEur: number,
   invoiceEur: number,
-  toleranceEur = 0.05,
+  toleranceEur = 0.01,
 ): boolean {
   return Math.abs(catalogEur - invoiceEur) <= toleranceEur;
 }
@@ -89,11 +89,21 @@ export function assertFullCatalogInvoiceCharged(
   catalogEur: number,
   targetPlan: PaidBillingPlanId,
 ): void {
+  for (const line of invoice.lines?.data ?? []) {
+    if (line.metadata?.docmind_renewal_offset === "true") {
+      throw new AppError(
+        "INTERNAL_ERROR",
+        `Ligne d'ajustement DocMind interdite sur une facture de changement de plan.`,
+        502,
+      );
+    }
+  }
+
   const grossEur = invoiceGrossEur(invoice);
   if (!catalogChargeMatchesInvoice(catalogEur, grossEur)) {
     throw new AppError(
       "INTERNAL_ERROR",
-      `Ligne facture (${grossEur} €) différente du prix catalogue ${targetPlan} (${catalogEur} €).`,
+      `Total facture (${grossEur} €) différent du prix catalogue ${targetPlan} (${catalogEur} €).`,
       502,
     );
   }
@@ -108,10 +118,12 @@ export function assertFullCatalogInvoiceCharged(
   }
 
   const paidEur = invoiceCardPaidEur(invoice);
-  if (invoice.status === "paid" && !catalogChargeMatchesInvoice(catalogEur, paidEur)) {
+  const dueEur = (invoice.amount_due ?? 0) / 100;
+  const chargedEur = paidEur > 0 ? paidEur : dueEur;
+  if (!catalogChargeMatchesInvoice(catalogEur, chargedEur)) {
     throw new AppError(
       "INTERNAL_ERROR",
-      `Montant prélevé (${paidEur} €) différent du prix catalogue ${targetPlan} (${catalogEur} €).`,
+      `Montant prélevé (${chargedEur} €) différent du prix catalogue ${targetPlan} (${catalogEur} €).`,
       502,
     );
   }

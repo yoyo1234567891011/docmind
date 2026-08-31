@@ -4,8 +4,6 @@ import {
   catalogChargeMatchesInvoice,
 } from "@/services/billing/plan-change-full-price";
 import {
-  reconcileRenewalPreviewToCatalog,
-  recurringLineTotalEur,
   resolveCatalogRenewalAmountDue,
 } from "@/services/billing/renewal-catalog";
 import { getUserSubscription } from "@/services/billing/store";
@@ -195,33 +193,10 @@ export async function getUserUpcomingInvoice(
       ? (getBillingPlan(sub.plan).priceMonthlyEur ?? null)
       : null;
 
-    let upcoming = await stripe.invoices.createPreview({
+    const upcoming = await stripe.invoices.createPreview({
       customer: sub.stripeCustomerId,
       subscription: sub.stripeSubscriptionId,
     });
-
-    if (
-      catalogMonthlyEur != null &&
-      sub.stripeSubscriptionId &&
-      !catalogChargeMatchesInvoice(
-        catalogMonthlyEur,
-        centsToUnits(upcoming.amount_due),
-      ) &&
-      catalogChargeMatchesInvoice(
-        catalogMonthlyEur,
-        recurringLineTotalEur(upcoming.lines?.data ?? []),
-      )
-    ) {
-      await reconcileRenewalPreviewToCatalog(stripe, {
-        customerId: sub.stripeCustomerId,
-        subscriptionId: sub.stripeSubscriptionId,
-        catalogMonthlyEur,
-      });
-      upcoming = await stripe.invoices.createPreview({
-        customer: sub.stripeCustomerId,
-        subscription: sub.stripeSubscriptionId,
-      });
-    }
 
     return fromStripeUpcoming(upcoming, catalogMonthlyEur);
   } catch (error) {

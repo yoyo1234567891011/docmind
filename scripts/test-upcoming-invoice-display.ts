@@ -151,14 +151,24 @@ function previewExtraToPremium(): BillingPlanChangePreview {
   assert.throws(() =>
     assertFullCatalogInvoiceCharged(
       {
-        total: 5999,
-        subtotal: 5999,
-        starting_balance: -2497,
-        amount_paid: 3502,
+        total: 3605,
+        subtotal: 3605,
+        starting_balance: 0,
+        amount_paid: 3605,
+        amount_due: 3605,
         status: "paid",
+        lines: {
+          data: [
+            {
+              amount: 106,
+              metadata: { docmind_renewal_offset: "true" },
+            },
+            { amount: 3499 },
+          ],
+        },
       } as never,
-      59.99,
-      "extra",
+      34.99,
+      "premium",
     ),
   );
   assert.doesNotThrow(() =>

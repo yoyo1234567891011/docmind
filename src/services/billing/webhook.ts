@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 
-import { readSubscriptionPriceId } from "@/services/billing/apply-subscription";
+import { offsetDraftRenewalInvoiceToCatalog } from "@/services/billing/renewal-catalog";
 import { getStripe, getStripeWebhookSecret } from "@/lib/stripe";
 import { AppError } from "@/lib/errors";
 import { trackAnalyticsEvent } from "@/services/analytics";
@@ -464,6 +464,16 @@ async function dispatchStripeWebhookEvent(
         }
       }
       return { handled: synced };
+    }
+    case "invoice.created": {
+      const invoice = event.data.object as Stripe.Invoice;
+      try {
+        const stripe = getStripe();
+        await offsetDraftRenewalInvoiceToCatalog(stripe, invoice);
+      } catch {
+        // ne bloque pas le webhook
+      }
+      return { handled: true };
     }
     case "charge.refunded":
       return handleChargeRefunded(event);
