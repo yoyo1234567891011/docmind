@@ -83,9 +83,10 @@ export async function offsetDraftRenewalInvoiceToCatalog(
   if (!customerId) return false;
 
   const subId =
-    typeof invoice.subscription === "string"
-      ? invoice.subscription
-      : invoice.subscription?.id;
+    typeof (invoice as { subscription?: string | { id?: string } }).subscription ===
+    "string"
+      ? (invoice as { subscription?: string }).subscription
+      : (invoice as { subscription?: { id?: string } }).subscription?.id;
   if (!subId) return false;
 
   const lines = invoice.lines?.data ?? [];
