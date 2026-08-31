@@ -82,15 +82,22 @@ export async function offsetDraftRenewalInvoiceToCatalog(
       : invoice.customer?.id;
   if (!customerId) return false;
 
+  const subId =
+    typeof invoice.subscription === "string"
+      ? invoice.subscription
+      : invoice.subscription?.id;
+  if (!subId) return false;
+
   const lines = invoice.lines?.data ?? [];
   const recurringEur = recurringLineTotalEur(lines);
   const netCents = invoice.amount_due ?? 0;
   const netEur = centsToEur(netCents);
 
-  const priceId = lines.find((l) => (l.amount ?? 0) > 0)?.price;
-  const priceIdStr =
-    typeof priceId === "string" ? priceId : priceId?.id ?? null;
-  const plan = planIdFromStripePriceId(priceIdStr);
+  const sub = await stripe.subscriptions.retrieve(subId, {
+    expand: ["items.data.price"],
+  });
+  const priceId = sub.items.data[0]?.price?.id ?? null;
+  const plan = planIdFromStripePriceId(priceId);
   if (!isPaidBillingPlanId(plan)) return false;
 
   const catalogEur = getBillingPlan(plan).priceMonthlyEur;
