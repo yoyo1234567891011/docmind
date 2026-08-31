@@ -11,6 +11,7 @@ import {
   describeUpcomingInvoice,
 } from "../src/lib/billing/upcoming-display";
 import {
+  assertFullCatalogInvoiceCharged,
   catalogChargeMatchesInvoice,
   catalogPlanMonthlyEur,
 } from "../src/services/billing/plan-change-full-price";
@@ -146,6 +147,32 @@ function previewExtraToPremium(): BillingPlanChangePreview {
 {
   assert.ok(catalogChargeMatchesInvoice(59.99, 59.99));
   assert.ok(!catalogChargeMatchesInvoice(59.99, 39.97));
+  assert.throws(() =>
+    assertFullCatalogInvoiceCharged(
+      {
+        total: 5999,
+        subtotal: 5999,
+        starting_balance: -2497,
+        amount_paid: 3502,
+        status: "paid",
+      } as never,
+      59.99,
+      "extra",
+    ),
+  );
+  assert.doesNotThrow(() =>
+    assertFullCatalogInvoiceCharged(
+      {
+        total: 5999,
+        subtotal: 5999,
+        starting_balance: 0,
+        amount_paid: 5999,
+        status: "paid",
+      } as never,
+      59.99,
+      "extra",
+    ),
+  );
 }
 
 // Prochaine facturation

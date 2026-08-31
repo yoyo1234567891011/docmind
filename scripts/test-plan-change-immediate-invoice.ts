@@ -17,6 +17,7 @@ loadEnvFiles(process.cwd(), {
 
 import { getStripe, isStripeConfigured } from "../src/lib/stripe";
 import { changeSubscriptionPlan } from "../src/services/billing/change-plan";
+import { catalogPlanMonthlyEur } from "../src/services/billing/plan-change-full-price";
 import { previewPlanChange } from "../src/services/billing/plan-change-preview";
 import { getUserSubscription } from "../src/services/billing/store";
 import { syncUserSubscriptionFromStripe } from "../src/services/billing/sync";
@@ -77,11 +78,17 @@ async function main() {
 
   const stripe = getStripe();
   const invoice = await stripe.invoices.retrieve(result.immediateInvoice.id);
+  const expectedCatalog = catalogPlanMonthlyEur(targetArg);
+  const amountPaid = (invoice.amount_paid ?? 0) / 100;
   console.log("Facture Stripe:", {
     id: invoice.id,
+    number: invoice.number,
     status: invoice.status,
+    subtotal: (invoice.subtotal ?? 0) / 100,
     amount_due: (invoice.amount_due ?? 0) / 100,
-    amount_paid: (invoice.amount_paid ?? 0) / 100,
+    amount_paid: amountPaid,
+    starting_balance: (invoice.starting_balance ?? 0) / 100,
+    expectedCatalog,
   });
 
   const after = await getUserSubscription(userId);
@@ -94,6 +101,11 @@ async function main() {
   assert.ok(
     invoice.status === "paid" || invoice.amount_due === 0,
     `Facture non réglée: ${invoice.status}`,
+  );
+  assert.equal(invoice.starting_balance ?? 0, 0, "Solde client ne doit pas réduire le prélèvement");
+  assert.ok(
+    Math.abs(amountPaid - expectedCatalog) <= 0.05,
+    `Prélèvement ${amountPaid} € ≠ catalogue ${expectedCatalog} €`,
   );
 
   console.log("test-plan-change-immediate-invoice: OK");

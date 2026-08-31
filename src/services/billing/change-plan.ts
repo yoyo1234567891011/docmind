@@ -17,8 +17,9 @@ import { getUserSubscription } from "@/services/billing/store";
 import { syncUserSubscriptionFromStripe } from "@/services/billing/sync";
 import { toStripeBillingAppError } from "@/services/billing/stripe-payment-errors";
 import {
-  catalogChargeMatchesInvoice,
+  assertFullCatalogInvoiceCharged,
   catalogPlanMonthlyEur,
+  clearCustomerBalanceBeforeFullPriceChange,
   PLAN_CHANGE_FULL_PRICE_UPDATE,
 } from "@/services/billing/plan-change-full-price";
 import type {
@@ -173,6 +174,19 @@ export async function changeSubscriptionPlan(
     let immediateInvoice: BillingImmediateInvoice | null = null;
 
     try {
+      if (!sub.stripeCustomerId) {
+        throw new AppError(
+          "INTERNAL_ERROR",
+          "Customer Stripe manquant pour le changement de plan.",
+          502,
+        );
+      }
+
+      await clearCustomerBalanceBeforeFullPriceChange(
+        stripe,
+        sub.stripeCustomerId,
+      );
+
       await stripe.subscriptions.update(sub.stripeSubscriptionId, {
         items: [{ id: item.id, price: priceId }],
         ...PLAN_CHANGE_FULL_PRICE_UPDATE,
@@ -199,18 +213,12 @@ export async function changeSubscriptionPlan(
           typeof latestRaw === "object" && latestRaw && "amount_due" in latestRaw
             ? latestRaw
             : await stripe.invoices.retrieve(latestId);
+        assertFullCatalogInvoiceCharged(
+          invoice,
+          expectedCatalogCharge,
+          targetPlan,
+        );
         immediateInvoice = toImmediateInvoice(invoice);
-        const charged =
-          immediateInvoice.amountPaid > 0
-            ? immediateInvoice.amountPaid
-            : immediateInvoice.amountDue;
-        if (!catalogChargeMatchesInvoice(expectedCatalogCharge, charged)) {
-          throw new AppError(
-            "INTERNAL_ERROR",
-            `Montant facturé (${charged} €) différent du prix catalogue ${targetPlan} (${expectedCatalogCharge} €).`,
-            502,
-          );
-        }
       }
     } catch (error) {
       try {
