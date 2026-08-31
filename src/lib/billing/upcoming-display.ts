@@ -118,7 +118,7 @@ export function describeUpcomingInvoice(
 
   if (isPremiumRecurring(subscription)) {
     lines.push(
-      "Les changements de plan déclenchent un prélèvement immédiat du prorata ; le renouvellement mensuel suit à la prochaine échéance.",
+      "Un changement de plan facture immédiatement le prix mensuel complet du nouveau plan choisi.",
     );
   }
 
@@ -153,30 +153,20 @@ export function describePlanChangePreview(
     }.`,
   ];
 
-  if (preview.immediateAmountDue != null) {
-    if (preview.immediateAmountDue > 0) {
-      lines.push(
-        `Un prélèvement immédiat d’environ ${formatMoneyEur(preview.immediateAmountDue)} (prorata) sera tenté sur votre carte enregistrée.`,
-      );
-    } else if (preview.isUpgrade) {
-      lines.push(
-        "Un ajustement au prorata sera facturé immédiatement (montant estimé indisponible).",
-      );
-    } else {
-      lines.push(
-        "Aucun prélèvement immédiat attendu (crédit ou ajustement nul) — le nouveau tarif s’applique dès maintenant.",
-      );
-    }
+  if (preview.immediateAmountDue != null && preview.immediateAmountDue > 0) {
+    lines.push(
+      `Vous serez débité de ${formatMoneyEur(preview.immediateAmountDue)} maintenant — prix mensuel complet du plan ${preview.targetPlanName}.`,
+    );
   } else {
     lines.push(
       preview.note ??
-        "Un paiement au prorata peut être prélevé immédiatement lors de la confirmation.",
+        `Vous serez débité du prix mensuel complet du plan ${preview.targetPlanName} à la confirmation.`,
     );
   }
 
   if (preview.nextBillingDate && preview.nextMonthlyEur != null) {
     lines.push(
-      `Ensuite, ${formatMoneyEur(preview.nextMonthlyEur)} / mois à partir du ${formatDateTime(preview.nextBillingDate)}.`,
+      `Ensuite, renouvellement à ${formatMoneyEur(preview.nextMonthlyEur)} / mois vers le ${formatDateTime(preview.nextBillingDate)}.`,
     );
   } else if (preview.nextMonthlyEur != null) {
     lines.push(
@@ -185,7 +175,7 @@ export function describePlanChangePreview(
   }
 
   lines.push(
-    "Si le paiement immédiat échoue, votre plan actuel reste inchangé.",
+    "Si le paiement est refusé, votre plan actuel reste inchangé.",
   );
 
   return lines;
@@ -208,19 +198,19 @@ export function describePlanChangeMessage(input: {
         : input.immediateInvoice.amountDue;
     if (charged > 0) {
       parts.push(
-        `Un ajustement de ${formatMoneyEur(charged)} vient d’être prélevé (facture ${input.immediateInvoice.number ?? input.immediateInvoice.id}).`,
+        `${formatMoneyEur(charged)} ont été prélevés maintenant — prix du plan ${input.planName} (facture ${input.immediateInvoice.number ?? input.immediateInvoice.id}).`,
       );
     } else {
       parts.push(
-        "Aucun prélèvement immédiat sur cette facture d’ajustement (crédit ou montant nul).",
+        "Aucun prélèvement sur la facture de changement de plan.",
       );
     }
     if (input.immediateInvoice.hostedInvoiceUrl) {
       parts.push("Consultez la facture dans le portail Stripe.");
     }
-  } else {
+  } else if (input.targetMonthlyEur != null) {
     parts.push(
-      "Un ajustement au prorata a été facturé immédiatement — consultez le portail Stripe pour le détail.",
+      `Le prix du plan ${input.planName} (${formatMoneyEur(input.targetMonthlyEur)}) a été facturé — consultez le portail Stripe pour le détail.`,
     );
   }
 
@@ -240,4 +230,4 @@ export function describePlanChangeMessage(input: {
 }
 
 export const PLAN_CHANGE_HINT =
-  "Changement immédiat : un prélèvement au prorata peut être effectué maintenant, puis le tarif mensuel à la prochaine échéance.";
+  "Changement de plan : débit immédiat du prix mensuel complet du nouveau plan (ex. Extra = 59,99 €).";

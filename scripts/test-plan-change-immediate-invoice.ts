@@ -10,6 +10,10 @@ import { createClient } from "@supabase/supabase-js";
 import { loadEnvFiles } from "./lib/load-env-files";
 
 loadEnvFiles(process.cwd(), { override: true });
+loadEnvFiles(process.cwd(), {
+  override: true,
+  files: [".env.cloud-beta.local", ".env.stripe-prices.local"],
+});
 
 import { getStripe, isStripeConfigured } from "../src/lib/stripe";
 import { changeSubscriptionPlan } from "../src/services/billing/change-plan";

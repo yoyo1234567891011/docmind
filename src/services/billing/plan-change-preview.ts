@@ -3,6 +3,10 @@ import { AppError } from "@/lib/errors";
 import { getStripe, requireStripeConfigured } from "@/lib/stripe";
 import { resolveEffectivePlan } from "@/services/billing/access";
 import { resolveBillableSubscriptionItem } from "@/services/billing/change-plan";
+import {
+  catalogPlanMonthlyEur,
+  PLAN_CHANGE_PREVIEW_SUBSCRIPTION_DETAILS,
+} from "@/services/billing/plan-change-full-price";
 import { getUserSubscription } from "@/services/billing/store";
 import type {
   BillingPlanChangePreview,
@@ -14,8 +18,10 @@ function toIso(unix: number | null | undefined): string | null {
   return new Date(unix * 1000).toISOString();
 }
 
-function centsToUnits(cents: number | null | undefined): number {
-  return (cents ?? 0) / 100;
+function estimateNextBillingDate(): string {
+  const next = new Date();
+  next.setUTCMonth(next.getUTCMonth() + 1);
+  return next.toISOString();
 }
 
 function unavailablePreview(
@@ -43,7 +49,7 @@ function unavailablePreview(
 }
 
 /**
- * Estimation Stripe du prélèvement immédiat (always_invoice) avant changement de plan.
+ * Aperçu avant changement payant → payant : montant = prix catalogue du plan cible.
  */
 export async function previewPlanChange(
   userId: string,
@@ -79,56 +85,45 @@ export async function previewPlanChange(
 
   const currentDef = getBillingPlan(currentPlan);
   const targetDef = getBillingPlan(targetPlan);
+  const catalogCharge = catalogPlanMonthlyEur(targetPlan);
   const isUpgrade =
     (targetDef.priceMonthlyEur ?? 0) > (currentDef.priceMonthlyEur ?? 0);
 
-  const stripe = getStripe();
-  const stripeSub = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId, {
-    expand: ["items.data.price"],
-  });
-  const item = resolveBillableSubscriptionItem(stripeSub, sub.stripePriceId);
+  let nextBillingDate = estimateNextBillingDate();
 
   try {
+    const stripe = getStripe();
+    const stripeSub = await stripe.subscriptions.retrieve(
+      sub.stripeSubscriptionId,
+      { expand: ["items.data.price"] },
+    );
+    const item = resolveBillableSubscriptionItem(stripeSub, sub.stripePriceId);
     const preview = await stripe.invoices.createPreview({
       customer: sub.stripeCustomerId,
       subscription: sub.stripeSubscriptionId,
       subscription_details: {
         items: [{ id: item.id, price: priceId }],
-        proration_behavior: "always_invoice",
+        ...PLAN_CHANGE_PREVIEW_SUBSCRIPTION_DETAILS,
       },
     });
-
-    return {
-      currentPlan,
-      targetPlan,
-      currentPlanName: currentDef.name,
-      targetPlanName: targetDef.name,
-      currentMonthlyEur: currentDef.priceMonthlyEur,
-      targetMonthlyEur: targetDef.priceMonthlyEur,
-      immediateAmountDue: centsToUnits(preview.amount_due),
-      currency: (preview.currency || "eur").toUpperCase(),
-      isUpgrade,
-      nextBillingDate: sub.currentPeriodEnd,
-      nextMonthlyEur: targetDef.priceMonthlyEur,
-      available: true,
-      note: null,
-    };
+    nextBillingDate = toIso(preview.period_end) ?? nextBillingDate;
   } catch {
-    return {
-      currentPlan,
-      targetPlan,
-      currentPlanName: currentDef.name,
-      targetPlanName: targetDef.name,
-      currentMonthlyEur: currentDef.priceMonthlyEur,
-      targetMonthlyEur: targetDef.priceMonthlyEur,
-      immediateAmountDue: null,
-      currency: "EUR",
-      isUpgrade,
-      nextBillingDate: sub.currentPeriodEnd,
-      nextMonthlyEur: targetDef.priceMonthlyEur,
-      available: false,
-      note:
-        "Estimation du prélèvement immédiat indisponible — un paiement au prorata peut être prélevé dès la confirmation.",
-    };
+    // garde l’estimation catalogue + date +1 mois
   }
+
+  return {
+    currentPlan,
+    targetPlan,
+    currentPlanName: currentDef.name,
+    targetPlanName: targetDef.name,
+    currentMonthlyEur: currentDef.priceMonthlyEur,
+    targetMonthlyEur: targetDef.priceMonthlyEur,
+    immediateAmountDue: catalogCharge,
+    currency: "EUR",
+    isUpgrade,
+    nextBillingDate,
+    nextMonthlyEur: targetDef.priceMonthlyEur,
+    available: true,
+    note: null,
+  };
 }

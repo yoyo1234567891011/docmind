@@ -14,6 +14,14 @@ import { getOrCreateStripeCustomer } from "@/services/billing/customers";
 import { getUserSubscription } from "@/services/billing/store";
 import type { BillingImmediateInvoice, PaidBillingPlanId } from "@/types/billing";
 
+function canStartNewCheckout(status: string): boolean {
+  return (
+    status === "canceled" ||
+    status === "incomplete" ||
+    status === "incomplete_expired"
+  );
+}
+
 export type PlanCheckoutResult =
   | { mode: "redirect"; url: string }
   | {
@@ -64,7 +72,7 @@ export async function createPlanCheckoutSession(input: {
       };
     }
 
-    if (sub.stripeSubscriptionId && sub.status !== "canceled") {
+    if (sub.stripeSubscriptionId && !canStartNewCheckout(sub.status)) {
       throw new AppError(
         "BAD_REQUEST",
         "Un abonnement Stripe est déjà ouvert. Gérez-le depuis Facturation.",

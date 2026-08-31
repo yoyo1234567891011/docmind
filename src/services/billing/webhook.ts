@@ -50,10 +50,10 @@ async function recordWebhookMeta(
 async function syncSubscription(
   sub: Stripe.Subscription,
   event?: Stripe.Event,
-): Promise<void> {
+): Promise<boolean> {
   const hydrated = await ensureSubscriptionHydrated(sub);
   const userId = await resolveUserId(hydrated);
-  if (!userId) return;
+  if (!userId) return false;
 
   await applyStripeSubscription(
     userId,
@@ -62,6 +62,7 @@ async function syncSubscription(
       ? { id: event.id, type: event.type, created: event.created }
       : undefined,
   );
+  return true;
 }
 
 /** Payload webhook 2026-06-24 parfois sans items — retrieve Stripe si besoin. */
@@ -411,17 +412,17 @@ async function dispatchStripeWebhookEvent(
             "",
         };
       }
-      await syncSubscription(sub, event);
-      return { handled: true };
+      return { handled: await syncSubscription(sub, event) };
     }
     case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
-      await syncSubscription(
-        event.data.object as Stripe.Subscription,
-        event,
-      );
-      return { handled: true };
+      return {
+        handled: await syncSubscription(
+          event.data.object as Stripe.Subscription,
+          event,
+        ),
+      };
     }
     case "invoice.paid":
     case "invoice.payment_failed":
@@ -435,7 +436,7 @@ async function dispatchStripeWebhookEvent(
       if (!subId) return { handled: false };
       const stripe = getStripe();
       const sub = await stripe.subscriptions.retrieve(subId);
-      await syncSubscription(sub, event);
+      const synced = await syncSubscription(sub, event);
 
       if (event.type === "invoice.paid") {
         const billingReason =
@@ -462,7 +463,7 @@ async function dispatchStripeWebhookEvent(
           }
         }
       }
-      return { handled: true };
+      return { handled: synced };
     }
     case "charge.refunded":
       return handleChargeRefunded(event);

@@ -1,5 +1,5 @@
 /**
- * Tests unitaires — règle B (prélèvement immédiat au changement de plan).
+ * Tests unitaires — prix catalogue complet au changement de plan.
  * Usage: npx tsx scripts/test-upcoming-invoice-display.ts
  */
 import assert from "node:assert/strict";
@@ -10,6 +10,10 @@ import {
   describePlanChangePreview,
   describeUpcomingInvoice,
 } from "../src/lib/billing/upcoming-display";
+import {
+  catalogChargeMatchesInvoice,
+  catalogPlanMonthlyEur,
+} from "../src/services/billing/plan-change-full-price";
 import { summarizeInvoiceLines } from "../src/services/billing/upcoming-invoice";
 import type {
   BillingImmediateInvoice,
@@ -59,15 +63,15 @@ function upcoming(
   };
 }
 
-function previewProToExtra(): BillingPlanChangePreview {
+function previewPremiumToExtra(): BillingPlanChangePreview {
   return {
-    currentPlan: "pro",
+    currentPlan: "premium",
     targetPlan: "extra",
-    currentPlanName: "Pro",
+    currentPlanName: "Premium",
     targetPlanName: "Extra",
-    currentMonthlyEur: 19.99,
+    currentMonthlyEur: 34.99,
     targetMonthlyEur: 59.99,
-    immediateAmountDue: 29.99,
+    immediateAmountDue: 59.99,
     currency: "EUR",
     isUpgrade: true,
     nextBillingDate: "2026-09-29T00:00:00.000Z",
@@ -77,34 +81,52 @@ function previewProToExtra(): BillingPlanChangePreview {
   };
 }
 
-// summarizeInvoiceLines
-{
-  const summary = summarizeInvoiceLines([
-    { amount: 2999, proration: true },
-    { amount: 5999, proration: false },
-  ]);
-  assert.equal(summary.hasProration, true);
-  assert.equal(summary.prorationAmount, 29.99);
-  assert.equal(summary.recurringAmount, 59.99);
+function previewExtraToPremium(): BillingPlanChangePreview {
+  return {
+    currentPlan: "extra",
+    targetPlan: "premium",
+    currentPlanName: "Extra",
+    targetPlanName: "Premium",
+    currentMonthlyEur: 59.99,
+    targetMonthlyEur: 34.99,
+    immediateAmountDue: 34.99,
+    currency: "EUR",
+    isUpgrade: false,
+    nextBillingDate: "2026-09-29T00:00:00.000Z",
+    nextMonthlyEur: 34.99,
+    available: true,
+    note: null,
+  };
 }
 
-// Aperçu avant Pro → Extra
+// Prix catalogue
 {
-  const lines = describePlanChangePreview(previewProToExtra());
-  assert.ok(lines.some((l) => l.includes("prélèvement immédiat")));
-  assert.ok(lines.some((l) => l.includes("29,99")));
+  assert.equal(catalogPlanMonthlyEur("extra"), 59.99);
+  assert.equal(catalogPlanMonthlyEur("premium"), 34.99);
+  assert.equal(catalogPlanMonthlyEur("pro"), 19.99);
+}
+
+// Aperçu Premium → Extra : 59,99 € plein
+{
+  const lines = describePlanChangePreview(previewPremiumToExtra());
   assert.ok(lines.some((l) => l.includes("59,99")));
-  assert.ok(lines.some((l) => l.includes("plan actuel reste inchangé")));
+  assert.ok(lines.some((l) => l.includes("prix mensuel complet")));
 }
 
-// Message après changement réussi
+// Downgrade Extra → Premium : 34,99 € plein (pas crédit)
+{
+  const lines = describePlanChangePreview(previewExtraToPremium());
+  assert.ok(lines.some((l) => l.includes("34,99")));
+}
+
+// Message après succès
 {
   const immediate: BillingImmediateInvoice = {
     id: "in_1",
     number: "ABC-001",
     status: "paid",
-    amountDue: 29.99,
-    amountPaid: 29.99,
+    amountDue: 59.99,
+    amountPaid: 59.99,
     currency: "EUR",
     createdAt: new Date().toISOString(),
     hostedInvoiceUrl: "https://stripe.test/invoice",
@@ -116,19 +138,21 @@ function previewProToExtra(): BillingPlanChangePreview {
     upcoming: upcoming(),
     subscription: baseSub({ plan: "extra" }),
   });
-  assert.ok(msg.includes("Extra activé"));
-  assert.ok(msg.includes("29,99"));
-  assert.ok(msg.includes("prélevé"));
   assert.ok(msg.includes("59,99"));
+  assert.ok(msg.includes("prix du plan Extra"));
 }
 
-// Prochaine facturation — mention prélèvement immédiat sur changement
+// Validation montant facture
+{
+  assert.ok(catalogChargeMatchesInvoice(59.99, 59.99));
+  assert.ok(!catalogChargeMatchesInvoice(59.99, 39.97));
+}
+
+// Prochaine facturation
 {
   const plan = getBillingPlan("extra");
   const view = describeUpcomingInvoice(upcoming(), plan, baseSub());
-  assert.ok(
-    view.lines.some((l) => l.includes("prélèvement immédiat")),
-  );
+  assert.ok(view.lines.some((l) => l.includes("prix mensuel complet")));
 }
 
 console.log("test-upcoming-invoice-display: OK");

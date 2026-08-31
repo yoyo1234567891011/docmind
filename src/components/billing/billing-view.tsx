@@ -204,9 +204,8 @@ export function BillingView() {
           Facturation
         </h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Plan synchronisé avec Stripe. Un changement de plan payant active le
-          nouveau tarif immédiatement et peut déclencher un prélèvement au
-          prorata sur votre carte enregistrée.
+          Plan synchronisé avec Stripe. Un changement de plan payant facture
+          immédiatement le prix mensuel complet du nouveau plan choisi.
         </p>
       </header>
 
@@ -500,7 +499,10 @@ export function BillingView() {
               {busy?.startsWith("confirm-") ? (
                 <SpinnerIcon className="h-4 w-4" />
               ) : null}
-              Confirmer le changement
+              Confirmer et payer
+              {planChangeConfirm.preview.immediateAmountDue != null
+                ? ` ${planChangeConfirm.preview.immediateAmountDue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €`
+                : ""}
             </Button>
             <Button
               variant="ghost"

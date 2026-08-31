@@ -16,6 +16,11 @@ import { resolveEffectivePlan } from "@/services/billing/access";
 import { getUserSubscription } from "@/services/billing/store";
 import { syncUserSubscriptionFromStripe } from "@/services/billing/sync";
 import { toStripeBillingAppError } from "@/services/billing/stripe-payment-errors";
+import {
+  catalogChargeMatchesInvoice,
+  catalogPlanMonthlyEur,
+  PLAN_CHANGE_FULL_PRICE_UPDATE,
+} from "@/services/billing/plan-change-full-price";
 import type {
   BillingImmediateInvoice,
   PaidBillingPlanId,
@@ -103,7 +108,7 @@ function toImmediateInvoice(
 
 /**
  * Change le price Stripe d’un abonnement existant (upgrade / downgrade).
- * Facture le prorata immédiatement (`always_invoice`).
+ * Facture le prix catalogue PLEIN du plan cible immédiatement (pas de prorata variable).
  * Si le paiement échoue, Stripe annule la mise à jour — le plan local n’est pas modifié.
  */
 export async function changeSubscriptionPlan(
@@ -162,14 +167,15 @@ export async function changeSubscriptionPlan(
       sub.stripePriceId,
     );
 
+    const expectedCatalogCharge = catalogPlanMonthlyEur(targetPlan);
+
     let verified: Stripe.Subscription;
     let immediateInvoice: BillingImmediateInvoice | null = null;
 
     try {
       await stripe.subscriptions.update(sub.stripeSubscriptionId, {
         items: [{ id: item.id, price: priceId }],
-        proration_behavior: "always_invoice",
-        payment_behavior: "error_if_incomplete",
+        ...PLAN_CHANGE_FULL_PRICE_UPDATE,
         cancel_at_period_end: false,
         metadata: {
           ...stripeSub.metadata,
@@ -194,6 +200,17 @@ export async function changeSubscriptionPlan(
             ? latestRaw
             : await stripe.invoices.retrieve(latestId);
         immediateInvoice = toImmediateInvoice(invoice);
+        const charged =
+          immediateInvoice.amountPaid > 0
+            ? immediateInvoice.amountPaid
+            : immediateInvoice.amountDue;
+        if (!catalogChargeMatchesInvoice(expectedCatalogCharge, charged)) {
+          throw new AppError(
+            "INTERNAL_ERROR",
+            `Montant facturé (${charged} €) différent du prix catalogue ${targetPlan} (${expectedCatalogCharge} €).`,
+            502,
+          );
+        }
       }
     } catch (error) {
       try {

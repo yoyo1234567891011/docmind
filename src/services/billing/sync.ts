@@ -27,6 +27,16 @@ function pickBestSubscription(
   return [...subscriptions].sort((a, b) => rank(a.status) - rank(b.status))[0];
 }
 
+/** Sub terminale / orpheline : ne pas bloquer la découverte d’un abo actif plus récent. */
+function isStaleStoredSubscription(status: string): boolean {
+  return (
+    status === "canceled" ||
+    status === "unpaid" ||
+    status === "incomplete" ||
+    status === "incomplete_expired"
+  );
+}
+
 /**
  * Resynchronise l’abonnement local depuis Stripe (utile sans webhook local).
  */
@@ -96,8 +106,13 @@ export async function syncUserSubscriptionFromStripe(
 
     if (current.stripeSubscriptionId) {
       try {
-        sub = await stripe.subscriptions.retrieve(current.stripeSubscriptionId);
-        source = "customer";
+        const retrieved = await stripe.subscriptions.retrieve(
+          current.stripeSubscriptionId,
+        );
+        if (!isStaleStoredSubscription(retrieved.status)) {
+          sub = retrieved;
+          source = "customer";
+        }
       } catch {
         sub = null;
       }
