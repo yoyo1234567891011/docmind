@@ -15,6 +15,7 @@ import {
   catalogChargeMatchesInvoice,
   catalogPlanMonthlyEur,
 } from "../src/services/billing/plan-change-full-price";
+import { resolveCatalogRenewalAmountDue } from "../src/services/billing/renewal-catalog";
 import { summarizeInvoiceLines } from "../src/services/billing/upcoming-invoice";
 import type {
   BillingImmediateInvoice,
@@ -175,7 +176,24 @@ function previewExtraToPremium(): BillingPlanChangePreview {
   );
 }
 
-// Prochaine facturation
+// Prochaine facturation : net Stripe 58,93 € → affichage catalogue 59,99 €
+{
+  const resolved = resolveCatalogRenewalAmountDue(
+    {
+      amount_due: 5893,
+      lines: {
+        data: [
+          { amount: -106, description: "Temps non utilisé sur premium" },
+          { amount: 5999, description: "1 × Extra" },
+        ],
+      },
+    } as never,
+    59.99,
+  );
+  assert.equal(resolved, 59.99);
+}
+
+// Prochaine facturation UI
 {
   const plan = getBillingPlan("extra");
   const view = describeUpcomingInvoice(upcoming(), plan, baseSub());

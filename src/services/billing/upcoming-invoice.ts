@@ -1,5 +1,13 @@
-import { isPaidBillingPlanId } from "@/config/billing";
+import { getBillingPlan, isPaidBillingPlanId } from "@/config/billing";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import {
+  catalogChargeMatchesInvoice,
+} from "@/services/billing/plan-change-full-price";
+import {
+  reconcileRenewalPreviewToCatalog,
+  recurringLineTotalEur,
+  resolveCatalogRenewalAmountDue,
+} from "@/services/billing/renewal-catalog";
 import { getUserSubscription } from "@/services/billing/store";
 import type { BillingUpcomingInvoice } from "@/types/billing";
 import type Stripe from "stripe";
@@ -22,9 +30,9 @@ export function summarizeInvoiceLines(
 
   for (const line of lines) {
     const amount = centsToUnits(line.amount);
-    if (line.proration) {
+    if (line.proration || amount < 0) {
       hasProration = true;
-      prorationAmount += amount;
+      if (amount < 0) prorationAmount += amount;
     } else {
       recurringAmount += amount;
     }
@@ -61,26 +69,46 @@ function noneExpected(note: string, billingDate?: string | null): BillingUpcomin
   };
 }
 
-function fromStripeUpcoming(invoice: Stripe.Invoice): BillingUpcomingInvoice {
+function fromStripeUpcoming(
+  invoice: Stripe.Invoice,
+  catalogMonthlyEur: number | null,
+): BillingUpcomingInvoice {
   const lines = invoice.lines?.data ?? [];
   const { hasProration, prorationAmount, recurringAmount } =
     summarizeInvoiceLines(lines);
+
+  const stripeNetEur = centsToUnits(invoice.amount_due);
+  const amountDue = resolveCatalogRenewalAmountDue(invoice, catalogMonthlyEur);
+  const hasResidualCredit =
+    catalogMonthlyEur != null &&
+    !catalogChargeMatchesInvoice(catalogMonthlyEur, stripeNetEur) &&
+    catalogChargeMatchesInvoice(catalogMonthlyEur, recurringAmount);
 
   const billingDate =
     toIso(invoice.next_payment_attempt) ??
     toIso(invoice.period_end) ??
     null;
 
+  const displayRecurring =
+    catalogMonthlyEur != null &&
+    catalogChargeMatchesInvoice(catalogMonthlyEur, amountDue)
+      ? catalogMonthlyEur
+      : recurringAmount > 0
+        ? recurringAmount
+        : null;
+
   return {
     status: "available",
     billingDate,
-    amountDue: centsToUnits(invoice.amount_due),
+    amountDue,
     currency: (invoice.currency || "eur").toUpperCase(),
     isEstimate: true,
-    hasProration,
+    hasProration: hasProration || hasResidualCredit,
     prorationAmount: hasProration ? prorationAmount : null,
-    recurringAmount: recurringAmount > 0 ? recurringAmount : null,
-    note: null,
+    recurringAmount: displayRecurring,
+    note: hasResidualCredit
+      ? `Prix catalogue ${catalogMonthlyEur!.toFixed(2).replace(".", ",")} € / mois (renouvellement).`
+      : null,
   };
 }
 
@@ -163,11 +191,39 @@ export async function getUserUpcomingInvoice(
   }
 
   try {
-    const upcoming = await stripe.invoices.createPreview({
+    const catalogMonthlyEur = isPaidBillingPlanId(sub.plan)
+      ? (getBillingPlan(sub.plan).priceMonthlyEur ?? null)
+      : null;
+
+    let upcoming = await stripe.invoices.createPreview({
       customer: sub.stripeCustomerId,
       subscription: sub.stripeSubscriptionId,
     });
-    return fromStripeUpcoming(upcoming);
+
+    if (
+      catalogMonthlyEur != null &&
+      sub.stripeSubscriptionId &&
+      !catalogChargeMatchesInvoice(
+        catalogMonthlyEur,
+        centsToUnits(upcoming.amount_due),
+      ) &&
+      catalogChargeMatchesInvoice(
+        catalogMonthlyEur,
+        recurringLineTotalEur(upcoming.lines?.data ?? []),
+      )
+    ) {
+      await reconcileRenewalPreviewToCatalog(stripe, {
+        customerId: sub.stripeCustomerId,
+        subscriptionId: sub.stripeSubscriptionId,
+        catalogMonthlyEur,
+      });
+      upcoming = await stripe.invoices.createPreview({
+        customer: sub.stripeCustomerId,
+        subscription: sub.stripeSubscriptionId,
+      });
+    }
+
+    return fromStripeUpcoming(upcoming, catalogMonthlyEur);
   } catch (error) {
     if (isNoUpcomingInvoiceError(error)) {
       return noneExpected(
