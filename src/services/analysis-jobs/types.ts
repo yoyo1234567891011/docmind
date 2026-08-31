@@ -23,6 +23,8 @@ export type AnalysisJobMetrics = {
   latencyDiag?: import("./latency-diag").LatencyDiag;
   /** Débit analyze effectué pour ce job (idempotence). */
   quotaCharged?: boolean;
+  /** Quota consommé à l'enqueue (mode progressif) — le worker ne re-débite pas. */
+  quotaPrepaidAtEnqueue?: boolean;
 };
 
 export type AnalysisJob = {

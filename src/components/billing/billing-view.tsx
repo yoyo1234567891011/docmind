@@ -23,6 +23,7 @@ import {
   PLAN_CHANGE_HINT,
 } from "@/lib/billing/upcoming-display";
 import { formatDateTime } from "@/lib/format";
+import { formatClientNetworkError } from "@/lib/client/network-error";
 import { cn } from "@/lib/utils";
 import type { BillingPlanChangePreview, PaidBillingPlanId } from "@/types";
 
@@ -73,9 +74,7 @@ export function BillingView() {
       setData(await fetchBilling());
     } catch (loadError) {
       setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Impossible de charger la facturation.",
+        formatClientNetworkError(loadError, "Impossible de charger la facturation."),
       );
     } finally {
       if (!options?.silent) setIsLoading(false);
@@ -142,11 +141,7 @@ export function BillingView() {
       await action();
       await load({ silent: true });
     } catch (actionError) {
-      setError(
-        actionError instanceof Error
-          ? actionError.message
-          : "Action impossible.",
-      );
+      setError(formatClientNetworkError(actionError, "Action impossible."));
     } finally {
       setBusy(null);
     }

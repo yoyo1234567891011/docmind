@@ -23,6 +23,7 @@ import { notifyForHistoryRecord } from "@/services/notifications";
 import {
   assertQuotaAvailable,
   consumeQuota,
+  refundQuota,
 } from "@/services/quotas/enforce";
 
 export const runtime = "nodejs";
@@ -155,22 +156,25 @@ export async function POST(request: Request) {
     const progressiveFlightKey = `${flightKey}:progressive`;
 
     if (progressive) {
-      // P2 async : quota vérifié avant enqueue, débité au complete worker.
-      if (!skipHistory) {
-        await assertQuotaAvailable(user.id, "analyze");
-      }
-      // Single-flight leader-only : évite double historique / double enqueue.
+      // P2 async : quota consommé à l'enqueue (leader single-flight), pas de contournement skipHistory.
       const { result: progressivePayload } =
         await withDocumentAnalysisSingleFlight(progressiveFlightKey, async () => {
+          await consumeQuota(user.id, "analyze");
           const p1Started = Date.now();
-          const preview = await quickAnalyzeDocumentText({
-            userId: user.id,
-            documentId,
-            text,
-            pages,
-            fileName,
-            skipReadyReply: true,
-          });
+          let preview;
+          try {
+            preview = await quickAnalyzeDocumentText({
+              userId: user.id,
+              documentId,
+              text,
+              pages,
+              fileName,
+              skipReadyReply: true,
+            });
+          } catch (error) {
+            await refundQuota(user.id, "analyze").catch(() => undefined);
+            throw error;
+          }
           const p1DurationMs = Date.now() - p1Started;
 
           await trackAnalyticsEvent({
@@ -201,7 +205,7 @@ export async function POST(request: Request) {
               extractedText: text,
             });
 
-            const { enqueueAnalysisJob, drainAnalysisJobs, scheduleAnalysisDrainKick } =
+            const { enqueueAnalysisJob, drainAnalysisJobs, scheduleAnalysisDrainKick, markAnalysisJobQuotaPrepaid } =
               await import("@/services/analysis-jobs");
             const job = await enqueueAnalysisJob({
               userId: user.id,
@@ -213,6 +217,7 @@ export async function POST(request: Request) {
               userEmail: user.email,
               pages,
             });
+            await markAnalysisJobQuotaPrepaid(job.id);
 
             // Drain inline + kick HTTP — double filet si cron externe down.
             after(async () => {
@@ -237,6 +242,7 @@ export async function POST(request: Request) {
               p1DurationMs,
             };
           } catch (error) {
+            await refundQuota(user.id, "analyze").catch(() => undefined);
             console.error(
               "[analyze] progressive history/enqueue failed",
               error instanceof Error ? error.message : error,

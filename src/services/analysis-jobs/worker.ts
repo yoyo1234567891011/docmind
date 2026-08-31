@@ -357,14 +357,60 @@ export async function processOneAnalysisJob(
       metrics.totalMs =
         metrics.queueWaitMs + Math.max(0, Date.now() - wallStarted);
     }
-    const didComplete = await complete(job.id, metrics);
-    if (didComplete) {
-      const { consumeAnalyzeQuotaOnJobSuccess } = await import(
+    const failMetricsBase: AnalysisJobMetrics | undefined = metrics
+      ? {
+          ...metrics,
+          totalMs:
+            metrics.queueWaitMs + Math.max(0, Date.now() - wallStarted),
+        }
+      : {
+          queueWaitMs: Math.max(
+            0,
+            Date.parse(job.startedAt ?? job.claimedAt ?? job.createdAt) -
+              Date.parse(job.createdAt),
+          ),
+          lockWaitMs: 0,
+          generateMs: 0,
+          historyMs: 0,
+          memoryMs: null,
+          totalMs: Math.max(0, Date.now() - wallStarted),
+        };
+
+    try {
+      const { chargeAnalysisJobQuotaBeforeComplete } = await import(
         "@/services/quotas/enforce"
       );
-      await consumeAnalyzeQuotaOnJobSuccess(job.userId, job.id);
+      await chargeAnalysisJobQuotaBeforeComplete(job.userId, job);
+    } catch (quotaError) {
+      const message =
+        quotaError instanceof Error
+          ? quotaError.message
+          : "Quota analyze indisponible.";
+      await fail(job.id, message, failMetricsBase);
+      return "failed";
     }
-    await noteP2Success().catch(() => undefined);
+
+    const finalMetrics: AnalysisJobMetrics | undefined = metrics
+      ? {
+          ...metrics,
+          quotaCharged: true,
+          quotaPrepaidAtEnqueue: job.metrics?.quotaPrepaidAtEnqueue,
+        }
+      : job.metrics?.quotaPrepaidAtEnqueue
+        ? {
+            ...failMetricsBase,
+            quotaCharged: true,
+            quotaPrepaidAtEnqueue: true,
+          }
+        : {
+            ...failMetricsBase,
+            quotaCharged: true,
+          };
+
+    const didComplete = await complete(job.id, finalMetrics);
+    if (didComplete) {
+      await noteP2Success().catch(() => undefined);
+    }
     return "completed";
   } catch (error) {
     const rawMessage =

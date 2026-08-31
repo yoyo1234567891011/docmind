@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 
 import { readSubscriptionPriceId } from "@/services/billing/apply-subscription";
 import { offsetDraftRenewalInvoiceToCatalog } from "@/services/billing/renewal-catalog";
-import { getStripe, getStripeWebhookSecret } from "@/lib/stripe";
+import { getStripe, getStripeWebhookSecret, isStripeLiveMode } from "@/lib/stripe";
 import { AppError } from "@/lib/errors";
 import { trackAnalyticsEvent } from "@/services/analytics";
 import { applyStripeSubscription } from "@/services/billing/apply-subscription";
@@ -332,7 +332,15 @@ export function constructStripeEvent(
     );
   }
   const stripe = getStripe();
-  return stripe.webhooks.constructEvent(rawBody, signature, secret);
+  const event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+  if (event.livemode !== isStripeLiveMode()) {
+    throw new AppError(
+      "BAD_REQUEST",
+      "Webhook Stripe ignoré : mode live/test incompatible avec la clé API.",
+      400,
+    );
+  }
+  return event;
 }
 
 export type StripeWebhookProcessDeps = {

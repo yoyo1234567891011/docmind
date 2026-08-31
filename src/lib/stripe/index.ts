@@ -3,6 +3,7 @@ export {
   getStripeWebhookSecret,
   getStripePublishableKey,
   isStripeConfigured,
+  isStripeLiveMode,
 } from "./env";
 export {
   getStripe,

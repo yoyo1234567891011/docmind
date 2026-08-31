@@ -151,8 +151,41 @@ export async function refundQuota(
 }
 
 /**
+ * Débite 1 analyze avant complete worker (jobs legacy sans prépaiement enqueue).
+ * Lève si le quota est indisponible — ne pas livrer l'analyse comme réussie.
+ */
+export async function chargeAnalysisJobQuotaBeforeComplete(
+  userId: string,
+  job: { id: string; metrics?: { quotaPrepaidAtEnqueue?: boolean; quotaCharged?: boolean } },
+): Promise<void> {
+  if (job.metrics?.quotaPrepaidAtEnqueue || job.metrics?.quotaCharged) {
+    return;
+  }
+  const {
+    tryClaimAnalysisJobQuotaChargeInProcessing,
+    releaseAnalysisJobQuotaCharge,
+  } = await import("@/services/analysis-jobs/store");
+  const claimed = await tryClaimAnalysisJobQuotaChargeInProcessing(job.id);
+  if (!claimed) {
+    if (job.metrics?.quotaCharged) return;
+    throw new AppError(
+      "QUOTA_EXCEEDED",
+      "Quota analyze indisponible pour finaliser l'analyse.",
+      403,
+    );
+  }
+  try {
+    await consumeQuota(userId, "analyze");
+  } catch (error) {
+    await releaseAnalysisJobQuotaCharge(job.id).catch(() => undefined);
+    throw error;
+  }
+}
+
+/**
  * Débite 1 analyze après P2 completed (mode progressif / worker).
  * Idempotent par jobId — évite double débit si retry worker.
+ * @deprecated Préférer chargeAnalysisJobQuotaBeforeComplete + prépaiement enqueue.
  */
 export async function consumeAnalyzeQuotaOnJobSuccess(
   userId: string,
@@ -166,9 +199,6 @@ export async function consumeAnalyzeQuotaOnJobSuccess(
     await consumeQuota(userId, "analyze");
   } catch (error) {
     await releaseAnalysisJobQuotaCharge(jobId).catch(() => undefined);
-    console.error(
-      `[quotas] analyze charge failed job=${jobId} user=${userId}`,
-      error instanceof Error ? error.message : error,
-    );
+    throw error;
   }
 }

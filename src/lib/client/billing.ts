@@ -9,6 +9,7 @@ import type {
 
 import { abortSignalTimeout } from "@/lib/client/abort-signal";
 import { csrfHeaders } from "@/lib/client/csrf";
+import { formatClientNetworkError } from "@/lib/client/network-error";
 
 const CHECKOUT_TIMEOUT_MS = 45_000;
 
@@ -75,7 +76,7 @@ export async function startPlanCheckout(
         "Le changement de plan a pris trop de temps. Réessayez ou actualisez la page.",
       );
     }
-    throw error;
+    throw new Error(formatClientNetworkError(error));
   }
   const data = await parse<
     | { url: string }

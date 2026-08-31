@@ -18,3 +18,12 @@ export function getStripePublishableKey(): string | undefined {
 export function isStripeConfigured(): boolean {
   return Boolean(getStripeSecretKey() && areStripePaidPricesConfigured());
 }
+
+/** true = clé live (sk_live_), false = test (sk_test_) ou inconnu. */
+export function isStripeLiveMode(): boolean {
+  const key = getStripeSecretKey();
+  if (!key) return false;
+  if (key.startsWith("sk_live_")) return true;
+  if (key.startsWith("sk_test_")) return false;
+  return false;
+}

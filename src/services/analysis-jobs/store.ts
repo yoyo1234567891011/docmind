@@ -724,6 +724,7 @@ export async function tryClaimAnalysisJobQuotaCharge(
       totalMs: prev?.totalMs ?? 0,
       totalTokens: prev?.totalTokens,
       latencyDiag: prev?.latencyDiag,
+      quotaPrepaidAtEnqueue: prev?.quotaPrepaidAtEnqueue,
       quotaCharged: true,
     },
     updatedAt: new Date().toISOString(),
@@ -732,7 +733,99 @@ export async function tryClaimAnalysisJobQuotaCharge(
   return true;
 }
 
-/** Annule le claim quota (si consumeQuota a échoué après complete). */
+/** Claim quota avant complete (jobs legacy sans prépaiement enqueue). */
+export async function tryClaimAnalysisJobQuotaChargeInProcessing(
+  jobId: string,
+): Promise<boolean> {
+  if (usePersistentStorage()) {
+    const result = await query(
+      `update public.app_analysis_jobs
+       set metrics = jsonb_set(
+             coalesce(metrics, '{}'::jsonb),
+             '{quotaCharged}',
+             'true'::jsonb,
+             true
+           ),
+           updated_at = timezone('utc', now())
+       where id = $1
+         and status = 'processing'
+         and coalesce((metrics->>'quotaPrepaidAtEnqueue')::boolean, false) = false
+         and coalesce((metrics->>'quotaCharged')::boolean, false) = false
+       returning id`,
+      [jobId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+  const jobs = await readFsJobs();
+  const idx = jobs.findIndex(
+    (j) =>
+      j.id === jobId &&
+      j.status === "processing" &&
+      !j.metrics?.quotaPrepaidAtEnqueue &&
+      !j.metrics?.quotaCharged,
+  );
+  if (idx < 0) return false;
+  const prev = jobs[idx]!.metrics;
+  jobs[idx] = {
+    ...jobs[idx]!,
+    metrics: {
+      queueWaitMs: prev?.queueWaitMs ?? 0,
+      lockWaitMs: prev?.lockWaitMs ?? 0,
+      generateMs: prev?.generateMs ?? 0,
+      historyMs: prev?.historyMs ?? 0,
+      memoryMs: prev?.memoryMs ?? null,
+      totalMs: prev?.totalMs ?? 0,
+      totalTokens: prev?.totalTokens,
+      latencyDiag: prev?.latencyDiag,
+      quotaCharged: true,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+  await writeFsJobs(jobs);
+  return true;
+}
+
+/** Quota analyze déjà consommé à l'enqueue (mode progressif). */
+export async function markAnalysisJobQuotaPrepaid(jobId: string): Promise<void> {
+  if (usePersistentStorage()) {
+    await query(
+      `update public.app_analysis_jobs
+       set metrics = jsonb_set(
+             coalesce(metrics, '{}'::jsonb),
+             '{quotaPrepaidAtEnqueue}',
+             'true'::jsonb,
+             true
+           ),
+           updated_at = timezone('utc', now())
+       where id = $1`,
+      [jobId],
+    );
+    return;
+  }
+  const jobs = await readFsJobs();
+  const idx = jobs.findIndex((j) => j.id === jobId);
+  if (idx < 0) return;
+  const prev = jobs[idx]!.metrics;
+  jobs[idx] = {
+    ...jobs[idx]!,
+    metrics: {
+      queueWaitMs: prev?.queueWaitMs ?? 0,
+      lockWaitMs: prev?.lockWaitMs ?? 0,
+      generateMs: prev?.generateMs ?? 0,
+      historyMs: prev?.historyMs ?? 0,
+      memoryMs: prev?.memoryMs ?? null,
+      totalMs: prev?.totalMs ?? 0,
+      totalTokens: prev?.totalTokens,
+      latencyDiag: prev?.latencyDiag,
+      quotaCharged: prev?.quotaCharged,
+      quotaPrepaidAtEnqueue: true,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+  await writeFsJobs(jobs);
+}
+
+/** Annule le claim quota (si consumeQuota a échoué après claim). */
 export async function releaseAnalysisJobQuotaCharge(
   jobId: string,
 ): Promise<void> {
@@ -741,13 +834,17 @@ export async function releaseAnalysisJobQuotaCharge(
       `update public.app_analysis_jobs
        set metrics = (coalesce(metrics, '{}'::jsonb) - 'quotaCharged'),
            updated_at = timezone('utc', now())
-       where id = $1 and status = 'completed'`,
+       where id = $1 and status in ('processing', 'completed')`,
       [jobId],
     );
     return;
   }
   const jobs = await readFsJobs();
-  const idx = jobs.findIndex((j) => j.id === jobId && j.status === "completed");
+  const idx = jobs.findIndex(
+    (j) =>
+      j.id === jobId &&
+      (j.status === "processing" || j.status === "completed"),
+  );
   if (idx < 0) return;
   const prev = jobs[idx]!.metrics;
   if (!prev?.quotaCharged) return;

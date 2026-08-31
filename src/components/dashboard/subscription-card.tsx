@@ -11,6 +11,7 @@ import {
   type BillingApiResponse,
 } from "@/lib/client";
 import { formatDateTime } from "@/lib/format";
+import { formatClientNetworkError } from "@/lib/client/network-error";
 import { cn } from "@/lib/utils";
 
 function badgeClass(tone: string): string {
@@ -43,7 +44,7 @@ export function SubscriptionCard({
     try {
       setData(await fetchBilling());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Facturation indisponible");
+      setError(formatClientNetworkError(e, "Facturation indisponible"));
     } finally {
       setLoading(false);
     }
@@ -151,7 +152,7 @@ export function SubscriptionCard({
                 setData(await syncBilling());
               } catch (e) {
                 setError(
-                  e instanceof Error ? e.message : "Synchronisation impossible",
+                  formatClientNetworkError(e, "Synchronisation impossible"),
                 );
               } finally {
                 setLoading(false);
