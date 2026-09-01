@@ -6,7 +6,8 @@ import { Alert, HistoryListSkeleton } from "@/components/ui";
 import { fetchFinanceInsight } from "@/lib/client/insights";
 import type { FinanceInsight } from "@/types/insights";
 
-function money(n: number): string {
+function money(n: number | null): string {
+  if (n == null) return "Non détecté";
   return `${n.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} €`;
 }
 
@@ -55,7 +56,7 @@ export function FinanceView() {
         <HistoryListSkeleton />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5">
               <p className="text-xs text-[var(--muted)]">Total mensuel</p>
               <p className="mt-1 font-display text-3xl">

@@ -14,9 +14,14 @@ import {
 } from "@/services/memory/relation-signals";
 import { listCounterpartyAggregates } from "@/services/memory/timeline";
 import {
-  amountsClose,
+  buildDocSpendSnapshot,
+  clusterSubscriptionDocs,
+  pickPrimarySubscriptionDoc,
+  resolveComponentProduct,
+} from "@/services/insights/subscription-dedup";
+import {
+  inferRecurringPeriod,
   pickRecurringAmountEur,
-  resolveProductSignal,
   subscriptionAggregateId,
   subscriptionDisplayName,
   type ProductSignal,
@@ -122,92 +127,61 @@ type SubGroup = {
   docs: MemoryDocumentNode[];
 };
 
-type DocSpendView = {
-  doc: MemoryDocumentNode;
-  signals: DocRelationSignals | null;
-  picked: number | null;
-  monthly: number | null;
-  eligible: boolean;
-};
-
-function amountClusterKey(monthly: number | null): string {
-  if (monthly == null) return "na";
-  return String(Math.round(monthly * 100) / 100);
+function amountContextText(
+  signals: DocRelationSignals | null,
+  doc: MemoryDocumentNode,
+): string {
+  return [
+    signals?.productHints ?? "",
+    signals?.title ?? "",
+    doc.displayName ?? "",
+    doc.fileName ?? "",
+  ].join(" ");
 }
 
-function clusterDocsByAmount(views: DocSpendView[]): DocSpendView[][] {
-  const clusters: DocSpendView[][] = [];
-  for (const v of views) {
-    if (v.monthly == null) {
-      clusters.push([v]);
-      continue;
-    }
-    const hit = clusters.find((c) => {
-      const ref = c.find((x) => x.monthly != null)?.monthly;
-      return ref != null && amountsClose(ref, v.monthly!);
-    });
-    if (hit) hit.push(v);
-    else clusters.push([v]);
-  }
-  return clusters;
+function resolveSubscriptionSpend(
+  signals: DocRelationSignals | null,
+  doc: MemoryDocumentNode,
+): {
+  picked: number | null;
+  monthly: number | null;
+  period: string | null;
+} {
+  const amountText = amountContextText(signals, doc);
+  const period = signals?.period ?? inferRecurringPeriod(amountText);
+  const picked = pickRecurringAmountEur(
+    signals?.amounts ?? [],
+    period,
+    amountText,
+  );
+  const monthly = toMonthlySpendEur(picked, period);
+  return { picked, monthly, period };
 }
 
 async function buildSubscriptionFromDocs(
   userId: string,
   group: SubGroup,
   docs: MemoryDocumentNode[],
-  amountSuffix: string | null,
   loadDl: (documentId: string) => Promise<MemoryDeadline[]>,
 ): Promise<SubscriptionInsight | null> {
-  const sorted = [...docs].sort((a, b) =>
-    b.analyzedAt.localeCompare(a.analyzedAt),
-  );
+  if (docs.length === 0) return null;
 
-  let primary: MemoryDocumentNode | null = null;
-  let primarySignals: DocRelationSignals | null = null;
-  let picked: number | null = null;
-  let monthly: number | null = null;
-  let eligible = false;
-
-  for (const doc of sorted) {
+  const eligibility = new Map<string, boolean>();
+  for (const doc of docs) {
     const dls = await loadDl(doc.documentId);
-    if (!isDocSpendEligible(doc, dls)) continue;
-    primary = doc;
-    eligible = true;
-    primarySignals = await loadRelationSignals(userId, doc.documentId);
-    const amountText = [
-      primarySignals?.productHints ?? "",
-      primarySignals?.title ?? "",
-      doc.displayName ?? "",
-      doc.fileName ?? "",
-    ].join(" ");
-    picked = pickRecurringAmountEur(
-      primarySignals?.amounts ?? [],
-      primarySignals?.period ?? null,
-      amountText,
-    );
-    monthly = toMonthlySpendEur(picked, primarySignals?.period ?? null);
-    break;
+    eligibility.set(doc.documentId, isDocSpendEligible(doc, dls));
   }
 
-  if (!primary) {
-    primary = sorted[0] ?? null;
-    if (!primary) return null;
-    primarySignals = await loadRelationSignals(userId, primary.documentId);
-    const amountText = [
-      primarySignals?.productHints ?? "",
-      primarySignals?.title ?? "",
-      primary.displayName ?? "",
-      primary.fileName ?? "",
-    ].join(" ");
-    picked = pickRecurringAmountEur(
-      primarySignals?.amounts ?? [],
-      primarySignals?.period ?? null,
-      amountText,
-    );
-    monthly = toMonthlySpendEur(picked, primarySignals?.period ?? null);
-    eligible = false;
-  }
+  const primary = pickPrimarySubscriptionDoc(
+    docs,
+    (doc) => eligibility.get(doc.documentId) ?? false,
+  );
+  const eligible = eligibility.get(primary.documentId) ?? false;
+  const primarySignals = await loadRelationSignals(userId, primary.documentId);
+  const spend = resolveSubscriptionSpend(primarySignals, primary);
+  const picked = spend.picked;
+  const monthly = spend.monthly;
+  const billingPeriod = spend.period;
 
   let nextDeadline: SubscriptionInsight["nextDeadline"] = null;
   let terminationHint: string | null = null;
@@ -246,14 +220,14 @@ async function buildSubscriptionFromDocs(
         : "unknown";
 
   return {
-    id: subscriptionAggregateId(group.orgId, group.product.key, amountSuffix),
+    id: subscriptionAggregateId(group.orgId, group.product.key),
     entityId: group.orgId,
     name: subscriptionDisplayName(group.orgName, group.product),
     category: primary.category,
     productKey: group.product.key,
     monthlyEur: eligible ? monthly : null,
     annualEur: eligible ? toAnnual(monthly) : null,
-    billingPeriod: primarySignals?.period ?? null,
+    billingPeriod,
     extractedAmountEur: picked,
     nextDeadline,
     terminationHint,
@@ -270,31 +244,20 @@ export async function listSubscriptionInsights(
   const orgs = (await listEntities(userId)).filter(
     (e) => e.kind === "organization",
   );
-  const groups = new Map<string, SubGroup>();
+  const allRelations = await listAllRelations(userId);
+  const out: SubscriptionInsight[] = [];
 
   for (const org of orgs.slice(0, 60)) {
-    const docs = await loadDocsForEntity(userId, org.id);
-    for (const doc of docs) {
+    const rawDocs = await loadDocsForEntity(userId, org.id);
+    const docs: MemoryDocumentNode[] = [];
+    for (const doc of rawDocs) {
       if (!SUB_CATEGORIES.has(doc.category)) continue;
       const signals = await loadRelationSignals(userId, doc.documentId);
       if (doc.category === "facture" && !signals?.period) continue;
-
-      const product = resolveProductSignal(doc, signals, org.canonicalName);
-      const gid = subscriptionAggregateId(org.id, product.key);
-      const cur = groups.get(gid) ?? {
-        orgId: org.id,
-        orgName: org.canonicalName,
-        product,
-        docs: [],
-      };
-      cur.docs.push(doc);
-      groups.set(gid, cur);
+      docs.push(doc);
     }
-  }
+    if (docs.length === 0) continue;
 
-  const out: SubscriptionInsight[] = [];
-
-  for (const group of [...groups.values()].slice(0, 80)) {
     const deadlineCache = new Map<string, MemoryDeadline[]>();
     const loadDl = async (documentId: string) => {
       if (!deadlineCache.has(documentId)) {
@@ -306,53 +269,54 @@ export async function listSubscriptionInsights(
       return deadlineCache.get(documentId)!;
     };
 
-    const views: DocSpendView[] = [];
-    for (const doc of group.docs) {
+    const snapshots = new Map<string, ReturnType<typeof buildDocSpendSnapshot>>();
+    for (const doc of docs) {
       const signals = await loadRelationSignals(userId, doc.documentId);
-      const amountText = [
-        signals?.productHints ?? "",
-        signals?.title ?? "",
-        doc.displayName ?? "",
-        doc.fileName ?? "",
-      ].join(" ");
-      const picked = pickRecurringAmountEur(
-        signals?.amounts ?? [],
-        signals?.period ?? null,
-        amountText,
+      const spend = resolveSubscriptionSpend(signals, doc);
+      snapshots.set(
+        doc.documentId,
+        buildDocSpendSnapshot(
+          doc,
+          signals,
+          org.canonicalName,
+          spend.monthly,
+          spend.period,
+        ),
       );
-      const monthly = toMonthlySpendEur(picked, signals?.period ?? null);
-      const eligible = isDocSpendEligible(doc, await loadDl(doc.documentId));
-      views.push({ doc, signals, picked, monthly, eligible });
     }
 
-    const hasVersionSignal = group.docs.some(
-      (d) => d.status === "possibly_replaced",
-    );
-    const eligibleViews = views.filter((v) => v.eligible);
-    const clusters = clusterDocsByAmount(
-      eligibleViews.length > 0 ? eligibleViews : views,
-    );
+    const components = clusterSubscriptionDocs({
+      docs,
+      relations: allRelations,
+      snapshots,
+    });
 
-    if (clusters.length <= 1 || hasVersionSignal) {
+    for (const componentDocs of components) {
+      const eligibility = new Map<string, boolean>();
+      for (const doc of componentDocs) {
+        const dls = await loadDl(doc.documentId);
+        eligibility.set(doc.documentId, isDocSpendEligible(doc, dls));
+      }
+      const primary = pickPrimarySubscriptionDoc(
+        componentDocs,
+        (doc) => eligibility.get(doc.documentId) ?? false,
+      );
+      const product = resolveComponentProduct(
+        componentDocs,
+        snapshots,
+        org.canonicalName,
+        primary,
+      );
+      const group: SubGroup = {
+        orgId: org.id,
+        orgName: org.canonicalName,
+        product,
+        docs: componentDocs,
+      };
       const insight = await buildSubscriptionFromDocs(
         userId,
         group,
-        group.docs,
-        null,
-        loadDl,
-      );
-      if (insight) out.push(insight);
-      continue;
-    }
-
-    for (const cluster of clusters) {
-      const docs = cluster.map((c) => c.doc);
-      const suffix = amountClusterKey(cluster[0]?.monthly ?? null);
-      const insight = await buildSubscriptionFromDocs(
-        userId,
-        group,
-        docs,
-        suffix,
+        componentDocs,
         loadDl,
       );
       if (insight) out.push(insight);
@@ -368,11 +332,11 @@ export async function buildFinanceInsight(
   const subs = await listSubscriptionInsights(userId);
   const byCat = new Map<string, FinanceCategoryBucket>();
 
-  let monthlyTotal = 0;
+  let monthlyTotal: number | null = null;
   for (const s of subs) {
-    const m = s.monthlyEur ?? 0;
-    monthlyTotal += m;
-    if (m <= 0) continue;
+    const m = s.monthlyEur;
+    if (m == null || m <= 0) continue;
+    monthlyTotal = (monthlyTotal ?? 0) + m;
     const cur = byCat.get(s.category) ?? {
       category: s.category,
       label: CATEGORY_LABELS[s.category] || s.category,
@@ -385,6 +349,9 @@ export async function buildFinanceInsight(
     cur.count += 1;
     byCat.set(s.category, cur);
   }
+
+  const roundedMonthly =
+    monthlyTotal != null ? Math.round(monthlyTotal * 100) / 100 : null;
 
   // Série : un point par abonnement actif (évite double-compte multi-docs).
   const seriesMap = new Map<string, FinanceMonthPoint>();
@@ -409,8 +376,11 @@ export async function buildFinanceInsight(
   );
 
   return {
-    monthlyTotalEur: Math.round(monthlyTotal * 100) / 100,
-    annualTotalEur: Math.round(monthlyTotal * 12 * 100) / 100,
+    monthlyTotalEur: roundedMonthly,
+    annualTotalEur:
+      roundedMonthly != null
+        ? Math.round(roundedMonthly * 12 * 100) / 100
+        : null,
     byCategory: [...byCat.values()]
       .map((c) => ({
         ...c,

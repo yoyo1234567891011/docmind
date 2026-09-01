@@ -45,8 +45,9 @@ export interface FinanceMonthPoint {
 }
 
 export interface FinanceInsight {
-  monthlyTotalEur: number;
-  annualTotalEur: number;
+  /** null si aucun montant récurrent fiable — jamais de faux 0 €. */
+  monthlyTotalEur: number | null;
+  annualTotalEur: number | null;
   byCategory: FinanceCategoryBucket[];
   series: FinanceMonthPoint[];
 }
@@ -117,8 +118,9 @@ export interface RelationLetterIntent {
 }
 
 export interface PremiumMemoryDashboard {
-  monthlySpendEur: number;
-  annualSpendEur: number;
+  /** null si aucun montant récurrent fiable — jamais de faux 0 €. */
+  monthlySpendEur: number | null;
+  annualSpendEur: number | null;
   subscriptionCount: number;
   savingsCount: number;
   estimatedMonthlySavingsEur: number;

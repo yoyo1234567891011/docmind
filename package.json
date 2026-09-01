@@ -28,6 +28,7 @@
     "test:memory-p3": "tsx --tsconfig tsconfig.json scripts/test-memory-p3.ts",
     "test:memory-p4": "tsx --tsconfig tsconfig.json scripts/test-memory-p4.ts",
     "test:insights": "tsx --tsconfig tsconfig.json scripts/test-insights-product.ts",
+    "test:subscriptions-display": "tsx --tsconfig tsconfig.json scripts/test-subscriptions-display.ts",
     "migrate:memory-p0": "tsx --tsconfig tsconfig.json scripts/migrate-memory-p0.ts",
     "migrate:persistent": "tsx --tsconfig tsconfig.json scripts/migrate-fs-to-persistent.ts",
     "validate:persistent": "tsx --tsconfig tsconfig.json scripts/validate-persistent-storage.ts",

@@ -9,8 +9,9 @@ import { ChevronRightIcon } from "@/components/ui/icons";
 import { fetchInsightsOverview } from "@/lib/client/insights";
 import type { PremiumMemoryDashboard } from "@/types/insights";
 
-function money(n: number): string {
-  if (!Number.isFinite(n)) return "—";
+function money(n: number | null): string {
+  if (n == null) return "Non détecté";
+  if (!Number.isFinite(n)) return "Non détecté";
   return `${n.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
 }
 

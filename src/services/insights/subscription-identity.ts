@@ -6,8 +6,8 @@
  * - fournisseur = entity organization ;
  * - produit/service = signal lexical (Internet, Mobile…) ou « default » ;
  * - sans signal produit fort : un fournisseur = une ligne (évite faux split Netflix A/B) ;
- * - montants proches (±2 % ou 0,50 €) = même cluster (versions / quasi-doublons) ;
- * - montants éloignés sans statut possibly_replaced = lignes séparées (pas de fusion inventée).
+ * - montants proches (±2 % ou 0,50 €) = même abonnement (dédup) ;
+ * - montants éloignés sans relation de remplacement = 1 ligne, montant le plus récent (pas la somme).
  */
 import type { DocRelationSignals } from "@/services/memory/relation-signals";
 import type { MemoryDocumentNode } from "@/types/memory";
@@ -138,6 +138,22 @@ export function subscriptionDisplayName(
   return `${orgName} — ${product.label}`;
 }
 
+const PERIOD_PATTERNS: Array<{ re: RegExp; key: string }> = [
+  { re: /mensuel|par mois|\/mois|chaque mois/i, key: "mensuel" },
+  { re: /trimestriel|par trimestre/i, key: "trimestriel" },
+  { re: /annuel|par an|\/an|chaque annee|chaque année/i, key: "annuel" },
+  { re: /hebdomadaire|par semaine/i, key: "hebdomadaire" },
+];
+
+/** Périodicité récurrente détectée dans le texte (sans LLM). */
+export function inferRecurringPeriod(sourceText: string): string | null {
+  const text = sourceText || "";
+  for (const p of PERIOD_PATTERNS) {
+    if (p.re.test(text)) return p.key;
+  }
+  return null;
+}
+
 /** Montants suffisamment proches pour être traités comme le même abonnement. */
 export function amountsClose(a: number, b: number): boolean {
   if (a <= 0 || b <= 0) return false;
@@ -164,8 +180,10 @@ export function pickRecurringAmountEur(
   const anchored: number[] = [];
   const patterns = [
     /(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros)?\s*(?:\/\s*|par\s+)?mois/gi,
+    /(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros)?\s*(?:\/\s*|par\s+)?an(?:nee|ée)?/gi,
     /(?:abonnement|cotisation|mensualite|mensualité|redevance)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/gi,
     /(?:mensuel(?:le)?|prix\s+mensuel)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/gi,
+    /(?:prime|cotisation)\s+annuelle\s*[:=]?\s*(\d+(?:[.,]\d+)?)/gi,
   ];
   for (const re of patterns) {
     for (const m of text.matchAll(re)) {
