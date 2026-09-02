@@ -31,8 +31,6 @@ import {
   failAnalysisJob,
   heartbeatAnalysisJob,
   requeueAnalysisJob,
-  ANALYSIS_MAX_TRANSIENT_ATTEMPTS,
-  ANALYSIS_RATE_LIMIT_DEFER_MS,
 } from "./store";
 import {
   createAnalysisTimingBucket,
@@ -43,9 +41,15 @@ import { scheduleAnalysisDrainKick } from "./kick";
 import {
   noteP2RateLimitHit,
   noteP2Success,
+  noteP2GroqTokenUsage,
+  noteP2GroqRateLimitCooldown,
+  waitForP2TpmSpacing,
 } from "./p2-concurrency";
 import {
-  isTransientLlmSaturationError,
+  classifyP2Error,
+  shouldRequeueAfterP2Failure,
+} from "./requeue-policy";
+import {
   LLM_SATURATION_REQUEUE_MESSAGE,
   sanitizeAnalysisFailureMessage,
 } from "@/lib/sanitize";
@@ -345,6 +349,7 @@ export async function processOneAnalysisJob(
   const heartbeat = deps.heartbeat ?? heartbeatAnalysisJob;
   const runP2 = deps.runP2 ?? defaultRunP2;
 
+  await waitForP2TpmSpacing(28_000);
   const job = await claim(workerId);
   if (!job) return "idle";
 
@@ -418,6 +423,11 @@ export async function processOneAnalysisJob(
     const didComplete = await complete(job.id, finalMetrics);
     if (didComplete) {
       await noteP2Success().catch(() => undefined);
+      if ((finalMetrics.totalTokens ?? 0) > 0) {
+        await noteP2GroqTokenUsage(finalMetrics.totalTokens!).catch(
+          () => undefined,
+        );
+      }
     }
     return "completed";
   } catch (error) {
@@ -451,16 +461,24 @@ export async function processOneAnalysisJob(
           totalMs: Math.max(0, Date.now() - wallStarted),
         };
 
-    const transient = isTransientLlmSaturationError(error);
-    if (transient && job.attempts < ANALYSIS_MAX_TRANSIENT_ATTEMPTS) {
+    const errorClass = classifyP2Error(error);
+    const requeueDecision = shouldRequeueAfterP2Failure(job, error);
+    console.warn(
+      `[analysis-jobs] P2 failed job=${job.id} class=${errorClass} attempts=${job.attempts} requeue=${requeueDecision.requeue}`,
+    );
+
+    if (requeueDecision.requeue) {
       console.warn(
-        `[analysis-jobs] requeue after saturation job=${job.id} attempts=${job.attempts}`,
+        `[analysis-jobs] requeue after ${errorClass} job=${job.id} deferMs=${requeueDecision.deferMs}`,
       );
       await noteP2RateLimitHit().catch(() => undefined);
+      await noteP2GroqRateLimitCooldown(requeueDecision.deferMs).catch(
+        () => undefined,
+      );
       await requeue(
         job.id,
         LLM_SATURATION_REQUEUE_MESSAGE,
-        ANALYSIS_RATE_LIMIT_DEFER_MS,
+        requeueDecision.deferMs,
       );
       await trackAnalyticsEvent({
         name: "analysis.error",
@@ -471,12 +489,11 @@ export async function processOneAnalysisJob(
           jobId: job.id,
           phase: "p2",
           errorCode: "OLLAMA_UNAVAILABLE",
-          message: "requeued_rate_limit",
+          message: `requeued_${errorClass}`,
           attempts: job.attempts,
           ...jobMetricsForAnalytics(failMetrics),
         },
       }).catch(() => undefined);
-      // Cron / prochain drain après cooldown — pas d’échec UI.
       scheduleAnalysisDrainKick(1);
       return "requeued";
     }

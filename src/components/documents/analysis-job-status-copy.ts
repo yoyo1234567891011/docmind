@@ -26,12 +26,12 @@ export function analysisJobProcessingHint(): string {
 
 /** Job remis en file après saturation Groq (pas un échec). */
 export function analysisJobSaturationWaitHint(): string {
-  return "Le service d’analyse est temporairement saturé. Votre document reste en file — nouvelle tentative automatique sous peu.";
+  return "Quota IA temporairement atteint — votre document reste en file, nouvelle tentative automatique dans ~20–30 s.";
 }
 
 export function isAnalysisJobSaturationHint(lastError?: string | null): boolean {
   if (!lastError?.trim()) return false;
-  return /satur|file d['’]attente|limite de débit|rate.?limit|TPM/i.test(
+  return /satur|file d['’]attente|limite de débit|rate.?limit|TPM|nouvelle tentative automatique|quota ia/i.test(
     lastError,
   );
 }
@@ -43,7 +43,7 @@ export function analysisJobPollTimeoutMessage(): string {
 /** Job en retry saturation ou dépassement habituel — rassurer sans masquer l’échec. */
 export function analysisJobLongWaitHint(attempts: number): string | null {
   if (attempts >= 2) {
-    return "Le service IA est saturé — nouvelle tentative automatique en cours. Si le délai de 3 minutes est dépassé, l’analyse s’arrêtera avec un message clair.";
+    return "Quota IA ou file d’attente — nouvelles tentatives automatiques en cours (jusqu’à ~10 min). L’aperçu reste disponible.";
   }
   return null;
 }

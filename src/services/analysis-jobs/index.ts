@@ -43,6 +43,7 @@ export {
   noteP2Success,
   noteP2GroqTokenUsage,
   getP2TpmSpacingRemainingMs,
+  waitForP2TpmSpacing,
   noteP2GroqRateLimitCooldown,
   __resetP2ConcurrencyForTests,
 } from "./p2-concurrency";
@@ -53,6 +54,13 @@ export {
   type AnalysisJobWorkerDeps,
   type ProcessAnalysisJobOutcome,
 } from "./worker";
+
+export {
+  classifyP2Error,
+  shouldRequeueAfterP2Failure,
+  computeRequeueDeferMs,
+  type P2ErrorClass,
+} from "./requeue-policy";
 
 export {
   scheduleAnalysisDrainKick,

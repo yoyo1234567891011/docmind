@@ -37,22 +37,21 @@ export const ANALYSIS_JOB_LEASE_MS = 180_000;
 export const ANALYSIS_P2_WALL_TIMEOUT_MS = 180_000;
 
 /** Budget temps total job (tous attempts + cooldowns) depuis created_at. */
-export const ANALYSIS_JOB_GLOBAL_TIMEOUT_MS = 180_000;
+export const ANALYSIS_JOB_GLOBAL_TIMEOUT_MS = 600_000;
 
 /** Temps restant minimal pour tenter un requeue TPM (sinon fail propre). */
-export const ANALYSIS_REQUEUE_MIN_REMAINING_MS = 45_000;
+export const ANALYSIS_REQUEUE_MIN_REMAINING_MS = 40_000;
+
+/** Remise en file après saturation : ne pas reclamer tout de suite. */
+export const ANALYSIS_RATE_LIMIT_DEFER_MS = 22_000;
+
+/** Au-delà → échec définitif (évite boucle infinie). */
+export const ANALYSIS_MAX_TRANSIENT_ATTEMPTS = 8;
 
 /**
  * @deprecated utiliser ANALYSIS_P2_MAX_CONCURRENCY (plafond) + getEffectiveP2Concurrency().
- * Conservé pour imports existants — vaut le plafond (3).
  */
 export const ANALYSIS_P2_GLOBAL_CONCURRENCY = ANALYSIS_P2_MAX_CONCURRENCY;
-
-/** Remise en file après saturation : ne pas reclamer tout de suite. */
-export const ANALYSIS_RATE_LIMIT_DEFER_MS = 45_000;
-
-/** Au-delà → échec définitif (évite boucle infinie). */
-export const ANALYSIS_MAX_TRANSIENT_ATTEMPTS = 4;
 
 /** Advisory lock PG pour claim mono-global (évite course multi-instance). */
 const P2_CLAIM_ADVISORY_LOCK = 87_236_401;

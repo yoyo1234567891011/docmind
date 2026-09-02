@@ -65,7 +65,7 @@ export const LLM_SATURATION_USER_MESSAGE = ANALYSIS_SATURATION_OR_TIMEOUT_MESSAG
 
 /** Message quand le job est remis en file (pas un échec définitif). */
 export const LLM_SATURATION_REQUEUE_MESSAGE =
-  "Analyse en file d’attente : le service est saturé. Nouvelle tentative automatique sous peu.";
+  "Analyse en file d’attente : quota IA temporairement atteint. Nouvelle tentative automatique sous peu.";
 
 /** Échec définitif après saturation / retries épuisés. */
 export const LLM_SATURATION_FAIL_MESSAGE = ANALYSIS_SATURATION_OR_TIMEOUT_MESSAGE;
@@ -84,7 +84,7 @@ export function isTransientLlmSaturationError(input: unknown): boolean {
       : typeof input === "string"
         ? input
         : "";
-  return /rate_limit|tokens per minute|\bTPM\b|limite de débit|saturé|file d['’]attente GPU|verrou GPU/i.test(
+  return /rate_limit|tokens per minute|\bTPM\b|limite de débit|saturé|temporairement saturé|service d.analyse est temporairement/i.test(
     raw,
   );
 }

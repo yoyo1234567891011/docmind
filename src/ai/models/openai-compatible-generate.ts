@@ -36,8 +36,8 @@ type ChatCompletionResponse = {
 };
 
 const EMPTY_RESPONSE_RETRIES = 1;
-/** Pas de retry HTTP sur 429 — le worker requeue avec cooldown TPM. */
-const RATE_LIMIT_RETRIES = 0;
+/** Retry HTTP 429 avec Retry-After avant requeue worker. */
+const RATE_LIMIT_RETRIES = 2;
 /** Plafond Groq — aligné cloudAnalyzeMaxTokensRetryCap (latence + TPM). */
 const GROQ_MAX_COMPLETION_TOKENS = 1_800;
 const RATE_LIMIT_WAIT_CAP_MS = 30_000;
@@ -82,7 +82,11 @@ function parseRetryAfterMs(response: Response, body: string): number {
 
 function httpErrorToAppError(status: number, details: string): AppError {
   if (isRateLimitPayload(status, details)) {
-    return new AppError("OLLAMA_UNAVAILABLE", LLM_SATURATION_USER_MESSAGE, 503);
+    return new AppError(
+      "OLLAMA_UNAVAILABLE",
+      `rate_limit: ${LLM_SATURATION_USER_MESSAGE}`,
+      503,
+    );
   }
   if (
     status === 404 ||
@@ -180,7 +184,7 @@ export async function generateWithOpenAiCompatible(
         rateLimitAttempts += 1;
         const waitMs = parseRetryAfterMs(response, details);
         console.warn(
-          `[llm] rate_limit model=${model} waitMs=${waitMs} attempt=${rateLimitAttempts}/${RATE_LIMIT_RETRIES}`,
+          `[llm] error_class=rate_limit_429 model=${model} waitMs=${waitMs} attempt=${rateLimitAttempts}/${RATE_LIMIT_RETRIES}`,
         );
         // Freiner les claims P2 pendant la saturation (best-effort).
         void import("@/services/analysis-jobs/p2-concurrency")

@@ -149,6 +149,20 @@ export async function getP2TpmSpacingRemainingMs(): Promise<number> {
   return Math.max(cooldownWait, tokenWait);
 }
 
+/** Attend l’espacement TPM Groq avant un claim (best-effort, plafonné). */
+export async function waitForP2TpmSpacing(
+  maxWaitMs = 28_000,
+): Promise<number> {
+  const remaining = await getP2TpmSpacingRemainingMs();
+  if (remaining <= 0) return 0;
+  const wait = Math.min(remaining, maxWaitMs);
+  if (wait > 0) {
+    console.info(`[p2-concurrency] tpm_spacing waitMs=${wait}`);
+    await new Promise((resolve) => setTimeout(resolve, wait));
+  }
+  return wait;
+}
+
 const REDIS_KEY = "docmind:p2:eff_concurrency";
 /** TTL Redis du curseur de concurrence (auto-reset vers max si inactif). */
 const REDIS_TTL_SEC = 15 * 60;
