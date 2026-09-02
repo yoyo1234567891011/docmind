@@ -11,6 +11,11 @@ import {
   LETTER_FAMILY_RULES,
   resolveLetterDocFamily,
 } from "@/services/reply/letter-intents";
+import {
+  collectAllowedLetterFacts,
+  formatFactsForPrompt,
+  MIN_LETTER_WORDS,
+} from "@/services/reply/letter-quality";
 
 interface LetterPromptInput {
   letterType: LetterType;
@@ -22,11 +27,11 @@ interface LetterPromptInput {
 
 const TYPE_INSTRUCTIONS: Record<LetterType, string> = {
   resiliation:
-    "Rédige une lettre de RÉSILATION ou de CONGÉ : intention claire, référence du contrat/abonnement/bail, date d’effet souhaitée si connue, demande de confirmation écrite. N’utilise JAMAIS ce type pour un relevé bancaire ou un document informatif sans contrat résiliable.",
+    "Rédige une lettre de RÉSILATION ou de CONGÉ : intention claire, référence du contrat/abonnement/bail, date d’effet souhaitée si connue, demande de confirmation écrite. N’utilise JAMAIS ce type pour un relevé bancaire.",
   remboursement:
-    "Rédige une DEMANDE DE REMBOURSEMENT : montant(s) du contexte, motif factuel, référence facture/opération, délai de réponse souhaité.",
+    "Rédige une DEMANDE DE REMBOURSEMENT : tous les montants pertinents du contexte, motif factuel, référence facture/opération, délai de réponse souhaité (ex. 30 jours).",
   contestation:
-    "Rédige une CONTESTATION formelle : faits contestés (frais, montants, opérations), références du document, demande de réexamen et de réponse écrite.",
+    "Rédige une CONTESTATION formelle : cite TOUS les montants/frais listés dans FAITS_AUTORISES (relevé bancaire = chaque commission/frais distinct), demande de réexamen et de réponse écrite sous 30 jours.",
   reponse_administrative:
     "Rédige une RÉPONSE ADMINISTRATIVE professionnelle : reprise des références, réponse point par point, pièces éventuelles, ton courtois et factuel.",
   autre:
@@ -36,12 +41,14 @@ const TYPE_INSTRUCTIONS: Record<LetterType, string> = {
 const FAMILY_FORBIDDEN: Partial<Record<WatchDocFamily, string[]>> = {
   banque: [
     "Ne pas rédiger de résiliation (un relevé n’est pas un contrat).",
-    "Ne pas citer comme « échéance de résiliation » une obligation du client (ex. signaler un changement d’adresse).",
-    "Ne pas reprendre le titre technique du PDF (« Relevé de compte — période du… ») comme objet.",
+    "Ne pas citer comme échéance une obligation du client (ex. signaler un changement d’adresse).",
+    "Ne pas inventer d’adresse postale (rue, code postal) : nom de l’établissement uniquement, ou [Adresse de l’établissement].",
+    "Ne pas omettre de frais listés dans FAITS_AUTORISES lors d’une contestation.",
   ],
   recouvrement: [
     "Ne pas inventer une résiliation de contrat.",
     "Ne pas transformer une mise en demeure de payer en demande de résiliation.",
+    "Ne pas inventer d’adresse du créancier.",
   ],
   administratif: [
     "Ne pas proposer de résiliation commerciale.",
@@ -53,6 +60,7 @@ const FAMILY_FORBIDDEN: Partial<Record<WatchDocFamily, string[]>> = {
   default: [
     "Sans contrat clairement identifiable, rester sur une demande d’information.",
     "Ne pas supposer de résiliation par défaut.",
+    "Ne pas inventer d’adresse, IBAN, SIRET ou téléphone.",
   ],
 };
 
@@ -69,6 +77,14 @@ export function buildLetterAgentPrompt(input: LetterPromptInput): string {
   const familyRule = LETTER_FAMILY_RULES[family];
   const forbidden = FAMILY_FORBIDDEN[family] ?? FAMILY_FORBIDDEN.default ?? [];
 
+  const allowedFacts = collectAllowedLetterFacts({
+    documentText,
+    analysis,
+    sheet,
+    letterType,
+    family,
+  });
+
   const deadlines = filterDeadlinesForLetter(
     sheet?.deadlines?.length ? sheet.deadlines : analysis.deadlines,
   );
@@ -79,20 +95,14 @@ export function buildLetterAgentPrompt(input: LetterPromptInput): string {
     docFamily: family,
     document_type: analysis.document_type || classification.label,
     category: classification.category,
-    title: sheet?.name || analysis.title,
-    summary: sheet?.summary || analysis.summary,
     date: analysis.date,
     dates: sheet?.dates?.length ? sheet.dates : analysis.dates,
     people: sheet?.people?.length ? sheet.people : analysis.people,
     organizations: sheet?.organizations?.length
       ? sheet.organizations
       : analysis.organizations,
-    amounts: sheet?.amounts?.length ? sheet.amounts : analysis.amounts,
     deadlines,
-    risks: sheet?.risks?.length ? sheet.risks : analysis.risks,
-    actions: sheet?.actions?.length ? sheet.actions : analysis.actions,
-    important_points: analysis.important_points,
-    keywords: sheet?.keywords ?? [],
+    FAITS_AUTORISES: formatFactsForPrompt(allowedFacts),
   };
 
   const schema = {
@@ -102,11 +112,11 @@ export function buildLetterAgentPrompt(input: LetterPromptInput): string {
     body: "",
     letterType,
     recipient: "",
-    factsUsed: ["fait 1", "fait 2"],
+    factsUsed: ["uniquement les faits réellement cités dans body"],
   };
 
   return [
-    "Tu es un agent rédacteur de courriers administratifs et juridiques (français).",
+    "Tu es un agent rédacteur de courriers administratifs et juridiques (français impeccable).",
     `TYPE DEMANDÉ : ${LETTER_TYPE_LABELS[letterType]} (${letterType}).`,
     TYPE_INSTRUCTIONS[letterType],
     "",
@@ -117,15 +127,15 @@ export function buildLetterAgentPrompt(input: LetterPromptInput): string {
     "",
     "RÈGLES ABSOLUES :",
     "1. Réponds UNIQUEMENT avec un objet JSON valide (pas de markdown).",
-    "2. Utilise UNIQUEMENT les informations du CONTEXTE STRUCTURÉ (et du document si cohérent).",
-    "3. N’invente aucun fait, montant, date, nom ou clause absent du contexte.",
-    "4. Si une info manque, utilise un placeholder entre crochets : [Votre nom], [Adresse], etc.",
-    "5. Ton professionnel, clair, courtois ; ferme si contestation.",
-    "6. subject = objet COURT (≤ 80 caractères), sans période du/au ni titre technique du PDF.",
-    "7. body = courrier complet prêt à copier-coller (appel + corps + formule de politesse).",
-    "8. factsUsed = liste courte des faits réellement repris dans le courrier.",
-    "9. recipient = organisation/service destinataire si connu, sinon chaîne vide.",
-    "10. Ne cite comme échéance contractuelle que les dates à l’initiative de l’émetteur (pas les obligations du client).",
+    "2. Utilise UNIQUEMENT les entrées de FAITS_AUTORISES — rien d’autre.",
+    "3. ZÉRO INVENTION : pas d’adresse, SIRET, IBAN, téléphone, montant ou date absents de FAITS_AUTORISES.",
+    "4. recipient = nom de l’organisme uniquement (pas d’adresse postale inventée).",
+    "5. subject = objet COURT (≤ 80 caractères), sans période du/au ni titre technique du PDF.",
+    `6. body = courrier COMPLET (≥ ${MIN_LETTER_WORDS} mots) : « Madame, Monsieur, » + exposé des faits + demande claire + délai de réponse + formule de politesse + [Votre nom] / [Votre adresse].`,
+    "7. Ne termine JAMAIS le corps par une phrase inachevée (ex. « Je » seul).",
+    "8. factsUsed = 3 à 8 libellés repris de FAITS_AUTORISES et effectivement cités dans body.",
+    "9. Orthographe et accords français corrects ; phrases complètes.",
+    "10. N’inclus pas d’obligations génériques du client (changement d’adresse, RIB…) dans body ni factsUsed.",
     "",
     "SCHÉMA :",
     JSON.stringify(schema, null, 2),

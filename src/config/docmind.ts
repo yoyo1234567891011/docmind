@@ -114,7 +114,7 @@ export const docmindConfig = {
         tasks: {
           classify: { temperature: 0, maxTokens: 64 },
           analyze: { temperature: 0, maxTokens: 1400 },
-          reply: { temperature: 0.3, maxTokens: 500 },
+          reply: { temperature: 0.3, maxTokens: 1200 },
           searchIntent: { temperature: 0, maxTokens: 300 },
         },
       },
@@ -126,7 +126,7 @@ export const docmindConfig = {
         tasks: {
           classify: { temperature: 0, maxTokens: 64 },
           analyze: { temperature: 0, maxTokens: 1400 },
-          reply: { temperature: 0.3, maxTokens: 500 },
+          reply: { temperature: 0.3, maxTokens: 1200 },
           searchIntent: { temperature: 0, maxTokens: 300 },
         },
       },
@@ -138,7 +138,7 @@ export const docmindConfig = {
         tasks: {
           classify: { temperature: 0, maxTokens: 64 },
           analyze: { temperature: 0, maxTokens: 1400 },
-          reply: { temperature: 0.25, maxTokens: 500 },
+          reply: { temperature: 0.25, maxTokens: 1200 },
           searchIntent: { temperature: 0, maxTokens: 300 },
         },
       },
@@ -150,7 +150,7 @@ export const docmindConfig = {
         tasks: {
           classify: { temperature: 0, maxTokens: 64 },
           analyze: { temperature: 0, maxTokens: 1400 },
-          reply: { temperature: 0.3, maxTokens: 500 },
+          reply: { temperature: 0.3, maxTokens: 1200 },
           searchIntent: { temperature: 0, maxTokens: 300 },
         },
       },

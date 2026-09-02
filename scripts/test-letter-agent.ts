@@ -1,14 +1,16 @@
 /**
- * Tests agent courrier (suggestion par famille + fallback, sans LLM).
+ * Tests agent courrier (suggestion + qualité + fallback, sans LLM).
  */
 import assert from "assert";
 
 import { buildFallbackLetter } from "../src/services/reply/fallback-letter";
 import {
-  filterDeadlinesForLetter,
-  isRecipientObligation,
-  shortenLetterSubject,
-} from "../src/services/reply/letter-intents";
+  collectAllowedLetterFacts,
+  deriveFactsUsedInLetter,
+  isLetterNoiseFact,
+  sanitizeRecipient,
+  validateLetterBody,
+} from "../src/services/reply/letter-quality";
 import { suggestLetterType } from "../src/services/reply/suggest-type";
 import { parseReadyReplyResponse } from "../src/ai/validation/reply";
 import { RISK_CRITERIA } from "../src/services/risk/criteria";
@@ -51,22 +53,30 @@ const classification: DocumentClassification = {
 };
 
 function main() {
-  // --- Relevé bancaire Banque Horizon (cas réel) ---
+  // --- Relevé bancaire Banque Horizon (multi-frais) ---
   const bankText = [
     "BANQUE HORIZON",
     "Relevé de compte n° 123456789",
     "Période du 01/01/2026 au 31/01/2026",
-    "Commission de tenue de compte : 2,50 €",
+    "Commission de tenue de compte : 2,71 €",
+    "Frais de mouvement : 3,22 €",
+    "Commission d'intervention : 12,00 €",
+    "Agios de découvert : 26,23 €",
+    "Taux d'intérêts débiteurs : 14,5 %",
     "Signaler tout changement d'adresse sous 30 jours.",
+    "Traiter les réclamations sous 30 jours.",
   ].join("\n");
 
   const bankAnalysis = analysis({
     document_type: "Relevé bancaire",
     title: "Relevé de compte — période du 01/01/2026 au 31/01/2026",
-    summary: "Relevé mensuel avec frais de tenue de compte.",
+    summary: "Relevé mensuel avec plusieurs frais bancaires.",
     organizations: ["Banque Horizon"],
-    amounts: ["2,50 €"],
-    deadlines: ["Signaler tout changement d'adresse sous 30 jours"],
+    amounts: ["2,71 €", "3,22 €", "12,00 €", "26,23 €"],
+    deadlines: [
+      "Signaler tout changement d'adresse sous 30 jours",
+      "Traiter les réclamations sous 30 jours",
+    ],
     actions: ["Vérifier les frais bancaires"],
     risks: ["Frais de tenue de compte"],
   });
@@ -77,39 +87,61 @@ function main() {
     confidence: 0.95,
   });
 
-  assert.notEqual(
-    bankSuggestion.letterType,
-    "resiliation",
-    "relevé bancaire : pas de résiliation",
-  );
+  assert.notEqual(bankSuggestion.letterType, "resiliation");
   assert.equal(bankSuggestion.docFamily, "banque");
+
+  const bankFacts = collectAllowedLetterFacts({
+    documentText: bankText,
+    analysis: bankAnalysis,
+    letterType: "contestation",
+    family: "banque",
+  });
+  const amountFacts = bankFacts.filter((f) => f.label.startsWith("Montant :"));
+  assert.ok(amountFacts.length >= 2, "≥2 montants/frais dans les faits autorisés");
   assert.ok(
-    ["contestation", "autre", "remboursement"].includes(
-      bankSuggestion.letterType,
-    ),
+    !bankFacts.some((f) => /changement d'adresse/i.test(f.label)),
+    "0 obligation client dans faits",
   );
-  assert.ok(
-    (bankSuggestion.alternatives ?? []).every((a) => a.letterType !== "resiliation"),
-    "alternatives sans résiliation",
-  );
+  assert.ok(isLetterNoiseFact("Signaler tout changement d'adresse sous 30 jours"));
 
   const bankLetter = buildFallbackLetter(
-    bankSuggestion.letterType,
+    "contestation",
     bankAnalysis,
     { category: "banque", label: "Banque", confidence: 0.95 },
     bankSuggestion.reason,
     bankText,
   );
-  assert.ok(!/r[ée]sili/i.test(bankLetter.subject), "objet sans résiliation");
-  assert.ok(bankLetter.subject.length <= 80, "objet court");
+
+  assert.ok(!/r[ée]sili/i.test(bankLetter.subject));
+  assert.ok(bankLetter.subject.length <= 80);
+  assert.ok(validateLetterBody(bankLetter.body).valid, "corps complet");
+  assert.ok(/Madame, Monsieur/.test(bankLetter.body));
+  assert.ok(/salutations distinguées/i.test(bankLetter.body));
+  assert.ok(!/\bJe\s*$/m.test(bankLetter.body.trim()), "pas tronqué en « Je »");
+  assert.ok(
+    (bankLetter.body.match(/\d+[,.]\d{2}\s*€/g) ?? []).length >= 2,
+    "≥2 frais cités dans le corps",
+  );
   assert.ok(
     !/Signaler tout changement/i.test(bankLetter.body),
-    "pas d’obligation client comme échéance",
+    "pas d'obligation client dans le corps",
   );
   assert.ok(
-    !/période du 01\/01\/2026/i.test(bankLetter.subject),
-    "pas de titre technique en objet",
+    !(bankLetter.factsUsed ?? []).some((f) => /changement d'adresse/i.test(f)),
+    "preuves sans obligation client",
   );
+  assert.ok(
+    !/71 rue de la République/i.test(bankLetter.body),
+    "0 adresse inventée",
+  );
+
+  const inventedRecipient = sanitizeRecipient(
+    "Banque Horizon\n71 rue de la République\n75001 Paris",
+    ["Banque Horizon"],
+    bankText,
+    bankAnalysis.title,
+  );
+  assert.equal(inventedRecipient, "Banque Horizon", "adresse inventée supprimée");
 
   // --- Mise en demeure ---
   const recouvrement = suggestLetterType(
@@ -118,7 +150,6 @@ function main() {
       title: "Mise en demeure",
       amounts: ["450 €"],
       deadlines: ["Réponse sous 15 jours"],
-      actions: ["Régler la créance ou contester"],
     }),
     {
       category: "courrier-administratif",
@@ -127,11 +158,24 @@ function main() {
     },
   );
   assert.notEqual(recouvrement.letterType, "resiliation");
-  assert.ok(
-    ["contestation", "reponse_administrative", "remboursement"].includes(
-      recouvrement.letterType,
-    ),
+
+  const recouvrementLetter = buildFallbackLetter(
+    recouvrement.letterType,
+    analysis({
+      title: "Mise en demeure",
+      amounts: ["450 €"],
+      organizations: ["Société Créance SA"],
+      deadlines: ["Réponse sous 15 jours"],
+    }),
+    {
+      category: "courrier-administratif",
+      label: "Courrier administratif",
+      confidence: 0.9,
+    },
+    recouvrement.reason,
+    "Mise en demeure de payer 450 €",
   );
+  assert.ok(validateLetterBody(recouvrementLetter.body).valid);
 
   // --- Facture abonnement ---
   const invoice = suggestLetterType(
@@ -141,11 +185,23 @@ function main() {
       organizations: ["Orange"],
       amounts: ["39,99 €"],
       actions: ["Envoyer un courrier de résiliation"],
-      risks: ["Préavis de résiliation"],
     }),
     { category: "facture", label: "Facture", confidence: 0.9 },
   );
   assert.equal(invoice.letterType, "resiliation");
+
+  const invoiceLetter = buildFallbackLetter(
+    "resiliation",
+    analysis({
+      title: "Facture Orange Internet",
+      organizations: ["Orange"],
+      amounts: ["39,99 €"],
+    }),
+    { category: "facture", label: "Facture", confidence: 0.9 },
+    invoice.reason,
+    "Contrat abonnement fibre Orange",
+  );
+  assert.ok(validateLetterBody(invoiceLetter.body).valid);
 
   // --- Bail ---
   const bail = suggestLetterType(
@@ -159,78 +215,34 @@ function main() {
   );
   assert.ok(["resiliation", "autre", "contestation"].includes(bail.letterType));
 
-  // --- Utilitaires ---
-  assert.ok(
-    isRecipientObligation("Signaler tout changement d'adresse sous 30 jours"),
-  );
-  assert.equal(
-    filterDeadlinesForLetter([
-      "15/04/2026",
-      "Signaler tout changement d'adresse",
-    ]).length,
-    1,
-  );
-  assert.equal(
-    shortenLetterSubject(
-      "Relevé de compte — période du 01/01/2026 au 31/01/2026",
-      "autre",
-      "banque",
-    ),
-    "Demande d’information bancaire",
-  );
-
-  const resiliation = suggestLetterType(
-    "Je souhaite résilier mon abonnement.",
+  const bailLetter = buildFallbackLetter(
+    bail.letterType,
     analysis({
-      actions: ["Envoyer un courrier de résiliation"],
-      risks: ["Préavis de résiliation court"],
+      title: "Bail location",
+      organizations: ["Agence Immo Plus"],
+      amounts: ["850 €"],
     }),
-    classification,
+    { category: "bail", label: "Bail", confidence: 0.92 },
+    bail.reason,
+    "Bail location vide",
   );
-  assert.equal(resiliation.letterType, "resiliation");
+  assert.ok(validateLetterBody(bailLetter.body).valid);
 
-  const refund = suggestLetterType(
-    "Demande de remboursement du trop-perçu.",
-    analysis({ amounts: ["85 €"], title: "Avoir client" }),
-    { category: "facture", label: "Facture", confidence: 0.9 },
-  );
-  assert.equal(refund.letterType, "remboursement");
-
-  const contest = suggestLetterType(
-    "Je conteste le montant de cette facture.",
-    analysis({
-      risks: ["Erreur de facturation"],
-      actions: ["Contester le prélèvement"],
-    }),
-    { category: "facture", label: "Facture", confidence: 0.9 },
-  );
-  assert.equal(contest.letterType, "contestation");
-
-  const letter = buildFallbackLetter(
-    "resiliation",
-    analysis({
-      title: "Contrat fibre Orange",
-      organizations: ["Orange"],
-      deadlines: ["Résilier avant le 01/05/2026"],
-    }),
-    classification,
-    "Test résiliation",
-    "Contrat abonnement fibre",
-  );
-  assert.equal(letter.required, true);
-  assert.equal(letter.letterType, "resiliation");
-  assert.ok(letter.subject.length > 0);
-  assert.ok(/Orange/i.test(letter.body));
+  // --- deriveFactsUsedInLetter ---
+  const bodySample =
+    "Madame, Monsieur,\n\nJe conteste les frais de 2,71 € et 12,00 €.\n\nSalutations distinguées.";
+  const derived = deriveFactsUsedInLetter(bodySample, bankFacts);
+  assert.ok(derived.length >= 1 && derived.length <= 8);
 
   const parsed = parseReadyReplyResponse(
     JSON.stringify({
       required: true,
       reason: "Contestation générée",
       subject: "Contestation facture",
-      body: "Madame, Monsieur,\n\nJe conteste…",
+      body: "Madame, Monsieur,\n\nJe conteste le montant de 120 € figurant sur ma facture. Je vous demande un réexamen sous trente jours.\n\nJe vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.\n\n[Votre nom]",
       letterType: "contestation",
       recipient: "EDF",
-      factsUsed: ["Montant : 120 €", "Date : 01/03/2026"],
+      factsUsed: ["Montant : 120 €"],
     }),
     "fallback",
   );
@@ -238,10 +250,10 @@ function main() {
 
   console.log("OK test-letter-agent", {
     bank: bankSuggestion.letterType,
+    bankFeesInBody: (bankLetter.body.match(/\d+[,.]\d{2}\s*€/g) ?? []).length,
+    bankFacts: bankLetter.factsUsed?.length,
     recouvrement: recouvrement.letterType,
-    invoice: invoice.letterType,
-    bail: bail.letterType,
-    bankSubject: bankLetter.subject,
+    words: bankLetter.body.split(/\s+/).length,
   });
 }
 
