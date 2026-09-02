@@ -275,7 +275,7 @@ export async function generateForTask(
   const started = Date.now();
   const maxTokens = resolveEffectiveMaxTokens(
     task,
-    config.maxTokens,
+    config.maxTokens ?? docmindConfig.ollama.maxTokens,
     overrides?.maxTokens,
   );
 
