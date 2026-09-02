@@ -575,7 +575,9 @@ export function cleanActionForDisplay(
   if (!raw) return null;
   const t = normalizeSpaces(raw);
   if (!t) return null;
-  if (isAnalysisActionNoise(t)) return null;
+
+  const bodyForNoise = stripActionPrefix(t);
+  if (isAnalysisActionNoise(t) || isAnalysisActionNoise(bodyForNoise)) return null;
 
   // Reformuler d’abord (sauve l’info utile même si la queue est coupée).
   const reformulated = reformulateActionSnippet(t);
@@ -614,6 +616,7 @@ export function cleanActionForDisplay(
   };
 
   if (hadAnticiper) {
+    if (isAnalysisActionNoise(cleanedBody)) return null;
     if (!looksLikeRealDeadline(cleanedBody)) {
       if (
         /^(v[ée]rifier|adresser|contester|n[ée]gocier|demander|noter|consulter|comparer|calculer|lire)\b/i.test(

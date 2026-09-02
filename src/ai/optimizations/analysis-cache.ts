@@ -26,7 +26,7 @@ import type {
 const CACHE_FORMAT_VERSION = 7 as const;
 
 /** Version pipeline d’analyse (agents / post-processing). */
-export const ANALYSIS_PIPELINE_VERSION = "analyze-pipeline-v2";
+export const ANALYSIS_PIPELINE_VERSION = "analyze-pipeline-v3";
 
 export interface CacheFingerprint {
   model: string;

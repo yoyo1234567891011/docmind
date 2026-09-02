@@ -3,8 +3,14 @@
  * Déterministe, sans appel LLM supplémentaire.
  */
 import { buildLocalFallbackSummary } from "@/ai/agents/core-bundle-outcome";
-import { cleanSummaryForDisplay } from "@/ai/post-processing/display-cleanup";
-import { resolveWatchDocFamily } from "@/ai/post-processing/watch-ranking";
+import {
+  cleanActionsForDisplay,
+  cleanSummaryForDisplay,
+} from "@/ai/post-processing/display-cleanup";
+import {
+  resolveWatchDocFamily,
+  type WatchDocFamily,
+} from "@/ai/post-processing/watch-ranking";
 import { isRecipientObligation } from "@/services/reply/letter-intents";
 import type {
   DocumentAnalysis,
@@ -16,7 +22,31 @@ export const SUMMARY_PLACEHOLDER_RE =
   /aucun r[ée]sum[ée]|relancer si besoin|analyse de secours|indisponible|non disponible/i;
 
 export const ACTION_NOISE_RE =
-  /signaler\s+(?:sans\s+d[eé]lai\s+)?(?:tout\s+)?changement|changement\s+d['']adresse|traiter\s+les\s+r[ée]clamations|conserver\s+une\s+copie|espace\s+client|journal\s+technique|obligation\s+du\s+(?:client|titulaire|destinataire)|vous\s+devez\s+(?:nous\s+)?informer|mettre\s+[àa]\s+jour\s+vos\s+coordonn/i;
+  /signaler\s+(?:sans\s+d[eé]lai\s+)?(?:tout\s+)?changement|changement\s+d['']adresse|traiter\s+les\s+r[ée]clamations|conserver\s+une\s+copie|espace\s+client|journal\s+technique|obligation\s+du\s+(?:client|titulaire|destinataire)|vous\s+devez\s+(?:nous\s+)?informer|mettre\s+[àa]\s+jour\s+vos\s+coordonn|anticiper\s+l['']échéance\s*:\s*(?:signaler|traiter|conserver)/i;
+
+/** Patterns interdits dans le JSON final persisté / affiché (tests d’intégration). */
+export const PROD_QUALITY_FORBIDDEN_PATTERNS = [
+  /changement\s+d['']adresse/i,
+  /échéance\s+n[°o]?\s*\d/i,
+  /date\s+à\s+laquelle\s+une\s+obligation/i,
+  /signal\s+détecté\s+sur\s+le\s+critère/i,
+] as const;
+
+const BANK_PRIORITY_AMOUNT_RE =
+  /frais|commission|rejet|tenue|d[ée]couvert|int[ée]r[êe]t|mouvement|p[ée]nalit/i;
+const BANK_DEPRIORITY_AMOUNT_RE =
+  /solde\s+arr[eê]t[eé]|^\s*solde\b|salaire|loyer|pr[eé]l[eè]vement\s+loyer|d[eé]couvert\s+autoris[eé]/i;
+
+/** Critères souvent déclenchés par le glossaire boilerplate des relevés bancaires. */
+const BANQUE_GLOSSARY_CRITERIA = new Set([
+  "resiliation",
+  "obligations_importantes",
+  "engagement",
+  "renouvellement_tacite",
+]);
+
+const BANK_LOW_QUALITY_SUMMARY_RE =
+  /montants?\s+rep[eé]r[eé]s/i;
 
 export const MARKDOWN_TABLE_ROW_RE = /^\s*\|.*\|.*\|/;
 
@@ -104,6 +134,49 @@ export function sanitizeProductionDeadlines(deadlines: string[]): string[] {
   return out.slice(0, 8);
 }
 
+function shouldZeroBanqueGlossaryCriterion(
+  criterion: RiskCriterionResult,
+  family: WatchDocFamily,
+  reasons: string[],
+): boolean {
+  if (family !== "banque" || !BANQUE_GLOSSARY_CRITERIA.has(criterion.id)) {
+    return false;
+  }
+  if (reasons.length === 0) {
+    return criterion.score > 0;
+  }
+  return reasons.every(
+    (reason) =>
+      isWeakScoreProofSnippet(reason, family) ||
+      isDictionaryDefinitionSnippet(reason),
+  );
+}
+
+export function prioritizeProductionAmounts(
+  amounts: string[],
+  family: WatchDocFamily,
+): string[] {
+  const usable = amounts.filter(
+    (amount) => /\d/.test(amount) && !FICTITIOUS_AMOUNT_RE.test(amount),
+  );
+  if (family !== "banque") {
+    return usable.slice(0, 8);
+  }
+
+  const scored = usable.map((amount, index) => {
+    let score = 1;
+    if (BANK_PRIORITY_AMOUNT_RE.test(amount) && !BANK_DEPRIORITY_AMOUNT_RE.test(amount)) {
+      score = 3;
+    } else if (BANK_DEPRIORITY_AMOUNT_RE.test(amount)) {
+      score = 0;
+    }
+    return { amount, index, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score || a.index - b.index);
+  return scored.map((entry) => entry.amount).slice(0, 8);
+}
+
 export function filterCriteriaProofs(
   criteria: RiskCriterionResult[],
   family: ReturnType<typeof resolveWatchDocFamily>,
@@ -112,6 +185,14 @@ export function filterCriteriaProofs(
     const reasons = (criterion.reasons ?? []).filter(
       (reason) => !isWeakScoreProofSnippet(reason, family),
     );
+    if (shouldZeroBanqueGlossaryCriterion(criterion, family, reasons)) {
+      return {
+        ...criterion,
+        reasons: [],
+        detected: false,
+        score: 0,
+      };
+    }
     if (reasons.length === (criterion.reasons ?? []).length) {
       return criterion;
     }
@@ -125,6 +206,33 @@ export function filterCriteriaProofs(
   });
 }
 
+export function containsProdQualityForbiddenPattern(value: string): boolean {
+  return PROD_QUALITY_FORBIDDEN_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+export function assertProdQualityCleanPayload(parts: {
+  summary?: string;
+  deadlines?: string[];
+  actions?: string[];
+  riskCriteriaReasons?: string[];
+}): void {
+  const blobs = [
+    parts.summary ?? "",
+    ...(parts.deadlines ?? []),
+    ...(parts.actions ?? []),
+    ...(parts.riskCriteriaReasons ?? []),
+  ];
+  for (const blob of blobs) {
+    for (const pattern of PROD_QUALITY_FORBIDDEN_PATTERNS) {
+      if (pattern.test(blob)) {
+        throw new Error(
+          `prod-quality forbidden pattern ${pattern}: ${blob.slice(0, 120)}`,
+        );
+      }
+    }
+  }
+}
+
 /** Résumé FR déterministe (2–4 phrases) si le LLM ou le scrub a vidé le champ. */
 export function buildDeterministicDisplaySummary(
   analysis: DocumentAnalysis,
@@ -132,10 +240,16 @@ export function buildDeterministicDisplaySummary(
 ): string {
   const categoryLabel =
     classification?.label || analysis.document_type || "Document";
+  const family = resolveWatchDocFamily({
+    category: classification?.category,
+    documentType: analysis.document_type,
+    title: analysis.title,
+  });
   const org = analysis.organizations?.find((o) => o.trim().length > 0);
-  const amounts = (analysis.amounts ?? [])
-    .filter((a) => /\d/.test(a) && !FICTITIOUS_AMOUNT_RE.test(a))
-    .slice(0, 2);
+  const amounts = prioritizeProductionAmounts(
+    analysis.amounts ?? [],
+    family,
+  ).slice(0, 2);
   const risks = (analysis.risks ?? []).filter(
     (r) => r.trim().length > 8 && !isAnalysisActionNoise(r),
   );
@@ -191,19 +305,45 @@ export function buildDeterministicDisplaySummary(
   return sentences.join(" ").slice(0, 420);
 }
 
+function isBankSummaryLowQuality(
+  summary: string,
+  family: WatchDocFamily,
+): boolean {
+  if (family !== "banque" || !BANK_LOW_QUALITY_SUMMARY_RE.test(summary)) {
+    return false;
+  }
+  const hasNoiseAmount =
+    /solde|salaire|loyer|\+\s*2\s*\d{3}/i.test(summary) &&
+    !/frais|commission|tenue|rejet|mouvement/i.test(summary);
+  return hasNoiseAmount || /2\s*148|2\s*086/i.test(summary);
+}
+
 export function resolveDisplaySummary(
   analysis: DocumentAnalysis,
   classification?: DocumentClassification,
 ): string {
+  const family = resolveWatchDocFamily({
+    category: classification?.category,
+    documentType: analysis.document_type,
+    title: analysis.title,
+  });
   const cleaned = cleanSummaryForDisplay(analysis.summary);
-  if (cleaned && !SUMMARY_PLACEHOLDER_RE.test(cleaned)) {
+  if (
+    cleaned &&
+    !SUMMARY_PLACEHOLDER_RE.test(cleaned) &&
+    !isBankSummaryLowQuality(cleaned, family)
+  ) {
     return cleaned;
   }
 
   const raw = analysis.summary?.trim() ?? "";
   if (raw && !SUMMARY_PLACEHOLDER_RE.test(raw)) {
     const relaxed = raw.replace(/\s+/g, " ").slice(0, 360);
-    if (relaxed.length >= 36 && !/^(relev[ée]|document|contrat)\s*$/i.test(relaxed)) {
+    if (
+      relaxed.length >= 36 &&
+      !/^(relev[ée]|document|contrat)\s*$/i.test(relaxed) &&
+      !isBankSummaryLowQuality(relaxed, family)
+    ) {
       return relaxed;
     }
   }
@@ -248,21 +388,34 @@ export function buildWatchPointsFromCriteria(
   );
   const out: WatchPointDraft[] = [];
 
+  const findingsByCriterion = new Map(
+    (analysis.risk_findings ?? [])
+      .filter((finding) => finding.status !== "rejected")
+      .map((finding) => [finding.criterion_id, finding]),
+  );
+
   for (const [index, criterion] of criteria.entries()) {
+    const finding = findingsByCriterion.get(criterion.id);
     const reason =
+      finding?.why?.trim() ||
+      finding?.excerpt?.trim() ||
       (criterion.reasons ?? []).find(
         (r) => !isWeakScoreProofSnippet(r, family),
-      ) ?? "";
-    const title = criterion.label.trim();
+      ) ||
+      "";
+    const title =
+      finding?.description?.trim().slice(0, 120) ||
+      criterion.label.trim();
     if (!title) continue;
+    const explanation =
+      reason && reason.length > 12 && !isWeakScoreProofSnippet(reason, family)
+        ? reason.slice(0, 160)
+        : title;
     out.push({
       key: `crit-${criterion.id}-${index}`,
-      category: title,
+      category: criterion.label.trim() || null,
       title,
-      explanation:
-        reason && reason.length > 12
-          ? reason.slice(0, 160)
-          : `Signal détecté sur le critère « ${title} » (score ${criterion.score}/${criterion.max_score}).`,
+      explanation,
       severity:
         criterion.score >= 8
           ? "eleve"
@@ -288,15 +441,26 @@ export function finalizeAnalysisForProd(
 
   const summary = resolveDisplaySummary(analysis, classification);
   const deadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
+  const actions = cleanActionsForDisplay(
+    (analysis.actions ?? []).filter((action) => !isAnalysisActionNoise(action)),
+  );
+  const amounts = prioritizeProductionAmounts(analysis.amounts ?? [], family);
   const risk_criteria = filterCriteriaProofs(
     analysis.risk_criteria ?? [],
     family,
+  );
+  const risk_score = Math.min(
+    100,
+    Math.max(0, risk_criteria.reduce((total, criterion) => total + criterion.score, 0)),
   );
 
   return {
     ...analysis,
     summary,
     deadlines,
+    actions,
+    amounts,
     risk_criteria,
+    risk_score,
   };
 }

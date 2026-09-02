@@ -10,6 +10,7 @@ import {
   cleanExcerptForDisplay,
   cleanSummaryForDisplay,
 } from "@/ai/post-processing/display-cleanup";
+import { sanitizeProductionDeadlines } from "@/ai/post-processing/prod-quality";
 import {
   projectVerifiedAnalysis,
   verifyAnalysisDraft,
@@ -127,6 +128,7 @@ export function scrubAnalysisForDisplay(
     ...scrubbed,
     summary,
     actions: cleanActionsForDisplay(scrubbed.actions ?? []),
+    deadlines: sanitizeProductionDeadlines(scrubbed.deadlines ?? []),
   };
 }
 

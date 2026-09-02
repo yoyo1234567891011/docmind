@@ -1,11 +1,16 @@
 export {
+  assertProdQualityCleanPayload,
   buildWatchPointsFromCriteria,
   buildDeterministicDisplaySummary,
+  containsProdQualityForbiddenPattern,
   finalizeAnalysisForProd,
   isAnalysisActionNoise,
   isDictionaryDefinitionSnippet,
   isFakeScheduleDeadline,
+  prioritizeProductionAmounts,
+  PROD_QUALITY_FORBIDDEN_PATTERNS,
   resolveDisplaySummary,
+  sanitizeProductionDeadlines,
   shouldShowWatchEmptyState,
 } from "@/ai/post-processing/prod-quality";
 export {

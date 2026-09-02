@@ -22,6 +22,7 @@ import {
   assertPublishableLlmAnalysis,
   isLlmAnalysisSuccess,
 } from "@/ai/agents/core-bundle-outcome";
+import { finalizeAnalysisForProd } from "@/ai/post-processing/prod-quality";
 import { EMPTY_READY_REPLY } from "@/types";
 
 import {
@@ -265,9 +266,13 @@ async function defaultRunP2(
   });
 
   const historyStarted = Date.now();
+  const productionAnalysis = finalizeAnalysisForProd(
+    full.analysis,
+    full.classification,
+  );
   const updated = await updateHistoryRecord(job.userId, job.historyId, {
     classification: full.classification,
-    analysis: full.analysis,
+    analysis: productionAnalysis,
     readyReply: full.readyReply,
     model: full.model,
     analyzedAt: full.analyzedAt,

@@ -9,6 +9,7 @@ import {
   assertPublishableLlmAnalysis,
   stripWorkerSalvageSummaryPrefix,
 } from "@/ai/agents/core-bundle-outcome";
+import { finalizeAnalysisForProd } from "@/ai/post-processing/prod-quality";
 import { getAnalysisTimingBucket } from "@/services/analysis-jobs/timing";
 import {
   documentAnalysisLockKey,
@@ -155,10 +156,12 @@ async function analyzeDocumentTextUnlocked(
       const cleanedSummary = stripWorkerSalvageSummaryPrefix(
         cached.analysis?.summary,
       );
-      const analysis =
+      const analysis = finalizeAnalysisForProd(
         cleanedSummary && cleanedSummary !== cached.analysis.summary
           ? { ...cached.analysis, summary: cleanedSummary }
-          : cached.analysis;
+          : cached.analysis,
+        cached.classification,
+      );
       const readyReply =
         canLetter && cached.readyReply && !request.skipReadyReply
           ? cached.readyReply
@@ -225,7 +228,10 @@ async function analyzeDocumentTextUnlocked(
     });
 
     const classification = multi.classification;
-    const analysis = multi.analysis;
+    const analysis = finalizeAnalysisForProd(
+      multi.analysis,
+      classification,
+    );
     category = classification.category;
     categoryLabel = classification.label;
     model = multi.state.model || model;

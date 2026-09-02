@@ -4,7 +4,7 @@ import {
   locateExcerptCitation,
 } from "@/ai/reasoning/citations";
 import { excerptExistsInDocument } from "@/ai/reasoning/normalize-text";
-import { sanitizeDeadlines } from "@/ai/extraction";
+import { sanitizeProductionDeadlines } from "@/ai/post-processing/prod-quality";
 import { criterionSupportedByExcerpt } from "@/ai/post-processing/inject-local-risk-findings";
 import {
   isFactureTtcWatchTitle,
@@ -350,7 +350,7 @@ export function verifyAnalysisDraft(
     verifyImportantPoints(draft, loci, notes);
 
   const deadlinesBefore = draft.deadlines ?? [];
-  const deadlines = sanitizeDeadlines(deadlinesBefore).filter(
+  const deadlines = sanitizeProductionDeadlines(deadlinesBefore).filter(
     (d) =>
       excerptExistsInDocument(d, documentText) ||
       normalizeLooseDeadlineInDoc(d, documentText),

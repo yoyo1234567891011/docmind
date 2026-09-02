@@ -17,6 +17,7 @@ import {
 import {
   buildWatchPointsFromCriteria,
   resolveDisplaySummary,
+  sanitizeProductionDeadlines,
   shouldShowWatchEmptyState,
 } from "@/ai/post-processing/prod-quality";
 import { DocumentRelationsPanel } from "@/components/documents/document-relations-panel";
@@ -711,6 +712,7 @@ export function AnalysisResults({
     isPreview && (backgroundPending ?? true);
   const watchPoints = buildWatchPoints(analysis, classification);
   const summary = resolveDisplaySummary(analysis, classification);
+  const displayDeadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
 
   return (
     <section
@@ -885,7 +887,7 @@ export function AnalysisResults({
           </AnalysisCard>
 
           <AnalysisCard title="Échéances" tone="warning">
-            <BulletList items={analysis.deadlines} />
+            <BulletList items={displayDeadlines} />
           </AnalysisCard>
 
           <AnalysisCard title="Dates" tone="info">
