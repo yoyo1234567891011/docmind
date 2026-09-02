@@ -1,6 +1,11 @@
 import { generateForTask } from "@/ai/models";
 import { buildLetterAgentPrompt } from "@/ai/agents/prompts/letter";
 import { parseReadyReplyResponse } from "@/ai/validation";
+import {
+  filterDeadlinesForLetter,
+  resolveLetterDocFamily,
+  shortenLetterSubject,
+} from "@/services/reply/letter-intents";
 import { buildFallbackLetter } from "@/services/reply/fallback-letter";
 import { suggestLetterType } from "@/services/reply/suggest-type";
 import type { OllamaGenerateResult } from "@/ai/models/types";
@@ -55,6 +60,13 @@ export async function runLetterAgent(
       ? suggestion.letterType
       : input.letterType;
 
+  const family = resolveLetterDocFamily(
+    input.documentText,
+    input.analysis,
+    input.classification,
+  );
+  const safeDeadlines = filterDeadlinesForLetter(input.analysis.deadlines);
+
   const prompt = buildLetterAgentPrompt({
     letterType,
     documentText: input.documentText,
@@ -73,6 +85,11 @@ export async function runLetterAgent(
       ...parsed,
       required: true,
       letterType: normalizeLetterType(parsed.letterType, letterType),
+      subject: shortenLetterSubject(
+        parsed.subject || "",
+        normalizeLetterType(parsed.letterType, letterType),
+        family,
+      ),
       recipient:
         parsed.recipient ||
         input.sheet?.organizations?.[0] ||
@@ -84,7 +101,7 @@ export async function runLetterAgent(
           : [
               input.analysis.title,
               ...input.analysis.amounts.slice(0, 2),
-              ...input.analysis.deadlines.slice(0, 2),
+              ...safeDeadlines.slice(0, 2),
             ].filter(Boolean),
     };
 
@@ -101,6 +118,7 @@ export async function runLetterAgent(
       input.analysis,
       input.classification,
       suggestion.reason,
+      input.documentText,
     );
     return {
       letter,

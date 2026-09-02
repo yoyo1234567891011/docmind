@@ -5,18 +5,26 @@ import type {
   ReadyReply,
 } from "@/types";
 import { LETTER_TYPE_LABELS } from "@/types";
+import {
+  filterDeadlinesForLetter,
+  resolveLetterDocFamily,
+  shortenLetterSubject,
+} from "@/services/reply/letter-intents";
 
 function firstOrg(analysis: DocumentAnalysis): string {
   return analysis.organizations[0] || "[Destinataire]";
 }
 
-function factsUsed(analysis: DocumentAnalysis): string[] {
+function factsUsed(
+  analysis: DocumentAnalysis,
+  deadlines: string[] = analysis.deadlines,
+): string[] {
   return [
     analysis.title && `Titre : ${analysis.title}`,
     analysis.date && `Date : ${analysis.date}`,
     ...analysis.organizations.slice(0, 2).map((o) => `Organisation : ${o}`),
     ...analysis.amounts.slice(0, 2).map((a) => `Montant : ${a}`),
-    ...analysis.deadlines.slice(0, 2).map((d) => `Échéance : ${d}`),
+    ...deadlines.slice(0, 2).map((d) => `Échéance : ${d}`),
     ...analysis.people.slice(0, 2).map((p) => `Personne : ${p}`),
   ].filter(Boolean) as string[];
 }
@@ -30,13 +38,16 @@ export function buildFallbackLetter(
   analysis: DocumentAnalysis,
   classification: DocumentClassification,
   reason: string,
+  documentText = "",
 ): ReadyReply {
   const recipient = firstOrg(analysis);
   const ref = analysis.title || classification.label || "votre document";
   const amount = analysis.amounts[0] || "[montant]";
-  const deadline = analysis.deadlines[0] || "[date]";
+  const safeDeadlines = filterDeadlinesForLetter(analysis.deadlines);
+  const deadline = safeDeadlines[0] || "[date]";
   const dateDoc = analysis.date || "[date du document]";
-  const facts = factsUsed(analysis);
+  const facts = factsUsed(analysis, safeDeadlines);
+  const family = resolveLetterDocFamily(documentText, analysis, classification);
 
   const templates: Record<
     LetterType,
@@ -85,7 +96,13 @@ export function buildFallbackLetter(
       ].join("\n"),
     },
     contestation: {
-      subject: `Contestation — ${ref}`,
+      subject: shortenLetterSubject(
+        family === "banque"
+          ? "Contestation de frais bancaires"
+          : `Contestation — ${ref}`,
+        "contestation",
+        family,
+      ),
       reason: reason || "Contestation fondée sur les éléments du document.",
       body: [
         `${recipient},`,
@@ -97,10 +114,12 @@ export function buildFallbackLetter(
           ? `Point contesté : ${analysis.risks[0]}`
           : analysis.important_points[0]
             ? `Point contesté : ${analysis.important_points[0]}`
-            : "Point contesté : élément identifié dans l’analyse du document.",
+            : family === "banque"
+              ? "Point contesté : frais ou opérations figurant sur le relevé."
+              : "Point contesté : élément identifié dans l’analyse du document.",
         "",
         "Je vous prie de réexaminer ce dossier et de me répondre par écrit, en justifiant votre position.",
-        analysis.deadlines[0]
+        safeDeadlines[0]
           ? `Je vous rappelle l’échéance associée : ${deadline}.`
           : null,
         "",
@@ -133,7 +152,13 @@ export function buildFallbackLetter(
       ].join("\n"),
     },
     autre: {
-      subject: `Courrier — ${ref}`,
+      subject: shortenLetterSubject(
+        family === "banque"
+          ? "Demande d’information sur mon relevé"
+          : `Demande d’information`,
+        "autre",
+        family,
+      ),
       reason: reason || `Courrier (${LETTER_TYPE_LABELS.autre}).`,
       body: [
         `${recipient},`,
@@ -141,10 +166,12 @@ export function buildFallbackLetter(
         `Je vous contacte au sujet de « ${ref} » (document du ${dateDoc}).`,
         "",
         analysis.summary ||
-          "Objet : suite au document analysé, je souhaite formaliser ma demande par écrit.",
+          (family === "banque"
+            ? "Je souhaite obtenir des précisions sur les opérations et frais mentionnés sur mon relevé."
+            : "Objet : suite au document analysé, je souhaite obtenir des précisions par écrit."),
         "",
         analysis.amounts[0] ? `Montant(s) concerné(s) : ${amount}.` : null,
-        analysis.deadlines[0] ? `Échéance : ${deadline}.` : null,
+        safeDeadlines[0] ? `Échéance : ${deadline}.` : null,
         "",
         "Je vous remercie de l’attention portée à ma demande.",
         "",
@@ -161,7 +188,7 @@ export function buildFallbackLetter(
   return {
     required: true,
     reason: picked.reason,
-    subject: picked.subject,
+    subject: shortenLetterSubject(picked.subject, letterType, family),
     body: picked.body,
     letterType,
     recipient,

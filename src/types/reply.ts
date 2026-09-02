@@ -49,4 +49,12 @@ export interface LetterTypeSuggestion {
   letterType: LetterType;
   reason: string;
   confidence: number;
+  /** Famille documentaire (watch-ranking) utilisée pour la suggestion. */
+  docFamily?: string;
+  /** Autres intentions pertinentes (2 max). */
+  alternatives?: Array<{
+    letterType: LetterType;
+    reason: string;
+    confidence: number;
+  }>;
 }

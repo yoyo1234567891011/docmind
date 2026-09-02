@@ -35,6 +35,9 @@ export function LetterDraftPanel({
   const [letterType, setLetterType] = useState<LetterType | "auto">("auto");
   const [suggestedType, setSuggestedType] = useState<LetterType | null>(null);
   const [suggestionReason, setSuggestionReason] = useState<string | null>(null);
+  const [alternativeSuggestions, setAlternativeSuggestions] = useState<
+    Array<{ letterType: LetterType; reason: string }>
+  >([]);
   const [letter, setLetter] = useState<ReadyReply | null>(
     initialReply?.required ? initialReply : null,
   );
@@ -52,6 +55,7 @@ export function LetterDraftPanel({
         if (cancelled) return;
         setSuggestedType(data.suggestion.letterType);
         setSuggestionReason(data.suggestion.reason);
+        setAlternativeSuggestions(data.suggestion.alternatives ?? []);
 
         const remaining = data.analyzeQuota?.remaining ?? null;
 
@@ -142,6 +146,15 @@ export function LetterDraftPanel({
                 : "à préciser"}{" "}
               — {suggestionReason}
             </p>
+          ) : null}
+          {alternativeSuggestions.length > 0 ? (
+            <ul className="mt-1 list-inside list-disc text-xs text-[var(--muted)]">
+              {alternativeSuggestions.map((alt) => (
+                <li key={alt.letterType}>
+                  {LETTER_TYPE_LABELS[alt.letterType]} — {alt.reason}
+                </li>
+              ))}
+            </ul>
           ) : null}
         </header>
 
