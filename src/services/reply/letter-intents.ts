@@ -84,7 +84,7 @@ export const LETTER_FAMILY_RULES: Record<WatchDocFamily, LetterFamilyRule> = {
 };
 
 const RECIPIENT_OBLIGATION_RE =
-  /signaler\s+(?:tout\s+)?changement|mettre\s+[àa]\s+jour\s+vos\s+coordonn|informer\s+(?:la\s+)?banque|obligation\s+du\s+(?:client|titulaire)|vous\s+devez\s+(?:nous\s+)?informer|tenue\s+de\s+compte\s+incombe/i;
+  /signaler\s+(?:sans\s+d[eé]lai\s+)?(?:tout\s+)?changement|sans\s+d[eé]lai\s+tout\s+changement|mettre\s+[àa]\s+jour\s+vos\s+coordonn|informer\s+(?:la\s+)?banque|obligation\s+du\s+(?:client|titulaire)|vous\s+devez\s+(?:nous\s+)?informer|tenue\s+de\s+compte\s+incombe|traiter\s+les\s+r[ée]clamations/i;
 
 const TECHNICAL_TITLE_RE =
   /^(?:relev[ée]|extrait|avis|document)\s+(?:de\s+compte|bancaire)|p[ée]riode\s+du\s+\d|compte\s+n[°o]/i;

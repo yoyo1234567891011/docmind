@@ -7,7 +7,10 @@ import { buildFallbackLetter } from "../src/services/reply/fallback-letter";
 import {
   collectAllowedLetterFacts,
   deriveFactsUsedInLetter,
+  extractBankFeeLines,
+  isBankNonFeeLine,
   isLetterNoiseFact,
+  normalizeBankFeeLine,
   sanitizeRecipient,
   validateLetterBody,
 } from "../src/services/reply/letter-quality";
@@ -53,17 +56,22 @@ const classification: DocumentClassification = {
 };
 
 function main() {
-  // --- Relevé bancaire Banque Horizon (multi-frais) ---
+  // --- Relevé bancaire Banque Horizon (fixture sale multi-frais) ---
   const bankText = [
     "BANQUE HORIZON",
     "Relevé de compte n° 123456789",
     "Période du 01/01/2026 au 31/01/2026",
+    "Découvert autorisé : 538 €",
+    "Solde arrêté au 31/01/2026",
+    "Commission de tenue de compte : 2,71 €",
     "Commission de tenue de compte : 2,71 €",
     "Frais de mouvement : 3,22 €",
     "Commission d'intervention : 12,00 €",
+    "Frais de découvert | -26,23 €",
     "Agios de découvert : 26,23 €",
     "Taux d'intérêts débiteurs : 14,5 %",
-    "Signaler tout changement d'adresse sous 30 jours.",
+    "u 08/10/2026 Situation • Solde arrêté créditeur",
+    "Signaler sans délai tout changement d'adresse.",
     "Traiter les réclamations sous 30 jours.",
   ].join("\n");
 
@@ -72,10 +80,22 @@ function main() {
     title: "Relevé de compte — période du 01/01/2026 au 31/01/2026",
     summary: "Relevé mensuel avec plusieurs frais bancaires.",
     organizations: ["Banque Horizon"],
-    amounts: ["2,71 €", "3,22 €", "12,00 €", "26,23 €"],
+    amounts: [
+      "2,71 €",
+      "2,71 €",
+      "3,22 €",
+      "12,00 €",
+      "26,23 €",
+      "Découvert autorisé : 538 €",
+      "Frais de découvert | -26,23 €",
+    ],
     deadlines: [
-      "Signaler tout changement d'adresse sous 30 jours",
+      "Signaler sans délai tout changement d'adresse",
       "Traiter les réclamations sous 30 jours",
+    ],
+    important_points: [
+      "u 08/10/2026 Situation • Solde arrêté",
+      "Commission de tenue de compte : 2,71 €",
     ],
     actions: ["Vérifier les frais bancaires"],
     risks: ["Frais de tenue de compte"],
@@ -96,13 +116,31 @@ function main() {
     letterType: "contestation",
     family: "banque",
   });
-  const amountFacts = bankFacts.filter((f) => f.label.startsWith("Montant :"));
-  assert.ok(amountFacts.length >= 2, "≥2 montants/frais dans les faits autorisés");
+  const amountFacts = bankFacts.filter((f) => f.label.startsWith("Frais :"));
+  assert.ok(amountFacts.length >= 2, "≥2 frais propres dans les faits autorisés");
+  assert.ok(
+    !bankFacts.some((f) => /d[ée]couvert\s+autoris/i.test(f.label)),
+    "pas de découvert autorisé",
+  );
   assert.ok(
     !bankFacts.some((f) => /changement d'adresse/i.test(f.label)),
     "0 obligation client dans faits",
   );
-  assert.ok(isLetterNoiseFact("Signaler tout changement d'adresse sous 30 jours"));
+  assert.ok(
+    !bankFacts.some((f) => /situation\s*•/i.test(f.label)),
+    "pas de fragment Situation",
+  );
+  assert.ok(isLetterNoiseFact("Signaler sans délai tout changement d'adresse"));
+  assert.ok(isBankNonFeeLine("Découvert autorisé : 538 €"));
+
+  const feeLines = extractBankFeeLines(bankText, bankAnalysis);
+  const count271 = feeLines.filter((l) => /2[,.]71/.test(l)).length;
+  assert.equal(count271, 1, "pas de doublon 2,71 €");
+  assert.ok(!feeLines.some((l) => l.includes("|")), "pas de pipe dans libellés");
+  assert.ok(
+    normalizeBankFeeLine("Frais de découvert | -26,23 €")?.includes("26,23 €"),
+    "normalise frais découvert",
+  );
 
   const bankLetter = buildFallbackLetter(
     "contestation",
@@ -119,12 +157,25 @@ function main() {
   assert.ok(/salutations distinguées/i.test(bankLetter.body));
   assert.ok(!/\bJe\s*$/m.test(bankLetter.body.trim()), "pas tronqué en « Je »");
   assert.ok(
-    (bankLetter.body.match(/\d+[,.]\d{2}\s*€/g) ?? []).length >= 2,
-    "≥2 frais cités dans le corps",
+    (bankLetter.body.match(/2[,.]71\s*€/g) ?? []).length <= 1,
+    "pas de doublon 2,71 dans le corps",
   );
   assert.ok(
-    !/Signaler tout changement/i.test(bankLetter.body),
+    !/d[ée]couvert\s+autoris/i.test(bankLetter.body),
+    "pas de découvert autorisé dans le corps",
+  );
+  assert.ok(
+    !/changement d'adresse/i.test(bankLetter.body),
     "pas d'obligation client dans le corps",
+  );
+  assert.ok(
+    !/je prends note de l['']?échéance/i.test(bankLetter.body),
+    "pas de phrase échéance obligation client",
+  );
+  assert.ok(!/\|/.test(bankLetter.body), "pas de pipe dans le corps");
+  assert.ok(
+    !/situation\s*•/i.test(bankLetter.body),
+    "pas de fragment Situation dans le corps",
   );
   assert.ok(
     !(bankLetter.factsUsed ?? []).some((f) => /changement d'adresse/i.test(f)),
@@ -229,8 +280,7 @@ function main() {
   assert.ok(validateLetterBody(bailLetter.body).valid);
 
   // --- deriveFactsUsedInLetter ---
-  const bodySample =
-    "Madame, Monsieur,\n\nJe conteste les frais de 2,71 € et 12,00 €.\n\nSalutations distinguées.";
+  const bodySample = `Madame, Monsieur,\n\nJe conteste les frais suivants : ${feeLines.slice(0, 2).join(", ")}.\n\nSalutations distinguées.`;
   const derived = deriveFactsUsedInLetter(bodySample, bankFacts);
   assert.ok(derived.length >= 1 && derived.length <= 8);
 
@@ -250,7 +300,7 @@ function main() {
 
   console.log("OK test-letter-agent", {
     bank: bankSuggestion.letterType,
-    bankFeesInBody: (bankLetter.body.match(/\d+[,.]\d{2}\s*€/g) ?? []).length,
+    feeLines: feeLines.length,
     bankFacts: bankLetter.factsUsed?.length,
     recouvrement: recouvrement.letterType,
     words: bankLetter.body.split(/\s+/).length,

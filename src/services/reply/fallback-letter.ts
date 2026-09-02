@@ -14,6 +14,7 @@ import {
 import {
   collectAllowedLetterFacts,
   deriveFactsUsedInLetter,
+  formatBankFeeBulletLines,
   sanitizeRecipient,
 } from "@/services/reply/letter-quality";
 
@@ -44,10 +45,19 @@ function closing(): string {
 
 function feeBulletLines(
   allowedFacts: ReturnType<typeof collectAllowedLetterFacts>,
+  family: ReturnType<typeof resolveLetterDocFamily>,
+  documentText: string,
+  analysis: DocumentAnalysis,
+  sheet?: DocumentSheet | null,
 ): string[] {
+  if (family === "banque") {
+    return formatBankFeeBulletLines(documentText, analysis, sheet);
+  }
   return allowedFacts
-    .filter((f) => f.label.startsWith("Montant :"))
-    .map((f) => `- ${f.label.replace(/^Montant\s*:\s*/i, "")}`);
+    .filter((f) => f.label.startsWith("Montant :") || f.label.startsWith("Frais :"))
+    .map((f) =>
+      `- ${f.label.replace(/^(?:Montant|Frais)\s*:\s*/i, "")}`,
+    );
 }
 
 /**
@@ -83,7 +93,13 @@ export function buildFallbackLetter(
     letterType,
     family,
   });
-  const feeLines = feeBulletLines(allowedFacts);
+  const feeLines = feeBulletLines(
+    allowedFacts,
+    family,
+    documentText,
+    analysis,
+    sheet,
+  );
   const orgLabel = orgs[0] || "votre établissement";
 
   const templates: Record<
@@ -130,9 +146,11 @@ export function buildFallbackLetter(
     contestation: {
       subject: shortenLetterSubject(
         family === "banque"
-          ? "Contestation de frais bancaires"
+          ? feeLines.length > 0
+            ? "Contestation de frais bancaires"
+            : "Demande de détail des frais bancaires"
           : "Contestation",
-        "contestation",
+        feeLines.length > 0 ? "contestation" : "autre",
         family,
       ),
       reason: reason || "Contestation fondée sur les éléments du document.",
@@ -140,19 +158,20 @@ export function buildFallbackLetter(
         greeting(recipient),
         "",
         family === "banque"
-          ? `Je conteste formellement les frais et opérations débités sur mon compte, figurant sur le relevé de ${orgLabel} en date du ${dateDoc}.`
+          ? feeLines.length > 0
+            ? `Je conteste formellement les frais et commissions débités sur mon compte, figurant sur le relevé de ${orgLabel} en date du ${dateDoc}.`
+            : `Je vous contacte au sujet du relevé de compte de ${orgLabel} en date du ${dateDoc}. Je souhaite obtenir le détail motivé de l'ensemble des frais, commissions et pénalités appliqués sur cette période.`
           : `Je conteste formellement les éléments figurant dans votre document en date du ${dateDoc}.`,
         "",
         feeLines.length > 0
           ? `Je conteste notamment les éléments suivants :\n${feeLines.join("\n")}`
-          : analysis.important_points[0]
-            ? `Point contesté : ${analysis.important_points[0]}`
-            : "Je conteste les montants et opérations identifiés dans le document joint.",
+          : family === "banque"
+            ? "À ce jour, je ne dispose pas d'un décompte clair et distinct de chaque frais facturé. Je vous demande donc un relevé détaillé avant toute régularisation."
+            : analysis.important_points[0]
+              ? `Point contesté : ${analysis.important_points[0]}`
+              : "Je conteste les montants et opérations identifiés dans le document joint.",
         "",
         "Je vous demande de réexaminer ce dossier, de justifier par écrit chaque montant contesté et de procéder aux corrections nécessaires.",
-        safeDeadlines[0]
-          ? `Je prends note de l'échéance suivante : ${safeDeadlines[0]}.`
-          : null,
         closing(),
       ]
         .filter(Boolean)
