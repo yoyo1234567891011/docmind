@@ -21,8 +21,8 @@ import {
   ensureAdminRuntimeLoaded,
   getPromptUsageSnapshot,
 } from "@/services/admin/runtime";
-import { hasEntitlement } from "@/services/billing/entitlements";
 import { appendAnalysisLog } from "@/services/logs";
+import { hasEntitlement } from "@/services/billing/entitlements";
 import { buildDocumentSheetFromAnalysis } from "@/services/sheets";
 import type { AnalysisLogStep } from "@/types/analysis-log";
 import {
@@ -149,7 +149,7 @@ async function analyzeDocumentTextUnlocked(
         reconcile: false,
       });
       const readyReply =
-        canLetter && cached.readyReply
+        canLetter && cached.readyReply && !request.skipReadyReply
           ? cached.readyReply
           : EMPTY_READY_REPLY;
       const summary =
@@ -251,7 +251,7 @@ async function analyzeDocumentTextUnlocked(
           durationMs: 0,
           tokens: emptyTokens(),
           ok: true,
-          error: "Courrier ignoré — offre Premium requise.",
+          error: "Courrier ignoré — plan payant requis.",
         });
       } else {
         try {

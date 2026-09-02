@@ -39,6 +39,7 @@
     "test:alerts": "tsx --tsconfig tsconfig.json scripts/test-alerts-engine.ts",
     "test:history-cascade": "tsx --tsconfig tsconfig.json scripts/test-history-cascade-delete.ts",
     "test:letter": "tsx --tsconfig tsconfig.json scripts/test-letter-agent.ts",
+    "test:letter-quota": "tsx --tsconfig tsconfig.json scripts/test-letter-quota.ts",
     "test:manager": "tsx --tsconfig tsconfig.json scripts/test-document-manager.ts",
     "test:auth": "tsx --tsconfig tsconfig.json scripts/test-auth-isolation.ts",
     "test:llm-health": "tsx --tsconfig tsconfig.json scripts/test-llm-health.ts",

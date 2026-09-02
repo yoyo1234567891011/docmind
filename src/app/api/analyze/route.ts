@@ -110,7 +110,6 @@ export async function POST(request: Request) {
         : body.skipReadyReply === false
           ? false
           : undefined;
-    // Défense en profondeur : Free ne peut pas forcer la génération courrier via analyze.
     if (skipReadyReply === false) {
       const canLetter = await hasEntitlement(user.id, "letter_agent", {
         reconcile: true,

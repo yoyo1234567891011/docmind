@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { ReadyReplyCard } from "@/components/documents/ready-reply-card";
 import { Alert, Button } from "@/components/ui";
 import { SpinnerIcon } from "@/components/ui/icons";
-import { draftLetter, fetchBilling, fetchLetterSuggestion } from "@/lib/client";
+import { draftLetter, fetchLetterSuggestion } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import {
   LETTER_TYPE_LABELS,
@@ -40,30 +40,35 @@ export function LetterDraftPanel({
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [premiumRequired, setPremiumRequired] = useState(false);
+  const [planBlocked, setPlanBlocked] = useState(false);
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
+  const [analyzeRemaining, setAnalyzeRemaining] = useState<number | null>(null);
   const [billingChecked, setBillingChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([
-      fetchLetterSuggestion(historyId),
-      fetchBilling().catch(() => null),
-    ])
-      .then(([data, billing]) => {
+    void fetchLetterSuggestion(historyId)
+      .then((data) => {
         if (cancelled) return;
         setSuggestedType(data.suggestion.letterType);
         setSuggestionReason(data.suggestion.reason);
-        const hasLetter =
-          billing?.entitlementsDevBypass === true ||
-          billing?.entitlements?.includes("letter_agent") === true;
-        const needsPremium =
-          data.premiumRequired === true ||
-          (billing != null && !hasLetter);
-        setPremiumRequired(needsPremium);
-        if (!needsPremium && data.currentLetter?.required) {
-          setLetter(data.currentLetter);
-        } else if (needsPremium) {
+
+        const remaining = data.analyzeQuota?.remaining ?? null;
+
+        if (data.premiumRequired === true) {
+          setPlanBlocked(true);
+          setQuotaBlocked(false);
           setLetter(null);
+        } else {
+          setPlanBlocked(false);
+          setAnalyzeRemaining(remaining);
+          const canGenerate = data.canGenerate ?? (remaining == null || remaining > 0);
+          setQuotaBlocked(!canGenerate);
+          if (canGenerate && data.currentLetter?.required) {
+            setLetter(data.currentLetter);
+          } else if (!canGenerate) {
+            setLetter(null);
+          }
         }
         setBillingChecked(true);
       })
@@ -76,7 +81,7 @@ export function LetterDraftPanel({
   }, [historyId]);
 
   const handleGenerate = async () => {
-    if (premiumRequired) return;
+    if (planBlocked || quotaBlocked) return;
     setIsLoading(true);
     setError(null);
     try {
@@ -87,17 +92,33 @@ export function LetterDraftPanel({
       });
       setLetter(result.letter);
       onDrafted?.(result.letter);
+      if (analyzeRemaining != null && analyzeRemaining > 0) {
+        setAnalyzeRemaining(analyzeRemaining - 1);
+      }
     } catch (draftError) {
       const message =
         draftError instanceof Error
           ? draftError.message
           : "Impossible de rédiger le courrier.";
       setError(message);
-      if (/Premium/i.test(message)) setPremiumRequired(true);
+      if (/plan payant|offre Pro|Facturation/i.test(message)) {
+        setPlanBlocked(true);
+      }
+      if (/quota|analyses du mois/i.test(message)) {
+        setQuotaBlocked(true);
+        setAnalyzeRemaining(0);
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  const remainingLabel =
+    analyzeRemaining == null
+      ? null
+      : analyzeRemaining === 1
+        ? "1 courrier restant ce mois"
+        : `${analyzeRemaining} courriers restants ce mois`;
 
   return (
     <div className="space-y-4">
@@ -110,6 +131,9 @@ export function LetterDraftPanel({
             Rédige automatiquement un courrier à partir des informations
             extraites du document.
           </p>
+          {!planBlocked && remainingLabel && !quotaBlocked ? (
+            <p className="mt-2 text-xs text-[var(--muted)]">{remainingLabel}</p>
+          ) : null}
           {suggestionReason ? (
             <p className="mt-2 text-xs text-[var(--muted)]">
               Suggestion :{" "}
@@ -122,9 +146,21 @@ export function LetterDraftPanel({
         </header>
 
         <div className="space-y-4 px-5 py-4">
-          {billingChecked && premiumRequired ? (
-            <Alert tone="info" title="Offre Pro">
-              L’agent courrier est inclus à partir de l’offre Pro.{" "}
+          {billingChecked && planBlocked ? (
+            <Alert tone="info" title="Plan payant requis">
+              L’agent courrier est inclus à partir d’un plan payant (Basique,
+              Pro, Premium ou Extra).{" "}
+              <Link
+                href="/facturation"
+                className="font-medium text-[var(--accent)] hover:underline"
+              >
+                Voir les plans
+              </Link>
+            </Alert>
+          ) : billingChecked && quotaBlocked ? (
+            <Alert tone="info" title="Quota analyses atteint">
+              Vous avez utilisé toutes vos analyses ce mois — les courriers
+              partagent ce quota.{" "}
               <Link
                 href="/facturation"
                 className="font-medium text-[var(--accent)] hover:underline"
@@ -185,7 +221,9 @@ export function LetterDraftPanel({
         </div>
       </section>
 
-      {letter && !premiumRequired ? <ReadyReplyCard reply={letter} /> : null}
+      {letter && !planBlocked && !quotaBlocked ? (
+        <ReadyReplyCard reply={letter} />
+      ) : null}
     </div>
   );
 }

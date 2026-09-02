@@ -33,6 +33,7 @@ async function main() {
   assert.equal(BILLING_PLANS.extra.priceMonthlyEur, 59.99);
   assert.ok(BILLING_PLANS.free.entitlements.includes("analyze"));
   assert.ok(!BILLING_PLANS.free.entitlements.includes("letter_agent"));
+  assert.ok(BILLING_PLANS.basique.entitlements.includes("letter_agent"));
   assert.ok(getBillingPlan("premium").entitlements.includes("letter_agent"));
 
   assert.equal(isPremiumStatus("premium", "active"), true);
@@ -183,7 +184,6 @@ async function main() {
     assert.ok(ents.includes("letter_agent"), "dev: letter_agent ouvert");
     await requireEntitlement(userId, "letter_agent");
   } else {
-    // Avec Stripe : free n’a pas letter_agent
     const ok = await hasEntitlement(userId, "letter_agent");
     assert.equal(ok, false);
 

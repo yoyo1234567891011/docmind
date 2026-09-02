@@ -6,7 +6,13 @@ import { hasEntitlement } from "@/services/billing/entitlements";
 import { draftLetterForHistory } from "@/services/reply/draft";
 import { suggestLetterType } from "@/services/reply/suggest-type";
 import { getHistoryRecord } from "@/services/history";
-import { consumeQuota } from "@/services/quotas/enforce";
+import {
+  assertQuotaAvailable,
+  consumeQuota,
+  getQuotaStatus,
+  pickQuotaItem,
+  refundQuota,
+} from "@/services/quotas/enforce";
 import { LETTER_TYPES, type LetterType } from "@/types";
 
 export const runtime = "nodejs";
@@ -15,11 +21,22 @@ export const runtime = "nodejs";
  * POST /api/letters
  * Body: { historyId: string, letterType?: LetterType | "auto", persist?: boolean }
  *
- * Agent de rédaction de courrier à partir des infos extraites du document.
+ * Plans payants uniquement — 1 courrier réussi = 1 unité du quota analyses.
  */
 export async function POST(request: Request) {
   try {
     const user = await requireUser(request);
+    const canLetter = await hasEntitlement(user.id, "letter_agent", {
+      reconcile: true,
+    });
+    if (!canLetter) {
+      throw new AppError(
+        "FORBIDDEN",
+        "L’agent courrier est inclus à partir d’un plan payant. Choisissez une offre depuis Facturation.",
+        403,
+      );
+    }
+
     pruneRateLimitBuckets();
     const limited = await checkRateLimitAsync({
       key: `letters:${user.id}`,
@@ -51,18 +68,23 @@ export async function POST(request: Request) {
       throw new AppError("BAD_REQUEST", "Type de courrier invalide.");
     }
 
-    // Valide ownership avant consommation de quota
-    await getHistoryRecord(user.id, body.historyId.trim());
-    await consumeQuota(user.id, "letter");
+    const historyId = body.historyId.trim();
+    await getHistoryRecord(user.id, historyId);
+    await assertQuotaAvailable(user.id, "analyze");
+    await consumeQuota(user.id, "analyze");
 
-    const result = await draftLetterForHistory({
-      userId: user.id,
-      historyId: body.historyId.trim(),
-      letterType,
-      persist: body.persist !== false,
-    });
-
-    return apiSuccess(result);
+    try {
+      const result = await draftLetterForHistory({
+        userId: user.id,
+        historyId,
+        letterType,
+        persist: body.persist !== false,
+      });
+      return apiSuccess(result);
+    } catch (error) {
+      await refundQuota(user.id, "analyze").catch(() => undefined);
+      throw error;
+    }
   } catch (error) {
     return apiFromUnknownError(error);
   }
@@ -70,8 +92,7 @@ export async function POST(request: Request) {
 
 /**
  * GET /api/letters?historyId=
- * Suggère le type de courrier sans générer.
- * Le corps du courrier n’est renvoyé qu’aux comptes Premium.
+ * Suggère le type de courrier sans générer ni consommer de quota.
  */
 export async function GET(request: Request) {
   try {
@@ -92,12 +113,28 @@ export async function GET(request: Request) {
     const canLetter = await hasEntitlement(user.id, "letter_agent", {
       reconcile: true,
     });
+    const quotas = await getQuotaStatus(user.id);
+    const analyze = pickQuotaItem(quotas, "analyze");
+    const canGenerate =
+      canLetter &&
+      analyze != null &&
+      (analyze.unlimited || analyze.remaining > 0);
 
     return apiSuccess({
       historyId,
       suggestion,
       currentLetter: canLetter ? (record.readyReply ?? null) : null,
       premiumRequired: !canLetter,
+      canGenerate,
+      analyzeQuota: canLetter
+        ? analyze
+          ? {
+              used: analyze.used,
+              limit: analyze.limit,
+              remaining: analyze.unlimited ? null : analyze.remaining,
+            }
+          : null
+        : null,
     });
   } catch (error) {
     return apiFromUnknownError(error);

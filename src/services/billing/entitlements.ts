@@ -93,7 +93,7 @@ export async function requireEntitlement(
   if (!ok) {
     const upgradeHint =
       entitlement === "letter_agent"
-        ? "Cette fonctionnalité nécessite l’offre Pro ou supérieure. Choisissez un plan depuis Facturation."
+        ? "L’agent courrier est inclus à partir d’un plan payant. Choisissez une offre depuis Facturation."
         : "Cette fonctionnalité nécessite un abonnement payant. Passez à un plan depuis Facturation.";
     throw new AppError("FORBIDDEN", upgradeHint, 403);
   }

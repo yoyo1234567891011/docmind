@@ -14,13 +14,14 @@ const CORE_ENTITLEMENTS: BillingEntitlement[] = [
   "documents",
 ];
 
-const PRO_ENTITLEMENTS: BillingEntitlement[] = [
+/** Tous les plans payants : agent courrier (quota = analyses). */
+const PAID_ENTITLEMENTS: BillingEntitlement[] = [
   ...CORE_ENTITLEMENTS,
   "letter_agent",
 ];
 
 const PREMIUM_ENTITLEMENTS: BillingEntitlement[] = [
-  ...PRO_ENTITLEMENTS,
+  ...PAID_ENTITLEMENTS,
   "priority_support",
 ];
 
@@ -50,13 +51,13 @@ export const BILLING_PLANS: Record<BillingPlanId, BillingPlanDefinition> = {
     description: "Plus d’analyses et recherche intelligente.",
     priceMonthlyEur: 9.99,
     stripe: true,
-    entitlements: CORE_ENTITLEMENTS,
+    entitlements: PAID_ENTITLEMENTS,
     features: [
       "15 analyses PDF par mois",
       "Tout Gratuit",
       "Recherche intelligente",
+      "Agent courrier (quota analyses)",
       "Portail facturation Stripe",
-      "Sans agent courrier",
     ],
   },
   pro: {
@@ -66,7 +67,7 @@ export const BILLING_PLANS: Record<BillingPlanId, BillingPlanDefinition> = {
     priceMonthlyEur: 19.99,
     stripe: true,
     highlighted: true,
-    entitlements: PRO_ENTITLEMENTS,
+    entitlements: PAID_ENTITLEMENTS,
     features: [
       "40 analyses PDF par mois",
       "Tout Basique",

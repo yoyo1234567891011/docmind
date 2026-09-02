@@ -33,6 +33,12 @@ export async function fetchLetterSuggestion(historyId: string): Promise<{
   suggestion: LetterTypeSuggestion;
   currentLetter: ReadyReply | null;
   premiumRequired?: boolean;
+  canGenerate?: boolean;
+  analyzeQuota?: {
+    used: number;
+    limit: number;
+    remaining: number | null;
+  } | null;
 }> {
   const response = await fetch(
     `/api/letters?historyId=${encodeURIComponent(historyId)}`,
@@ -43,6 +49,12 @@ export async function fetchLetterSuggestion(historyId: string): Promise<{
     suggestion: LetterTypeSuggestion;
     currentLetter: ReadyReply | null;
     premiumRequired?: boolean;
+    canGenerate?: boolean;
+    analyzeQuota?: {
+      used: number;
+      limit: number;
+      remaining: number | null;
+    } | null;
   }>;
   if (!payload.success) throw new Error(payload.error.message);
   return payload.data;
