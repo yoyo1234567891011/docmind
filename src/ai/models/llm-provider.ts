@@ -41,11 +41,36 @@ function resolveCloudBaseUrl(apiKeySource: "groq" | "mistral" | "generic"): stri
   return "https://api.groq.com/openai/v1";
 }
 
+/**
+ * Modèles Groq retirés (shutdown 2026-08-16) → remplacement automatique.
+ * @see https://console.groq.com/docs/deprecations
+ */
+const GROQ_RETIRED_MODEL_MAP: Record<string, string> = {
+  "llama-3.3-70b-versatile": "qwen/qwen3.6-27b",
+  "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+};
+
+/** Normalise un id modèle cloud (remap des modèles Groq retirés). */
+export function normalizeCloudModelId(model: string): string {
+  const trimmed = model.trim();
+  if (!trimmed) return trimmed;
+  const key = trimmed.toLowerCase();
+  const replacement = GROQ_RETIRED_MODEL_MAP[key];
+  if (replacement) {
+    console.warn(
+      `[llm] modèle Groq retiré ${trimmed} → ${replacement} (mise à jour LLM_MODEL recommandée)`,
+    );
+    return replacement;
+  }
+  return trimmed;
+}
+
 function resolveCloudModel(apiKeySource: "groq" | "mistral" | "generic"): string {
   const fromEnv = trimEnv("LLM_MODEL");
-  if (fromEnv) return fromEnv;
+  if (fromEnv) return normalizeCloudModelId(fromEnv);
   if (apiKeySource === "mistral") return "mistral-small-latest";
-  return "llama-3.1-8b-instant";
+  // Défaut Groq (post-dépréciation llama-3.x, sept. 2026)
+  return "openai/gpt-oss-120b";
 }
 
 function detectApiKeySource(): "groq" | "mistral" | "generic" | null {

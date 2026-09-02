@@ -84,6 +84,18 @@ function httpErrorToAppError(status: number, details: string): AppError {
   if (isRateLimitPayload(status, details)) {
     return new AppError("OLLAMA_UNAVAILABLE", LLM_SATURATION_USER_MESSAGE, 503);
   }
+  if (
+    status === 404 ||
+    /model_not_found|does not exist|no longer available|deprecated/i.test(
+      details,
+    )
+  ) {
+    return new AppError(
+      "OLLAMA_UNAVAILABLE",
+      "Modèle d’analyse indisponible sur Groq (retiré ou LLM_MODEL incorrect). L’équipe met à jour la configuration — réessayez dans quelques minutes.",
+      502,
+    );
+  }
   // Ne jamais renvoyer le JSON brut Groq à l’UI.
   if (details.trim().startsWith("{")) {
     return new AppError(

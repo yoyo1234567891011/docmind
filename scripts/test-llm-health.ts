@@ -141,6 +141,16 @@ async function main() {
   assert.strictEqual(ollamaDown.backend, "ollama");
   assert.strictEqual(ollamaDown.ok, false);
 
+  const { normalizeCloudModelId } = await import("../src/ai/models/llm-provider");
+  assert.strictEqual(
+    normalizeCloudModelId("llama-3.3-70b-versatile"),
+    "qwen/qwen3.6-27b",
+  );
+  assert.strictEqual(
+    normalizeCloudModelId("llama-3.1-8b-instant"),
+    "openai/gpt-oss-20b",
+  );
+
   console.log("OK test-llm-health");
 }
 
