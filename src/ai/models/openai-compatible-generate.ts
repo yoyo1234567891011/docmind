@@ -38,8 +38,8 @@ type ChatCompletionResponse = {
 const EMPTY_RESPONSE_RETRIES = 1;
 /** Pas de retry HTTP sur 429 — le worker requeue avec cooldown TPM. */
 const RATE_LIMIT_RETRIES = 0;
-/** Groq free TPM ~8k : ne pas réserver trop de completion tokens. */
-const GROQ_MAX_COMPLETION_TOKENS = 1_800;
+/** Plafond Groq — aligné cloudAnalyzeMaxTokens (latence + TPM). */
+const GROQ_MAX_COMPLETION_TOKENS = 1_200;
 const RATE_LIMIT_WAIT_CAP_MS = 30_000;
 
 function sleep(ms: number): Promise<void> {

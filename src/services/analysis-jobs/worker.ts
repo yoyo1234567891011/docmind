@@ -311,14 +311,17 @@ async function defaultRunP2(
     },
   }).catch(() => undefined);
 
-  const memoryMs = await measureMemorySyncMs(job.userId, job.historyId);
+  // Ne pas bloquer la complétion du job sur la sync mémoire (jusqu'à 30s avant).
+  void measureMemorySyncMs(job.userId, job.historyId, 20_000).catch(
+    () => undefined,
+  );
 
   return {
     queueWaitMs,
     lockWaitMs: timing.lockWaitMs,
     generateMs: timing.generateMs,
     historyMs,
-    memoryMs,
+    memoryMs: null,
     totalTokens: full.totalTokens ?? 0,
   };
 }

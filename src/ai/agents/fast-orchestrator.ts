@@ -98,8 +98,9 @@ type CoreBundle = Partial<ExtractedFacts> &
     actions?: unknown;
   };
 
-const CORE_BUNDLE_ATTEMPTS = 3;
-const CORE_BUNDLE_MAX_TOKENS_CAP = 1_800;
+/** 2 tentatives max : salvage JSON local entre les deux si possible. */
+const CORE_BUNDLE_ATTEMPTS = 2;
+const CORE_BUNDLE_MAX_TOKENS_CAP = 1_200;
 
 type SalvageCtx = {
   categoryLabel: string;

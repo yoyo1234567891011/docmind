@@ -252,6 +252,19 @@ export async function generateWithOllama(
  * Generate using Admin runtime config (or env defaults).
  * Records latency / errors for the Admin performance panel.
  */
+function resolveEffectiveMaxTokens(
+  task: Exclude<AiTask, "embed">,
+  configMaxTokens: number,
+  override?: number,
+): number {
+  const base =
+    typeof override === "number" && override > 0 ? override : configMaxTokens;
+  if (task === "analyze" && isCloudLlmEnabled()) {
+    return Math.min(base, docmindConfig.ollama.cloudAnalyzeMaxTokens);
+  }
+  return base;
+}
+
 export async function generateForTask(
   task: Exclude<AiTask, "embed">,
   prompt: string,
@@ -260,13 +273,18 @@ export async function generateForTask(
   await ensureAdminRuntimeLoaded();
   const config = await resolveTaskConfig(task);
   const started = Date.now();
+  const maxTokens = resolveEffectiveMaxTokens(
+    task,
+    config.maxTokens,
+    overrides?.maxTokens,
+  );
 
   try {
     const result = await generateWithOllama({
       prompt,
       model: config.model,
       temperature: config.temperature,
-      maxTokens: overrides?.maxTokens ?? config.maxTokens,
+      maxTokens,
       baseUrl: config.ollamaBaseUrl,
     });
 

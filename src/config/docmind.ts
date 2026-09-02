@@ -65,11 +65,10 @@ export const docmindConfig = {
     maxTokens: 1400,
 
     /**
-     * Cloud (Groq) : completion tokens.
-     * Free tier TPM ~8k : trop haut (ex. 2200) + long bail ≈ requête refusée.
-     * 1200 suffit pour le JSON core-bundle ; moins de TPM consommé.
+     * Cloud (Groq) : plafond completion tokens pour analyze (core-bundle JSON).
+     * 1000 suffit pour le JSON ; génération plus courte = latence ↓.
      */
-    cloudAnalyzeMaxTokens: 1400,
+    cloudAnalyzeMaxTokens: 1_000,
 
     /**
      * Fenêtre de contexte Ollama. Plus bas = prompt_eval plus rapide
