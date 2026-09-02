@@ -1,9 +1,11 @@
-/**
- * Deterministic extraction (no LLM).
- * Implementation lives in `src/services/extraction` — this is the AI-layer façade.
- */
 export {
   extractAmounts,
+  extractLabeledAmounts,
+  filterAmountsForDisplay,
+  formatLabeledAmount,
+  parseAmountDisplay,
+  scrubAbsurdAmountsInText,
+  scrubDisplayProse,
   extractDates,
   pickPrimaryDate,
   extractDeadlines,
@@ -12,4 +14,9 @@ export {
   extractOrganizations,
   extractDocumentEntities,
 } from "@/services/extraction";
-export type { ExtractedEntities } from "@/services/extraction";
+export type {
+  ExtractedEntities,
+  LabeledAmount,
+  AmountImportance,
+  AmountPeriod,
+} from "@/services/extraction";
