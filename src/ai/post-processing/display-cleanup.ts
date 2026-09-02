@@ -2,6 +2,7 @@
  * Nettoyage d’affichage (extraits / prose / actions / dédup).
  * Objectif : aucun texte visible ne finit au milieu d’un mot ou d’une phrase.
  */
+import { isAnalysisActionNoise } from "@/ai/post-processing/prod-quality";
 
 const LEADING_STOP =
   /^(le|la|les|un|une|des|du|de|d|et|ou|en|au|aux|ce|ces|se|si|sur|sous|par|pour|dans|avec|sans|son|sa|ses|il|elle|ils|elles|nous|vous|a|à|y|n|l|qu|que|qui|dont|où|mais|donc|or|ni|car)\b/i;
@@ -574,6 +575,7 @@ export function cleanActionForDisplay(
   if (!raw) return null;
   const t = normalizeSpaces(raw);
   if (!t) return null;
+  if (isAnalysisActionNoise(t)) return null;
 
   // Reformuler d’abord (sauve l’info utile même si la queue est coupée).
   const reformulated = reformulateActionSnippet(t);

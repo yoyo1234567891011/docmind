@@ -1,6 +1,7 @@
 import { verifyAnalysisDraft } from "@/ai/reasoning/verify-analysis";
 import { buildLocalFallbackSummary } from "@/ai/agents/core-bundle-outcome";
 import { scrubAnalysisForDisplay } from "@/ai/post-processing/enrich";
+import { finalizeAnalysisForProd } from "@/ai/post-processing/prod-quality";
 import { mergeWithLocalRiskFindings } from "@/ai/post-processing/inject-local-risk-findings";
 import { rankFindingsForWatch } from "@/ai/post-processing/watch-ranking";
 import { scoreRiskFromFindings } from "@/services/risk/score-from-findings";
@@ -253,6 +254,7 @@ export const verifyAgent: AnalysisAgent = {
     }
 
     analysis = scrubAnalysisForDisplay(analysis);
+    analysis = finalizeAnalysisForProd(analysis, state.classification ?? undefined);
 
     const v = verified._verification;
     const note = [

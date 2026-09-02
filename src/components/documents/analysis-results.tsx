@@ -14,6 +14,11 @@ import {
   filterGenericImportantPoints,
   rankFindingsForWatch,
 } from "@/ai/post-processing/watch-ranking";
+import {
+  buildWatchPointsFromCriteria,
+  resolveDisplaySummary,
+  shouldShowWatchEmptyState,
+} from "@/ai/post-processing/prod-quality";
 import { DocumentRelationsPanel } from "@/components/documents/document-relations-panel";
 import { DocumentTimelinePanel } from "@/components/documents/document-timeline-panel";
 import { DocumentSheetCard } from "@/components/documents/document-sheet-card";
@@ -299,9 +304,12 @@ function buildWatchPoints(
   const findings = (analysis.risk_findings ?? []).filter(
     (f) => f.status !== "rejected",
   );
-  // Priorité aux findings confirmés (injection locale + preuves) pour la section principale.
+  // Priorité aux findings confirmés ; sinon ambigus (évite « rien » avec score élevé).
   const confirmed = findings.filter((f) => f.status === "confirmed");
-  const usable = confirmed.length > 0 ? confirmed : findings;
+  const usable =
+    confirmed.length > 0
+      ? confirmed
+      : findings.filter((f) => f.status === "ambiguous");
 
   const ranked = rankFindingsForWatch(usable, {
     category: classification?.category,
@@ -374,10 +382,18 @@ function buildWatchPoints(
     ];
   });
 
-  return dedupeDisplayItems(
+  const fallback = dedupeDisplayItems(
     [...fromImportant, ...fromRisks],
     (p) => p.title,
   ).slice(0, 8);
+  if (fallback.length > 0) return fallback;
+
+  return buildWatchPointsFromCriteria(analysis, classification).map(
+    (point) => ({
+      ...point,
+      finding: undefined,
+    }),
+  );
 }
 
 function CitationBlock({
@@ -405,10 +421,12 @@ function CitationBlock({
 
 function WatchPointsSection({
   points,
+  analysis,
   isPreview,
   isPreviewLoading,
 }: {
   points: WatchPoint[];
+  analysis: DocumentAnalysis;
   isPreview: boolean;
   isPreviewLoading: boolean;
 }) {
@@ -437,7 +455,14 @@ function WatchPointsSection({
         {isPreviewLoading && points.length === 0 ? (
           <PendingLegalBlock label="Points à surveiller" />
         ) : points.length === 0 ? (
-          <EmptyState label="Rien de critique détecté pour l’instant — les détails restent disponibles plus bas." />
+          shouldShowWatchEmptyState(analysis) ? (
+            <EmptyState label="Rien de critique détecté pour l’instant — les détails restent disponibles plus bas." />
+          ) : (
+            <p className="text-sm leading-relaxed text-[var(--muted)]">
+              Des signaux sont présents dans le score et les montants ci-dessous —
+              consultez le détail pour les preuves et actions.
+            </p>
+          )
         ) : (
           <ul className="space-y-4">
             {points.map((point) => (
@@ -685,13 +710,7 @@ export function AnalysisResults({
   const isPreviewLoading =
     isPreview && (backgroundPending ?? true);
   const watchPoints = buildWatchPoints(analysis, classification);
-  const summary =
-    cleanSummaryForDisplay(analysis.summary) ||
-    (isPreviewLoading
-      ? "Aperçu en cours — un résumé plus complet arrivera après l’analyse (1 à 3 minutes)."
-      : isPreview
-        ? "Aperçu disponible — l’analyse approfondie n’a pas abouti."
-        : "");
+  const summary = resolveDisplaySummary(analysis, classification);
 
   return (
     <section
@@ -746,9 +765,12 @@ export function AnalysisResults({
           {cleanTitleForDisplay(analysis.title?.trim() || documentType) ||
             documentType}
         </h3>
-        {summary ? (
+        {summary || isPreviewLoading || isPreview ? (
           <p className="mt-5 max-w-3xl text-base leading-[1.7] text-[var(--foreground)] sm:text-[1.0625rem]">
-            {summary}
+            {summary ||
+              (isPreviewLoading
+                ? "Aperçu en cours — un résumé plus complet arrivera après l’analyse (1 à 3 minutes)."
+                : "Aperçu disponible — l’analyse approfondie n’a pas abouti.")}
           </p>
         ) : (
           <EmptyState label="Aucun résumé disponible pour ce document." />
@@ -784,6 +806,7 @@ export function AnalysisResults({
       {/* 2. Points à surveiller */}
       <WatchPointsSection
         points={watchPoints}
+        analysis={analysis}
         isPreview={isPreview}
         isPreviewLoading={isPreviewLoading}
       />

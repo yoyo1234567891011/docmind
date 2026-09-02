@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
+import { resolveDisplaySummary } from "@/ai/post-processing/prod-quality";
 import { cn } from "@/lib/utils";
+import { parseAmountDisplay } from "@/services/extraction/amounts";
 import type { DocumentSheet } from "@/types";
 
 interface DocumentSheetCardProps {
@@ -44,6 +46,33 @@ function List({ items, empty }: { items: string[]; empty: string }) {
   );
 }
 
+function AmountList({ items }: { items: string[] }) {
+  if (items.length === 0) {
+    return <p className="text-[var(--muted)]">Aucun montant.</p>;
+  }
+  return (
+    <ul className="space-y-1.5">
+      {items.map((item) => {
+        const { value, label } = parseAmountDisplay(item);
+        return (
+          <li key={item} className="flex gap-2 leading-relaxed">
+            <span
+              aria-hidden
+              className="mt-2 h-1.5 w-1.5 shrink-0 rounded-sm bg-[var(--accent)]"
+            />
+            <span>
+              <span className="font-medium tabular-nums">{value}</span>
+              {label ? (
+                <span className="text-[var(--muted)]"> — {label}</span>
+              ) : null}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function DocumentSheetCard({
   sheet,
   className,
@@ -82,7 +111,7 @@ export function DocumentSheetCard({
         </div>
       </header>
 
-      <div className="grid gap-5 px-5 py-5 sm:grid-cols-2">
+      <div className="grid gap-5 px-5 py-5 md:grid-cols-2">
         <Field label="Type">
           <p className="font-medium">{sheet.type || "—"}</p>
         </Field>
@@ -95,7 +124,31 @@ export function DocumentSheetCard({
         <div className="sm:col-span-2">
           <Field label="Résumé">
             <p className="leading-relaxed">
-              {sheet.summary || "Aucun résumé disponible."}
+              {resolveDisplaySummary(
+                {
+                  document_type: sheet.type,
+                  title: sheet.name,
+                  summary: sheet.summary,
+                  date: sheet.dates[0] ?? "",
+                  dates: sheet.dates,
+                  people: sheet.people,
+                  organizations: sheet.organizations,
+                  amounts: sheet.amounts,
+                  deadlines: sheet.deadlines,
+                  important_points: [],
+                  risks: sheet.risks,
+                  actions: sheet.actions,
+                  risk_score: sheet.riskScore,
+                  risk_level: sheet.riskLevel,
+                  risk_explanation: "",
+                  risk_criteria: [],
+                },
+                {
+                  category: sheet.category,
+                  label: sheet.categoryLabel,
+                  confidence: sheet.confidence,
+                },
+              )}
             </p>
           </Field>
         </div>
@@ -107,7 +160,7 @@ export function DocumentSheetCard({
           <List items={sheet.organizations} empty="Aucune organisation." />
         </Field>
         <Field label="Montants">
-          <List items={sheet.amounts} empty="Aucun montant." />
+          <AmountList items={sheet.amounts} />
         </Field>
         <Field label="Dates">
           <List items={sheet.dates} empty="Aucune date." />

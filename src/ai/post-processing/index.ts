@@ -1,4 +1,14 @@
 export {
+  buildWatchPointsFromCriteria,
+  buildDeterministicDisplaySummary,
+  finalizeAnalysisForProd,
+  isAnalysisActionNoise,
+  isDictionaryDefinitionSnippet,
+  isFakeScheduleDeadline,
+  resolveDisplaySummary,
+  shouldShowWatchEmptyState,
+} from "@/ai/post-processing/prod-quality";
+export {
   enrichAnalysisWithExtractedEntities,
   enrichAnalysisDetailed,
   scrubAnalysisForDisplay,

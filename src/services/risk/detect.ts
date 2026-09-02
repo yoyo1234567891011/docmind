@@ -1,3 +1,4 @@
+import { isDictionaryDefinitionSnippet } from "@/ai/post-processing/prod-quality";
 import type { RiskCriterionDefinition } from "@/services/risk/criteria";
 import type { RiskCriterionResult } from "@/types";
 
@@ -17,7 +18,7 @@ function findMatchingSnippets(
     .filter(Boolean);
 
   for (const line of lines) {
-    if (pattern.test(line)) {
+    if (pattern.test(line) && !isDictionaryDefinitionSnippet(line)) {
       snippets.push(line.slice(0, 160));
     }
     if (snippets.length >= limit) break;

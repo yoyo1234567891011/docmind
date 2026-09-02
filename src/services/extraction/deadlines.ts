@@ -1,4 +1,9 @@
+import {
+  isFakeScheduleDeadline,
+  isDictionaryDefinitionSnippet,
+} from "@/ai/post-processing/prod-quality";
 import { uniqueStrings } from "@/lib/array";
+import { isRecipientObligation } from "@/services/reply/letter-intents";
 import { extractDates } from "@/services/extraction/dates";
 
 const DEADLINE_KEYWORDS =
@@ -9,7 +14,11 @@ const RELATIVE_DEADLINE =
 
 /** Items that belong to risks/actions, never to deadlines. */
 const FORBIDDEN_DEADLINE_CONTENT =
-  /p[ée]nalit|sanction|amende|astreinte|nullit[ée]|d[ée]ch[ée]ance|suspension|poursuite|mise\s+en\s+demeure|obligation|tenu\s+de|doit\s+imp[ée]rativement|cons[ée]quence|faute\s+de\s+quoi|sous\s+peine|franchise|frais\s+de\s+dossier|frais\s+cach|cotisation|majoration\s+automatique/i;
+  /p[ée]nalit|sanction|amende|astreinte|nullit[ée]|d[ée]ch[ée]ance|suspension|poursuite|mise\s+en\s+demeure|obligation|tenu\s+de|doit\s+imp[ée]rativement|cons[ée]quence|faute\s+de\s+quoi|sous\s+peine|franchise|frais\s+de\s+dossier|frais\s+cach|cotisation|majoration\s+automatique|remboursement\s+anticip|%\s*du\s+montant\s+du\s+cr[ée]dit/i;
+
+/** Snippets coupés au milieu — inutilisables comme échéance. */
+const INCOMPLETE_DEADLINE_TAIL =
+  /\b(si le d[ée]lai entre|si le|si la|si les|si l['’]|faisant l['’]objet|du cr[ée]dit|entre le|entre la)\s*$/i;
 
 const HAS_DATE = /\b\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b/;
 const HAS_DURATION =
@@ -42,6 +51,10 @@ export function sanitizeDeadlines(values: string[]): string[] {
       .filter(Boolean)
       .filter((value) => value.length <= 160)
       .filter((value) => !FORBIDDEN_DEADLINE_CONTENT.test(value))
+      .filter((value) => !INCOMPLETE_DEADLINE_TAIL.test(value))
+      .filter((value) => !isRecipientObligation(value))
+      .filter((value) => !isFakeScheduleDeadline(value))
+      .filter((value) => !isDictionaryDefinitionSnippet(value))
       .filter((value) => HAS_DATE.test(value) || HAS_DURATION.test(value)),
   );
 }

@@ -14,6 +14,9 @@ export const MIN_LETTER_WORDS = 80;
 export const MIN_LETTER_CHARS = 350;
 export const MAX_BANK_FEE_LINES = 8;
 
+const FICTITIOUS_AMOUNT_RE =
+  /\bfictif(?:s|ve|ves)?\b|illustr(?:ent|ation|atif)?|exemple[\s-]fictif|montants?\s+de\s+r[ée]f[ée]rence\s+compl[ée]mentaires/i;
+
 const NOISE_FACT_RE =
   /traiter\s+(?:les\s+)?r[ée]clamations|r[ée]clamation\s+sous\s+\d+|pdf\/a|mentions?\s+l[ée]gales|d[ée]finitions?\b|clause\s+g[ée]n[ée]rale|www\.|https?:\/\/|journal\s+technique|signaler\s+(?:sans\s+d[eé]lai\s+)?(?:tout\s+)?changement|sans\s+d[eé]lai\s+tout\s+changement|changement\s+d['']adresse|mettre\s+[àa]\s+jour\s+vos\s+coordonn|obligation\s+du\s+(?:client|titulaire)|vous\s+devez\s+(?:nous\s+)?informer|service\s+client\s+au|conservez\s+ce\s+document|situation\s*•/i;
 
@@ -45,6 +48,7 @@ export function isLetterNoiseFact(text: string): boolean {
   const t = text.trim();
   if (!t || t.length < 3) return true;
   if (isRecipientObligation(t)) return true;
+  if (FICTITIOUS_AMOUNT_RE.test(t)) return true;
   if (FRAGMENT_LINE_RE.test(t)) return true;
   return NOISE_FACT_RE.test(t);
 }
@@ -101,7 +105,7 @@ export function normalizeBankFeeLine(raw: string): string | null {
     return `${rateOnly[1].trim()} : ${rateOnly[2].trim()}`;
   }
 
-  const amountMatch = t.match(/[-−]?\s*(\d+[,.]\d{2})\s*€/);
+  const amountMatch = t.match(/[-−]?\s*(\d+(?:[,.]\d{2})?)\s*€/);
   if (!amountMatch) return null;
 
   const amount = amountMatch[1].replace(".", ",");
@@ -154,11 +158,23 @@ export function extractBankFeeLines(
   const candidates: string[] = [];
 
   const feeLineRe =
-    /(?:^|\n)[^\n]{0,100}(?:commission|frais|tenue|agios|int[ée]r[êe]ts?\s+d[ée]biteurs?|rejet|intervention|mouvement|p[ée]nalit[ée])[^\n]{0,60}(?:\d+[,.]\d{2}\s*€|\d+[,.]?\d*\s*%)/gim;
+    /(?:^|\n)[^\n]{0,120}(?:commission|frais|tenue|agios|int[ée]r[êe]ts?\s+d[ée]biteurs?|rejet|intervention|mouvement|p[ée]nalit[ée])[^\n]{0,80}(?:\d+(?:[,.]\d{2})?\s*€|\d+[,.]?\d*\s*%)/gim;
+
+  const feeBulletRe =
+    /(?:^|\n)\s*[-•*]\s*\*\*[^*\n]+\*\*[^\n]{0,80}(?:\d+(?:[,.]\d{2})?\s*€|\d+[,.]?\d*\s*%)/gim;
 
   let match: RegExpExecArray | null;
   while ((match = feeLineRe.exec(documentText)) !== null) {
-    candidates.push(cleanRawLine(match[0]));
+    const line = cleanRawLine(match[0]);
+    if (!FICTITIOUS_AMOUNT_RE.test(line)) {
+      candidates.push(line);
+    }
+  }
+  while ((match = feeBulletRe.exec(documentText)) !== null) {
+    const line = cleanRawLine(match[0]);
+    if (!FICTITIOUS_AMOUNT_RE.test(line)) {
+      candidates.push(line);
+    }
   }
 
   for (const amount of [
@@ -167,7 +183,10 @@ export function extractBankFeeLines(
     ...(analysis.important_points ?? []),
     ...(analysis.risks ?? []),
   ]) {
-    candidates.push(cleanRawLine(amount));
+    const line = cleanRawLine(amount);
+    if (!FICTITIOUS_AMOUNT_RE.test(line)) {
+      candidates.push(line);
+    }
   }
 
   return dedupeBankFeeLines(candidates);
