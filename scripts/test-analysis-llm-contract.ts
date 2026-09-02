@@ -198,6 +198,33 @@ async function main() {
         }),
       (e: unknown) => e instanceof AppError && e.code === "ANALYSIS_FAILED",
     );
+    assert.throws(
+      () =>
+        assertPublishableLlmAnalysis({
+          resultSource: "agents",
+          totalTokens: 0,
+          generateMs: 0,
+          summary: "Analyse multi-agents incomplète — champs partiels conservés.",
+        }),
+      (e: unknown) => e instanceof AppError && e.code === "ANALYSIS_FAILED",
+    );
+    assert.doesNotThrow(() =>
+      assertPublishableLlmAnalysis({
+        resultSource: "agents",
+        totalTokens: 120,
+        summary:
+          "Analyse multi-agents incomplète — champs partiels conservés.",
+      }),
+    );
+    assert.throws(
+      () =>
+        assertPublishableLlmAnalysis({
+          resultSource: "agents",
+          totalTokens: 120,
+          summary: "Analyse de secours (fallback local).",
+        }),
+      (e: unknown) => e instanceof AppError && e.code === "ANALYSIS_FAILED",
+    );
     assert.doesNotThrow(() =>
       assertPublishableLlmAnalysis({
         resultSource: "agents",

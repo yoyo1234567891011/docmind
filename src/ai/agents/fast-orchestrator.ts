@@ -7,9 +7,11 @@ import type { DocumentAnalysis, DocumentClassification } from "@/types";
 import { classifyAgent } from "./classify-agent";
 import { attachKnowledgeToState } from "./load-knowledge";
 import {
+  buildLocalFallbackSummary,
   enrichThinCoreBundle,
   evaluateCoreBundleGeneration,
   isCoreBundleSchemaValid,
+  isSalvageAnalysisSummary,
   throwOnFailedCoreBundle,
   type CoreBundleOutcome,
   type CoreBundleParsed,
@@ -48,23 +50,33 @@ export type MultiAgentRunResult = {
 function salvageAnalysis(state: AgentPipelineState): DocumentAnalysis {
   const facts = state.facts;
   const legal = state.legal;
+  const categoryLabel = state.classification?.label || "Document";
   const assessment = state.assessment ?? {
     risk_score: 0,
     risk_level: "faible" as const,
     risk_explanation: "Score indisponible.",
     risk_criteria: [],
   };
+  const legalSummary = legal?.summary?.trim() ?? "";
+  const summary =
+    legalSummary && !isSalvageAnalysisSummary(legalSummary)
+      ? legalSummary
+      : buildLocalFallbackSummary({
+          categoryLabel,
+          fileName: state.fileName,
+          amounts: facts?.amounts,
+          deadlines: facts?.deadlines,
+          risks: state.risks,
+          importantPoints: legal?.important_points,
+        });
 
   return {
-    document_type:
-      legal?.document_type || state.classification?.label || "Document",
+    document_type: legal?.document_type || categoryLabel,
     title:
       legal?.title ||
       state.fileName?.replace(/\.pdf$/i, "") ||
       "Document",
-    summary:
-      legal?.summary ||
-      "Analyse multi-agents incomplète — champs partiels conservés.",
+    summary,
     date: facts?.date || "",
     dates: facts?.dates || [],
     people: facts?.people || [],
@@ -306,9 +318,27 @@ export async function runFastMultiAgentAnalysis(input: {
     confidence: 0,
   };
 
+  let analysis = state.analysis ?? salvageAnalysis(state);
+  if (
+    isSalvageAnalysisSummary(analysis.summary) &&
+    state.tokens.total > 0
+  ) {
+    analysis = {
+      ...analysis,
+      summary: buildLocalFallbackSummary({
+        categoryLabel: classification.label,
+        fileName: state.fileName,
+        amounts: state.facts?.amounts,
+        deadlines: state.facts?.deadlines,
+        risks: analysis.risks,
+        importantPoints: analysis.important_points,
+      }),
+    };
+  }
+
   return {
     classification,
-    analysis: state.analysis ?? salvageAnalysis(state),
-    state,
+    analysis,
+    state: { ...state, analysis },
   };
 }

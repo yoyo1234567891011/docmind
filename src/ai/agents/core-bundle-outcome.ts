@@ -58,6 +58,33 @@ export function isCoreBundleSchemaValid(parsed: CoreBundleParsed): boolean {
   );
 }
 
+/** Résumé local publiable — jamais de marqueur salvage. */
+export function buildLocalFallbackSummary(input: {
+  categoryLabel: string;
+  fileName?: string;
+  amounts?: string[];
+  deadlines?: string[];
+  risks?: string[];
+  importantPoints?: string[];
+}): string {
+  const risks = (input.risks ?? []).filter((r) => r.trim().length > 0);
+  const points = (input.importantPoints ?? []).filter((p) => p.trim().length > 0);
+  if (risks.length > 0) {
+    return `Éléments repérés : ${risks.slice(0, 3).join(" ; ")}.`;
+  }
+  if (points.length > 0) {
+    return points.slice(0, 2).join(" ");
+  }
+  const bits = [
+    ...(input.amounts ?? []).slice(0, 2),
+    ...(input.deadlines ?? []).slice(0, 2),
+  ];
+  if (bits.length > 0) {
+    return `Document ${input.categoryLabel} — ${bits.join(", ")}.`;
+  }
+  return `Analyse partielle du document (${input.categoryLabel}).`;
+}
+
 /** Complète un bundle LLM trop maigre (Groq sporadique) avec des fallbacks locaux. */
 export function enrichThinCoreBundle(
   parsed: CoreBundleParsed,
@@ -89,28 +116,17 @@ export function enrichThinCoreBundle(
     const risks = asStringArray(enriched.risks);
     const findings = parseRiskFindings(enriched.risk_findings);
     const points = parseImportantPointDrafts(enriched.important_points);
-    if (risks.length > 0) {
-      enriched.summary = `Éléments repérés : ${risks.slice(0, 3).join(" ; ")}.`;
-    } else if (findings.length > 0) {
-      enriched.summary = findings
-        .map((f) => f.description)
-        .slice(0, 2)
-        .join(" ");
-    } else if (points.length > 0) {
-      enriched.summary = points
-        .map((p) => p.statement)
-        .slice(0, 2)
-        .join(" ");
-    } else {
-      const bits = [
-        ...(fallbacks.amounts ?? []).slice(0, 2),
-        ...(fallbacks.deadlines ?? []).slice(0, 2),
-      ];
-      enriched.summary =
-        bits.length > 0
-          ? `Document ${fallbacks.categoryLabel} — ${bits.join(", ")}.`
-          : `Analyse partielle du document (${fallbacks.categoryLabel}).`;
-    }
+    enriched.summary = buildLocalFallbackSummary({
+      categoryLabel: fallbacks.categoryLabel,
+      fileName: fallbacks.fileName,
+      amounts: fallbacks.amounts,
+      deadlines: fallbacks.deadlines,
+      risks:
+        risks.length > 0
+          ? risks
+          : findings.map((f) => f.description).slice(0, 3),
+      importantPoints: points.map((p) => p.statement),
+    });
   }
   return enriched;
 }
@@ -202,7 +218,16 @@ const SALVAGE_SUMMARY_MARKERS = [
 export function isSalvageAnalysisSummary(summary: string | undefined): boolean {
   const s = summary?.trim() ?? "";
   if (!s) return false;
-  return SALVAGE_SUMMARY_MARKERS.some((m) => s.includes(m));
+  return SALVAGE_SUMMARY_MARKERS.some(
+    (m) => s.startsWith(m) || s.includes(m),
+  );
+}
+
+function llmGenerationRecorded(input: {
+  totalTokens?: number;
+  generateMs?: number;
+}): boolean {
+  return (input.totalTokens ?? 0) >= 1 || (input.generateMs ?? 0) >= 50;
 }
 
 /**
@@ -223,9 +248,18 @@ export function assertPublishableLlmAnalysis(input: {
     );
   }
   if (isSalvageAnalysisSummary(input.summary)) {
+    const explicitWorkerSalvage = input.summary
+      ?.trim()
+      .startsWith("Analyse de secours");
+    // Groq a tourné : enrichissement local / résumé legacy ≠ échec LLM total.
+    if (!explicitWorkerSalvage && llmGenerationRecorded(input)) {
+      return;
+    }
     throw new AppError(
       "ANALYSIS_FAILED",
-      "Analyse LLM indisponible — extraction locale seule (relancez l’analyse).",
+      explicitWorkerSalvage
+        ? "Analyse LLM indisponible — fallback local (relancez l’analyse)."
+        : "Analyse LLM indisponible — extraction locale seule (relancez l’analyse).",
       502,
     );
   }

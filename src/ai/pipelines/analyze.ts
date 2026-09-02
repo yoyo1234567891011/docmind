@@ -6,6 +6,7 @@ import {
 } from "@/ai/optimizations";
 import { runMultiAgentAnalysis } from "@/ai/agents";
 import { assertPublishableLlmAnalysis } from "@/ai/agents/core-bundle-outcome";
+import { getAnalysisTimingBucket } from "@/services/analysis-jobs/timing";
 import {
   documentAnalysisLockKey,
   getDocumentAnalysisInFlight,
@@ -297,9 +298,11 @@ async function analyzeDocumentTextUnlocked(
     }
 
     const durationMs = Date.now() - started;
+    const timing = getAnalysisTimingBucket();
     assertPublishableLlmAnalysis({
       resultSource: "agents",
       totalTokens: tokens.total,
+      generateMs: timing?.generateMs,
       summary: analysis.summary,
     });
 

@@ -1,4 +1,5 @@
 import { verifyAnalysisDraft } from "@/ai/reasoning/verify-analysis";
+import { buildLocalFallbackSummary } from "@/ai/agents/core-bundle-outcome";
 import { scrubAnalysisForDisplay } from "@/ai/post-processing/enrich";
 import { mergeWithLocalRiskFindings } from "@/ai/post-processing/inject-local-risk-findings";
 import { rankFindingsForWatch } from "@/ai/post-processing/watch-ranking";
@@ -222,7 +223,14 @@ export const verifyAgent: AnalysisAgent = {
     if (!analysis.summary.trim()) {
       analysis = {
         ...analysis,
-        summary: "Analyse multi-agents : résumé indisponible.",
+        summary: buildLocalFallbackSummary({
+          categoryLabel: state.classification?.label || "Document",
+          fileName: state.fileName,
+          amounts: ensureStringArray(verified.amounts),
+          deadlines: ensureStringArray(verified.deadlines),
+          risks: ensureStringArray(verified.risks),
+          importantPoints: ensureStringArray(verified.important_points),
+        }),
       };
     }
 
