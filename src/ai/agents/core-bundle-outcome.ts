@@ -225,7 +225,7 @@ const WORKER_SALVAGE_PREFIXES = [
 export function stripWorkerSalvageSummaryPrefix(
   summary: string | undefined,
 ): string {
-  let s = summary?.trim() ?? "";
+  const s = summary?.trim() ?? "";
   for (const re of WORKER_SALVAGE_PREFIXES) {
     const next = s.replace(re, "").trim();
     if (next !== s) {
