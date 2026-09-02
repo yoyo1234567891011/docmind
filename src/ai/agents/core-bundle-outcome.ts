@@ -215,6 +215,26 @@ const SALVAGE_SUMMARY_MARKERS = [
   "Analyse multi-agents incomplète",
 ] as const;
 
+/** Préfixes worker / legacy — retirés avant publication si une passe LLM a tourné. */
+const WORKER_SALVAGE_PREFIXES = [
+  /^Analyse de secours\s*\(fallback local\)\s*\.?\s*/i,
+  /^Analyse de secours\s*\(extraction locale\)\s*\.?\s*/i,
+  /^Analyse de secours\s*\.?\s*/i,
+] as const;
+
+export function stripWorkerSalvageSummaryPrefix(
+  summary: string | undefined,
+): string {
+  let s = summary?.trim() ?? "";
+  for (const re of WORKER_SALVAGE_PREFIXES) {
+    const next = s.replace(re, "").trim();
+    if (next !== s) {
+      return next;
+    }
+  }
+  return s;
+}
+
 export function isSalvageAnalysisSummary(summary: string | undefined): boolean {
   const s = summary?.trim() ?? "";
   if (!s) return false;
@@ -247,21 +267,23 @@ export function assertPublishableLlmAnalysis(input: {
       502,
     );
   }
-  if (isSalvageAnalysisSummary(input.summary)) {
-    const explicitWorkerSalvage = input.summary
-      ?.trim()
-      .startsWith("Analyse de secours");
-    // Groq a tourné : enrichissement local / résumé legacy ≠ échec LLM total.
-    if (!explicitWorkerSalvage && llmGenerationRecorded(input)) {
+  const summaryForCheck = stripWorkerSalvageSummaryPrefix(input.summary);
+  if (isSalvageAnalysisSummary(summaryForCheck)) {
+    // Groq a tourné (ou cache validé) : enrichissement local ≠ échec LLM total.
+    if (llmGenerationRecorded(input) || input.resultSource === "cache") {
       return;
     }
+    const workerTagged = input.summary?.trim().startsWith("Analyse de secours");
     throw new AppError(
       "ANALYSIS_FAILED",
-      explicitWorkerSalvage
+      workerTagged
         ? "Analyse LLM indisponible — fallback local (relancez l’analyse)."
         : "Analyse LLM indisponible — extraction locale seule (relancez l’analyse).",
       502,
     );
+  }
+  if (input.resultSource === "cache") {
+    return;
   }
   const tokens = input.totalTokens ?? 0;
   const generateMs = input.generateMs ?? 0;

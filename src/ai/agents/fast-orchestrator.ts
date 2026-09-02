@@ -320,10 +320,7 @@ export async function runFastMultiAgentAnalysis(input: {
   };
 
   let analysis = state.analysis ?? salvageAnalysis(state);
-  if (
-    isSalvageAnalysisSummary(analysis.summary) &&
-    state.tokens.total > 0
-  ) {
+  if (isSalvageAnalysisSummary(analysis.summary)) {
     analysis = {
       ...analysis,
       summary: buildLocalFallbackSummary({

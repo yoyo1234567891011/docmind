@@ -220,10 +220,26 @@ async function main() {
       () =>
         assertPublishableLlmAnalysis({
           resultSource: "agents",
-          totalTokens: 120,
+          totalTokens: 0,
+          generateMs: 0,
           summary: "Analyse de secours (fallback local).",
         }),
       (e: unknown) => e instanceof AppError && e.code === "ANALYSIS_FAILED",
+    );
+    assert.doesNotThrow(() =>
+      assertPublishableLlmAnalysis({
+        resultSource: "agents",
+        totalTokens: 120,
+        summary: "Analyse de secours (fallback local).",
+      }),
+    );
+    assert.doesNotThrow(() =>
+      assertPublishableLlmAnalysis({
+        resultSource: "agents",
+        totalTokens: 0,
+        generateMs: 120,
+        summary: "Analyse de secours (fallback local).",
+      }),
     );
     assert.doesNotThrow(() =>
       assertPublishableLlmAnalysis({

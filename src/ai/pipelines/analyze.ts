@@ -5,7 +5,10 @@ import {
   setCachedAnalysis,
 } from "@/ai/optimizations";
 import { runMultiAgentAnalysis } from "@/ai/agents";
-import { assertPublishableLlmAnalysis } from "@/ai/agents/core-bundle-outcome";
+import {
+  assertPublishableLlmAnalysis,
+  stripWorkerSalvageSummaryPrefix,
+} from "@/ai/agents/core-bundle-outcome";
 import { getAnalysisTimingBucket } from "@/services/analysis-jobs/timing";
 import {
   documentAnalysisLockKey,
@@ -149,18 +152,23 @@ async function analyzeDocumentTextUnlocked(
       const canLetter = await hasEntitlement(request.userId, "letter_agent", {
         reconcile: false,
       });
+      const cleanedSummary = stripWorkerSalvageSummaryPrefix(
+        cached.analysis?.summary,
+      );
+      const analysis =
+        cleanedSummary && cleanedSummary !== cached.analysis.summary
+          ? { ...cached.analysis, summary: cleanedSummary }
+          : cached.analysis;
       const readyReply =
         canLetter && cached.readyReply && !request.skipReadyReply
           ? cached.readyReply
           : EMPTY_READY_REPLY;
       const summary =
-        typeof cached.analysis?.summary === "string"
-          ? cached.analysis.summary
-          : "";
+        typeof analysis.summary === "string" ? analysis.summary : "";
       const result: AnalyzeDocumentResult = {
         documentId: request.documentId,
         classification: cached.classification,
-        analysis: cached.analysis,
+        analysis,
         readyReply,
         model: cached.model || model,
         analyzedAt,
@@ -171,7 +179,7 @@ async function analyzeDocumentTextUnlocked(
           documentId: request.documentId,
           fileName: request.fileName || "document.pdf",
           classification: cached.classification,
-          analysis: cached.analysis,
+          analysis,
           analyzedAt,
         }),
       };
@@ -194,14 +202,14 @@ async function analyzeDocumentTextUnlocked(
         tokens,
         steps,
         result: {
-          title: cached.analysis.title,
-          documentType: cached.analysis.document_type,
-          riskScore: cached.analysis.risk_score,
-          riskLevel: cached.analysis.risk_level,
+          title: analysis.title,
+          documentType: analysis.document_type,
+          riskScore: analysis.risk_score,
+          riskLevel: analysis.risk_level,
           summary: summary.slice(0, 500),
           replyRequired: result.readyReply.required,
-          actionCount: cached.analysis.actions?.length ?? 0,
-          deadlineCount: cached.analysis.deadlines?.length ?? 0,
+          actionCount: analysis.actions?.length ?? 0,
+          deadlineCount: analysis.deadlines?.length ?? 0,
         },
         ok: true,
       }).catch(() => undefined);
