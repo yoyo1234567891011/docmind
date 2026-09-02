@@ -85,6 +85,22 @@ export function buildLocalFallbackSummary(input: {
   return `Analyse partielle du document (${input.categoryLabel}).`;
 }
 
+/** Tente de récupérer un bundle partiel / tronqué avant d’échouer. */
+export function salvageCoreBundleFromGeneration(input: {
+  text: string;
+  fallbacks: {
+    categoryLabel: string;
+    fileName?: string;
+    amounts?: string[];
+    deadlines?: string[];
+  };
+}): CoreBundleParsed | null {
+  const parsed = tryParseJsonObject<CoreBundleParsed>(input.text);
+  if (!parsed) return null;
+  const enriched = enrichThinCoreBundle(parsed, input.fallbacks);
+  return isCoreBundleSchemaValid(enriched) ? enriched : null;
+}
+
 /** Complète un bundle LLM trop maigre (Groq sporadique) avec des fallbacks locaux. */
 export function enrichThinCoreBundle(
   parsed: CoreBundleParsed,

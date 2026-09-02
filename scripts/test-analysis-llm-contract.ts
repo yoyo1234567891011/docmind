@@ -9,6 +9,7 @@ import {
   evaluateCoreBundleGeneration,
   isLlmAnalysisSuccess,
   isSalvageAnalysisSummary,
+  salvageCoreBundleFromGeneration,
   throwOnFailedCoreBundle,
 } from "../src/ai/agents/core-bundle-outcome";
 import { AppError } from "../src/lib/errors";
@@ -100,6 +101,23 @@ async function main() {
       assert.match(o.message, /tronqué/i);
     }
     console.log("OK 3b) JSON tronqué (length) → INVALID_JSON retryable");
+  }
+
+  {
+    const truncated = `{"document_type":"Relevé bancaire","title":"Compte","summary":"Frais de tenue de compte relevés.","important_points":[{"statement":"Frais","excerpt":"12,50 €"}],"risk_findings":[{"description":"Frais tenue 12,50 €","why":"Prélèvement mensuel","implication":"Coût récurrent","consequence":"Budget","mitigation":"Comparer offres","excerpt":"12,50 €","confidence":"haute","severity":"modere","criterion_id":"frais_caches"`;
+
+    const salvaged = salvageCoreBundleFromGeneration({
+      text: truncated,
+      fallbacks: {
+        categoryLabel: "Banque",
+        fileName: "releve.pdf",
+        amounts: ["12,50 €"],
+        deadlines: [],
+      },
+    });
+    assert.ok(salvaged);
+    assert.match(String(salvaged!.summary), /12,50|frais|document/i);
+    console.log("OK 3c) JSON tronqué → salvage local");
   }
 
   {

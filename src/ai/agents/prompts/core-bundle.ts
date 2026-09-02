@@ -59,6 +59,8 @@ export function buildCoreBundlePrompt(input: {
   documentText: string;
   knowledgeBlock?: string;
   localFacts?: ExtractedFacts;
+  /** Cloud Groq : JSON plus court pour éviter finish_reason length. */
+  compactOutput?: boolean;
 }): string {
   const ids = RISK_CRITERION_IDS.join(",");
   const factsHint = input.localFacts
@@ -71,7 +73,9 @@ export function buildCoreBundlePrompt(input: {
     "Factuel: cite DOCUMENT ou FAITS_LOCAUX. Excerpt = phrase utile du corps (pas en-tête/logo seul). Verbatim (<<<PAGE n>>>).",
     "risk_findings.description: titre court chiffré (ex. « Loyer : 1 050 €/mois »), jamais « Obligation de payer » vague.",
     "Prioriser montant PRINCIPAL dû/à payer; frais dossier/annexes en second plan. Pas capital social ni totaux nationaux.",
-    "summary: 2 phrases concrètes. important_points/risk_findings ≤5 chacun; finding incomplet (sans why+implication+consequence+mitigation+excerpt) → omis.",
+    input.compactOutput
+      ? "summary: 2 phrases courtes. important_points/risk_findings ≤3 chacun; why/implication/consequence/mitigation = 1 phrase max; finding incomplet → omis."
+      : "summary: 2 phrases concrètes. important_points/risk_findings ≤5 chacun; finding incomplet (sans why+implication+consequence+mitigation+excerpt) → omis.",
     categoryPriorityHint(input.categoryLabel),
     `actions: 1–5 diligences concrètes liées au doc. criterion_id∈{${ids}} prouvé par excerpt. severity: faible|modere|eleve|critique.`,
     `Schéma:{${SCHEMA_KEYS}}`,

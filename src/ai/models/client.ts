@@ -257,12 +257,18 @@ function resolveEffectiveMaxTokens(
   configMaxTokens: number,
   override?: number,
 ): number {
-  const base =
+  const requested =
     typeof override === "number" && override > 0 ? override : configMaxTokens;
   if (task === "analyze" && isCloudLlmEnabled()) {
-    return Math.min(base, docmindConfig.ollama.cloudAnalyzeMaxTokens);
+    const softCap = docmindConfig.ollama.cloudAnalyzeMaxTokens;
+    const hardCap =
+      docmindConfig.ollama.cloudAnalyzeMaxTokensRetryCap ?? softCap;
+    if (requested > softCap) {
+      return Math.min(requested, hardCap);
+    }
+    return Math.min(requested, softCap);
   }
-  return base;
+  return requested;
 }
 
 export async function generateForTask(

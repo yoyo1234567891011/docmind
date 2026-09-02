@@ -10,15 +10,16 @@ import {
   buildLocalFallbackSummary,
   enrichThinCoreBundle,
   evaluateCoreBundleGeneration,
-  isCoreBundleSchemaValid,
   isSalvageAnalysisSummary,
+  salvageCoreBundleFromGeneration,
   throwOnFailedCoreBundle,
   type CoreBundleOutcome,
   type CoreBundleParsed,
 } from "./core-bundle-outcome";
+import { docmindConfig } from "@/config/docmind";
+import { isCloudLlmEnabled } from "@/ai/models/llm-provider";
 import { generateAgentJson } from "./llm";
 import { getTaskConfig } from "@/ai/models";
-import { tryParseJsonObject } from "@/ai/validation/json";
 import {
   buildDeterministicActions,
   localFacts,
@@ -98,9 +99,28 @@ type CoreBundle = Partial<ExtractedFacts> &
     actions?: unknown;
   };
 
-/** 2 tentatives max : salvage JSON local entre les deux si possible. */
-const CORE_BUNDLE_ATTEMPTS = 2;
-const CORE_BUNDLE_MAX_TOKENS_CAP = 1_200;
+/** 3 tentatives : tokens progressifs + salvage JSON local entre chaque. */
+const CORE_BUNDLE_ATTEMPTS = 3;
+
+function coreBundleMaxTokensForAttempt(
+  attempt: number,
+  baseMaxTokens: number,
+): number {
+  if (!isCloudLlmEnabled()) {
+    return Math.min(
+      Math.floor(baseMaxTokens * (1 + attempt * 0.15)),
+      baseMaxTokens + 400,
+    );
+  }
+  const softCap = docmindConfig.ollama.cloudAnalyzeMaxTokens;
+  const hardCap =
+    docmindConfig.ollama.cloudAnalyzeMaxTokensRetryCap ?? softCap;
+  if (attempt === 0) {
+    return Math.min(baseMaxTokens, softCap);
+  }
+  const bumped = Math.floor(softCap * (1 + attempt * 0.15));
+  return Math.min(bumped, hardCap);
+}
 
 type SalvageCtx = {
   categoryLabel: string;
@@ -121,13 +141,7 @@ async function generateCoreBundleOutcome(
   const baseMaxTokens = getTaskConfig("analyze").maxTokens;
 
   for (let attempt = 0; attempt < CORE_BUNDLE_ATTEMPTS; attempt += 1) {
-    const maxTokens =
-      attempt === 0
-        ? baseMaxTokens
-        : Math.min(
-            Math.floor(baseMaxTokens * (1 + attempt * 0.25)),
-            CORE_BUNDLE_MAX_TOKENS_CAP,
-          );
+    const maxTokens = coreBundleMaxTokensForAttempt(attempt, baseMaxTokens);
     const { generation, error } = await generateAgentJson(prompt, { maxTokens });
     const outcome = evaluateCoreBundleGeneration({ generation, error });
     if (outcome.ok) {
@@ -140,17 +154,17 @@ async function generateCoreBundleOutcome(
       (outcome.code === "INVALID_JSON" || outcome.code === "INVALID_SCHEMA")
     ) {
       const salvageStarted = Date.now();
-      const loose = tryParseJsonObject<CoreBundleParsed>(generation.text);
-      if (loose) {
-        const enriched = enrichThinCoreBundle(loose, salvageCtx);
-        if (isCoreBundleSchemaValid(enriched)) {
-          latencySpan("salvageMs", Date.now() - salvageStarted);
-          latencyMeta({ salvaged: true });
-          console.warn(
-            `[analyze] core bundle salvaged locally code=${outcome.code}`,
-          );
-          return { parsed: enriched, generation };
-        }
+      const salvaged = salvageCoreBundleFromGeneration({
+        text: generation.text,
+        fallbacks: salvageCtx,
+      });
+      if (salvaged) {
+        latencySpan("salvageMs", Date.now() - salvageStarted);
+        latencyMeta({ salvaged: true });
+        console.warn(
+          `[analyze] core bundle salvaged locally code=${outcome.code} finish=${generation.finishReason ?? "n/a"}`,
+        );
+        return { parsed: salvaged, generation };
       }
       latencySpan("salvageMs", Date.now() - salvageStarted);
     }
@@ -230,6 +244,7 @@ export async function runFastMultiAgentAnalysis(input: {
     documentText: state.llmText,
     knowledgeBlock: state.knowledge?.promptBlock,
     localFacts: baselineFacts,
+    compactOutput: isCloudLlmEnabled(),
   });
   latencySpan("preparationMs", Date.now() - prepStarted);
   latencyMeta({ documentLabel: input.fileName || categoryLabel });
