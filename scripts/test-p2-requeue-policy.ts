@@ -102,7 +102,7 @@ function main() {
     analysisJobFailMessageFromLastError(
       formatP2LastError("parse_error", "fail", 1),
     ),
-    /invalide/i,
+    /incomplète|invalide|JSON|champs/i,
   );
   console.log("OK last_error classé + UX wait vs fail");
 

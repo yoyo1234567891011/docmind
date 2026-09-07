@@ -1,15 +1,15 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import { siteConfig } from "@/config/site";
 
 export function Footer() {
   return (
     <footer className="border-t border-[var(--border)]/80">
-      <div className="mx-auto flex h-16 max-w-6xl flex-col items-start justify-center gap-2 px-5 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="mx-auto flex min-h-16 max-w-6xl flex-col items-start justify-center gap-2 px-5 py-4 text-sm text-[var(--muted)] sm:px-6 md:h-16 md:flex-row md:items-center md:justify-between md:py-0">
         <p>
-          © {new Date().getFullYear()} {siteConfig.name}
+          &copy; {new Date().getFullYear()} {siteConfig.name}
         </p>
-        <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs md:text-sm">
           <Link
             href="/confidentialite"
             className="hover:text-[var(--accent)] hover:underline"
@@ -34,8 +34,17 @@ export function Footer() {
           >
             Mentions légales
           </Link>
-          <Link href="/feedback" className="hover:text-[var(--accent)] hover:underline">
+          <Link
+            href="/feedback"
+            className="hover:text-[var(--accent)] hover:underline"
+          >
             Avis
+          </Link>
+          <Link
+            href="/guide"
+            className="hover:text-[var(--accent)] hover:underline"
+          >
+            Guide
           </Link>
           <Link
             href="/signalement"

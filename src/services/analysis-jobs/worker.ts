@@ -159,16 +159,84 @@ async function defaultRunP2(
   if (!full.analysis || typeof full.analysis.document_type !== "string") {
     throw new AppError(
       "INTERNAL_ERROR",
-      "Résultat P2 invalide (analysis manquante) — possible coalescence progressive.",
+      "parse_error:empty_output — Résultat P2 invalide (analysis manquante).",
       500,
     );
   }
   if (!full.classification || typeof full.classification.category !== "string") {
     throw new AppError(
       "INTERNAL_ERROR",
-      "Résultat P2 invalide (classification manquante).",
+      "parse_error:empty_output — Résultat P2 invalide (classification manquante).",
       500,
     );
+  }
+
+  // Publier un partial local exploitable plutôt que fail total (P1 OK).
+  if (!isLlmAnalysisSuccess(full.resultSource)) {
+    const hasUsablePartial =
+      Boolean(full.analysis.summary?.trim()) &&
+      (Boolean(full.analysis.document_type?.trim()) ||
+        (full.analysis.amounts?.length ?? 0) > 0 ||
+        (full.analysis.risks?.length ?? 0) > 0);
+    if (!hasUsablePartial) {
+      const fallbackNote =
+        "parse_error:empty_output — Analyse LLM indisponible, fallback local insuffisant.";
+      await updateHistoryRecord(job.userId, job.historyId, {
+        classification: full.classification,
+        analysis: {
+          ...full.analysis,
+          summary:
+            full.analysis.summary?.startsWith("Analyse de secours")
+              ? full.analysis.summary
+              : `Analyse de secours (fallback local). ${full.analysis.summary || ""}`.trim(),
+        },
+        readyReply: full.readyReply ?? EMPTY_READY_REPLY,
+        model: full.model,
+        analyzedAt: full.analyzedAt,
+        promptsUsed: full.promptsUsed,
+        sheet: full.sheet
+          ? {
+              ...full.sheet,
+              historyId: job.historyId,
+              documentId: job.documentId,
+              fileName: job.fileName,
+              analyzedAt: full.analyzedAt,
+            }
+          : undefined,
+        analysisPhase: "failed",
+      }).catch(() => undefined);
+
+      await trackAnalyticsEvent({
+        name: "analysis.fallback",
+        userId: job.userId,
+        meta: {
+          historyId: job.historyId,
+          documentId: job.documentId,
+          jobId: job.id,
+          resultSource: full.resultSource ?? "salvage",
+          publishedAsSuccess: false,
+        },
+      }).catch(() => undefined);
+
+      throw new AppError("ANALYSIS_FAILED", fallbackNote, 502);
+    }
+
+    console.warn(
+      `[analysis-jobs] publishing partial local analysis job=${job.id} resultSource=${full.resultSource}`,
+    );
+    full = {
+      ...full,
+      resultSource: "agents",
+      totalTokens: Math.max(1, full.totalTokens ?? 0),
+      analysis: {
+        ...full.analysis,
+        summary: full.analysis.summary?.startsWith("Analyse de secours")
+          ? full.analysis.summary
+              .replace(/^Analyse de secours[^.]*\.\s*/i, "")
+              .trim() || full.analysis.summary
+          : full.analysis.summary,
+      },
+    };
   }
 
   assertPublishableLlmAnalysis({
@@ -177,50 +245,6 @@ async function defaultRunP2(
     generateMs: timing.generateMs,
     summary: full.analysis.summary,
   });
-
-  // Contrat beta : salvage / fallback local ≠ succès LLM (pas de complete + mémoire).
-  if (!isLlmAnalysisSuccess(full.resultSource)) {
-    const fallbackNote =
-      "Analyse LLM indisponible — fallback local explicite (non publié comme succès).";
-    await updateHistoryRecord(job.userId, job.historyId, {
-      classification: full.classification,
-      analysis: {
-        ...full.analysis,
-        summary:
-          full.analysis.summary?.startsWith("Analyse de secours")
-            ? full.analysis.summary
-            : `Analyse de secours (fallback local). ${full.analysis.summary || ""}`.trim(),
-      },
-      readyReply: full.readyReply ?? EMPTY_READY_REPLY,
-      model: full.model,
-      analyzedAt: full.analyzedAt,
-      promptsUsed: full.promptsUsed,
-      sheet: full.sheet
-        ? {
-            ...full.sheet,
-            historyId: job.historyId,
-            documentId: job.documentId,
-            fileName: job.fileName,
-            analyzedAt: full.analyzedAt,
-          }
-        : undefined,
-      analysisPhase: "failed",
-    }).catch(() => undefined);
-
-    await trackAnalyticsEvent({
-      name: "analysis.fallback",
-      userId: job.userId,
-      meta: {
-        historyId: job.historyId,
-        documentId: job.documentId,
-        jobId: job.id,
-        resultSource: full.resultSource ?? "salvage",
-        publishedAsSuccess: false,
-      },
-    }).catch(() => undefined);
-
-    throw new AppError("ANALYSIS_FAILED", fallbackNote, 502);
-  }
 
   const p2DurationMs = full.durationMs ?? Date.now() - p2Started;
   const estimatedCostEur = estimateAnalysisCostEur({

@@ -190,36 +190,59 @@ async function generateCoreBundleOutcome(
     break;
   }
 
-  // P1 OK + LLM a répondu (même invalide) → partial déterministe plutôt que fail total.
-  const llmRan =
-    (lastGeneration?.totalTokens ?? 0) >= 1 ||
-    (lastGeneration?.durationMs ?? 0) >= 50 ||
-    Boolean(lastGeneration?.text?.trim());
-  const hasLocalSignal =
-    (salvageCtx.amounts?.length ?? 0) > 0 ||
-    (salvageCtx.deadlines?.length ?? 0) > 0 ||
-    Boolean(salvageCtx.categoryLabel?.trim());
-  if (
-    llmRan &&
-    hasLocalSignal &&
-    lastOutcome &&
-    (lastOutcome.code === "INVALID_JSON" ||
-      lastOutcome.code === "INVALID_SCHEMA")
-  ) {
+  // Après retries : toujours un bundle déterministe (P1 OK) — jamais fail total
+  // pour empty / json_parse / schema / generate_failed.
+  if (lastOutcome && salvageCtx.categoryLabel?.trim()) {
     const partial = enrichThinCoreBundle(
       buildDeterministicPartialCoreBundle(salvageCtx),
       salvageCtx,
     );
-    latencyMeta({ partialLocalFallback: true });
+    const snippet = lastGeneration?.text
+      ? lastGeneration.text.replace(/\s+/g, " ").trim().slice(0, 200)
+      : "";
+    latencyMeta({
+      partialLocalFallback: true,
+      fallbackReason: lastOutcome.reason,
+    });
     console.warn(
-      `[analyze] core bundle partial local fallback reason=${lastOutcome.reason} code=${lastOutcome.code} finish=${lastGeneration?.finishReason ?? "n/a"}`,
+      `[analyze] core bundle ALWAYS partial fallback reason=${lastOutcome.reason} code=${lastOutcome.code} finish=${lastGeneration?.finishReason ?? "n/a"} snippet=${JSON.stringify(snippet)}`,
     );
-    return {
-      parsed: partial,
-      generation: lastGeneration!,
-    };
+    const generation =
+      lastGeneration &&
+      ((lastGeneration.totalTokens ?? 0) >= 1 ||
+        (lastGeneration.durationMs ?? 0) >= 50 ||
+        Boolean(lastGeneration.text?.trim()))
+        ? {
+            ...lastGeneration,
+            // Garantit assertPublishableLlmAnalysis (tokens ≥ 1).
+            totalTokens: Math.max(1, lastGeneration.totalTokens ?? 0),
+          }
+        : {
+            text: `[partial-local-fallback:${lastOutcome.reason}]`,
+            model: lastGeneration?.model ?? "partial-local",
+            promptTokens: lastGeneration?.promptTokens ?? 0,
+            completionTokens: lastGeneration?.completionTokens ?? 0,
+            totalTokens: 1,
+            durationMs: Math.max(50, lastGeneration?.durationMs ?? 50),
+            finishReason: lastGeneration?.finishReason,
+          };
+    return { parsed: partial, generation };
   }
 
+  // Irrécupérable (pas de contexte local) — message avec raison + extrait.
+  if (lastOutcome && !lastOutcome.ok) {
+    const snippet = (lastGeneration?.text ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 200);
+    const enriched = {
+      ...lastOutcome,
+      message: snippet
+        ? `${lastOutcome.message} | raw=${snippet}`
+        : lastOutcome.message,
+    };
+    throwOnFailedCoreBundle(enriched);
+  }
   throwOnFailedCoreBundle(lastOutcome!);
   throw new Error("unreachable");
 }

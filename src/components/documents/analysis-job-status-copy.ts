@@ -71,7 +71,15 @@ export function analysisJobFailMessageFromLastError(
     return "Modèle d’analyse indisponible. Réessayez dans quelques minutes.";
   }
   if (/^parse_error:/i.test(raw)) {
-    // Garder le message user-friendly ; la raison brute reste dans job.last_error.
+    if (/empty|strip_no_object/i.test(raw)) {
+      return "L’analyse IA n’a pas renvoyé de JSON exploitable. Réessayez — le document uploadé est conservé.";
+    }
+    if (/truncated|json_parse/i.test(raw)) {
+      return "La réponse IA était incomplète ou mal formée. Réessayez — le document uploadé est conservé.";
+    }
+    if (/schema/i.test(raw)) {
+      return "La réponse IA était incomplète (champs manquants). Réessayez — le document uploadé est conservé.";
+    }
     return "L’analyse a renvoyé un résultat invalide. Réessayez — le document uploadé est conservé.";
   }
   if (/^network:/i.test(raw)) {

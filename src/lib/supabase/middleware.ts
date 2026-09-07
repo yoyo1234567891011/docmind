@@ -17,6 +17,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/cgu",
   "/cgv",
   "/mentions-legales",
+  "/guide",
   "/api/health",
   "/api/stripe/webhook",
   "/api/billing/webhook",
@@ -149,7 +150,7 @@ export async function updateSession(request: NextRequest) {
       (pathname === "/auth/login" || pathname === "/auth/signup")
     ) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = docmindConfig.auth.afterLoginPath;
+      redirectUrl.pathname = "/auth/continue";
       redirectUrl.search = "";
       return NextResponse.redirect(redirectUrl);
     }

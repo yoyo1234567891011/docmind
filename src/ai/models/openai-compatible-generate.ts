@@ -62,7 +62,7 @@ const EMPTY_RESPONSE_RETRIES = 1;
 /** Retry HTTP 429 avec Retry-After avant requeue worker. */
 const RATE_LIMIT_RETRIES = 2;
 /** Plafond Groq — aligné cloudAnalyzeMaxTokensRetryCap (latence + TPM). */
-const GROQ_MAX_COMPLETION_TOKENS = 1_800;
+const GROQ_MAX_COMPLETION_TOKENS = 2_200;
 const RATE_LIMIT_WAIT_CAP_MS = 30_000;
 
 function sleep(ms: number): Promise<void> {
