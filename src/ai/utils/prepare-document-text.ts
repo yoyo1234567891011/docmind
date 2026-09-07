@@ -6,16 +6,20 @@ import { truncateAtTextBoundary } from "@/ai/post-processing/display-cleanup";
 
 /**
  * Budget caractères document dans le prompt LLM.
- * ~3800 car + consignes (~1800) + knowledge (~1600) ≈ 7200 car ≈ 2000 tokens prompt.
+ * Priorité : frais / pénalités / délais / montants (qualité utile inchangée).
  */
-export const LLM_DOCUMENT_CHAR_BUDGET = 3_800;
+export const LLM_DOCUMENT_CHAR_BUDGET = 3_200;
 /** Sous cooldown TPM Groq : prompt plus léger (clauses frais/délais priorisées). */
-export const LLM_DOCUMENT_CHAR_BUDGET_LIGHT = 2_400;
+export const LLM_DOCUMENT_CHAR_BUDGET_LIGHT = 2_200;
 
 const HOT_LINE =
-  /(?:€|eur(?:os?)?|\bttc\b|\bht\b|\btva\b|\béchéance|\becheance|\bdélai|\bdelai|\bpréavis|\bpreavis|\brésil|\bresil|\bpénal|\bpenal|\bloyer|\bcharges\b|\bd[ée]p[ôo]t|\bgarantie|\bhonoraires?|\bclause\s+r[ée]solutoire|\birl\b|\btaeg\b|\bmensualit|\bsalaire|\bprime|\bfranchise|\biban|\bfacture|\bbail|\bcontrat|\bavis\s+d|article\s+\d|obligation|interdit|doit\s+|sous\s+\d+\s+j)/i;
+  /(?:€|eur(?:os?)?|\bttc\b|\bht\b|\btva\b|\bfrais\b|\bcommission|\bagios|\bintér[êe]ts?\s+d[ée]bite|\bp[ée]nalit|\bmajoration|\bsanction|\bamende|\béchéance|\becheance|\bdélai|\bdelai|\bpréavis|\bpreavis|\brésil|\bresil|\bloyer|\bcharges\b|\bd[ée]p[ôo]t|\bgarantie|\bhonoraires?|\bclause\s+r[ée]solutoire|\birl\b|\btaeg\b|\bmensualit|\bfranchise|\biban|\bfacture|\bbail|\bcontrat|\bavis\s+d|article\s+\d|sous\s+\d+\s+j)/i;
 
 const DATE_HINT = /\b\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\b|\b\d{1,2}\s+(?:janv|févr|fevr|mars|avr|mai|juin|juil|août|aout|sept|oct|nov|déc|dec)/i;
+
+/** Glossaire / journal / boilerplate — à déprioriser (pas de gain qualité utile). */
+const BOILERPLATE =
+  /(?:^|\n)\s*(?:glossaire|sommaire|table des mati[eè]res|mentions l[eé]gales|politique de confidentialit|cookies?|journal des op[eé]rations|l[eé]gende|notice d['’]information)\b/i;
 
 function scoreBlock(block: string): number {
   const t = block.trim();
@@ -26,6 +30,7 @@ function scoreBlock(block: string): number {
   if (/(?:M\.|Mme|Monsieur|Madame|SAS|SARL|SA\b|EURL)/i.test(t)) s += 1;
   if (t.length >= 40 && t.length <= 420) s += 1;
   if (/^#{1,3}\s/.test(t)) s += 2;
+  if (BOILERPLATE.test(t)) s -= 4;
   return s;
 }
 
@@ -45,6 +50,7 @@ function collectHotLines(text: string, maxChars: number): string {
     const trimmed = line.trim();
     if (trimmed.length < 8 || trimmed.length > 220) continue;
     if (!HOT_LINE.test(trimmed)) continue;
+    if (BOILERPLATE.test(trimmed)) continue;
     const safe =
       trimmed.length > 200
         ? truncateAtTextBoundary(trimmed, 200)
@@ -72,6 +78,7 @@ function extractScoredPassages(text: string, budget: number): string {
   const tryAdd = (idx: number): void => {
     if (idx < 0 || idx >= blocks.length || pickedIndices.has(idx)) return;
     const block = blocks[idx]!;
+    if (BOILERPLATE.test(block) && scoreBlock(block) < 3) return;
     const chunk =
       block.length > 520 ? truncateAtTextBoundary(block, 520) : block;
     if (used + chunk.length + 2 > budget) return;
@@ -120,7 +127,7 @@ export function prepareDocumentTextForLlm(
   const trimmed = text.trim();
   if (trimmed.length <= budget) return trimmed;
 
-  const hotBudget = Math.min(900, Math.floor(budget * 0.2));
+  const hotBudget = Math.min(1_000, Math.floor(budget * 0.28));
   const hot = collectHotLines(trimmed, hotBudget);
   const passageBudget = budget - (hot ? hot.length + 48 : 0);
 
@@ -128,15 +135,23 @@ export function prepareDocumentTextForLlm(
 
   if (!hot) return passages;
 
-  return [
-    passages,
-    "",
-    "[Extraits ciblés]",
-    hot,
-  ].join("\n");
+  return [passages, "", "[Extraits ciblés]", hot].join("\n");
 }
 
 /** Texte court pour classification LLM (si l’heuristique échoue). */
 export function prepareDocumentTextForClassify(text: string): string {
   return prepareDocumentTextForLlm(text, 2_000);
+}
+
+/** Cap knowledge injecté dans le prompt cloud (TPM / latence). */
+export const CLOUD_KNOWLEDGE_CHAR_BUDGET = 900;
+
+export function truncateKnowledgeForCloud(
+  block: string | undefined,
+  budget = CLOUD_KNOWLEDGE_CHAR_BUDGET,
+): string | undefined {
+  const t = block?.trim();
+  if (!t) return undefined;
+  if (t.length <= budget) return t;
+  return `${truncateAtTextBoundary(t, budget - 1)}…`;
 }

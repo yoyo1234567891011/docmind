@@ -66,12 +66,12 @@ export const docmindConfig = {
 
     /**
      * Cloud (Groq) : plafond completion tokens pour analyze (core-bundle JSON).
-     * 1400 couvre la plupart des docs ; retries peuvent monter jusqu’à retryCap.
+     * 1200 suffit en compactOutput (≤3 findings) ; retries montent jusqu’à retryCap.
      */
-    cloudAnalyzeMaxTokens: 1_600,
+    cloudAnalyzeMaxTokens: 1_200,
 
     /** Plafond tokens lors des retries cloud (JSON tronqué / finish_reason length). */
-    cloudAnalyzeMaxTokensRetryCap: 2_200,
+    cloudAnalyzeMaxTokensRetryCap: 1_800,
 
     /**
      * Fenêtre de contexte Ollama. Plus bas = prompt_eval plus rapide

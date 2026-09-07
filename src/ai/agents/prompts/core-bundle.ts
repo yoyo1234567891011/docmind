@@ -51,6 +51,9 @@ function categoryPriorityHint(categoryLabel: string): string {
 const SCHEMA_KEYS =
   "document_type,title,summary,important_points[{statement,excerpt}],risk_findings[{description,why,implication,consequence,mitigation,excerpt,confidence,severity,criterion_id}],risks[],actions[]";
 
+const SCHEMA_KEYS_COMPACT =
+  "document_type,title,summary,important_points[{statement,excerpt}],risk_findings[{description,why,implication,consequence,mitigation,excerpt,confidence,severity,criterion_id}],risks[],actions[]";
+
 /**
  * Bundle LLM Local First — prompt compact, sortie JSON minimale.
  */
@@ -70,15 +73,15 @@ export function buildCoreBundlePrompt(input: {
   const lines = [
     `Juriste FR — « ${input.categoryLabel} ». JSON strict, sans prose hors JSON.`,
     "Local First: dates/montants/personnes/org/échéances = serveur (ne pas regénérer). Montants locaux déjà labelisés.",
-    "Factuel: cite DOCUMENT ou FAITS_LOCAUX. Excerpt = phrase utile du corps (pas en-tête/logo seul). Verbatim (<<<PAGE n>>>).",
-    "risk_findings.description: titre court chiffré (ex. « Loyer : 1 050 €/mois »), jamais « Obligation de payer » vague.",
-    "Prioriser montant PRINCIPAL dû/à payer; frais dossier/annexes en second plan. Pas capital social ni totaux nationaux.",
+    "Factuel: cite DOCUMENT ou FAITS_LOCAUX. Excerpt = phrase utile du corps (pas en-tête/logo seul).",
+    "risk_findings.description: titre court chiffré (ex. « Loyer : 1 050 €/mois »), jamais vague.",
+    "Prioriser montant PRINCIPAL / frais / pénalités; annexes en second. Pas capital social ni totaux nationaux.",
     input.compactOutput
-      ? "summary: 2 phrases courtes. important_points/risk_findings ≤3 chacun; why/implication/consequence/mitigation = 1 phrase max; finding incomplet → omis."
+      ? "summary: 2 phrases. important_points/risk_findings ≤3; why/implication/consequence/mitigation = 1 phrase; finding incomplet → omis."
       : "summary: 2 phrases concrètes. important_points/risk_findings ≤5 chacun; finding incomplet (sans why+implication+consequence+mitigation+excerpt) → omis.",
     categoryPriorityHint(input.categoryLabel),
-    `actions: 1–5 diligences concrètes liées au doc. criterion_id∈{${ids}} prouvé par excerpt. severity: faible|modere|eleve|critique.`,
-    `Schéma:{${SCHEMA_KEYS}}`,
+    `actions: 1–4 diligences concrètes. criterion_id∈{${ids}} + excerpt. severity: faible|modere|eleve|critique.`,
+    `Schéma:{${input.compactOutput ? SCHEMA_KEYS_COMPACT : SCHEMA_KEYS}}`,
   ];
 
   if (factsHint) lines.push(`FAITS_LOCAUX:${factsHint}`);

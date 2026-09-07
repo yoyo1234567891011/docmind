@@ -22,9 +22,10 @@ export const ANALYSIS_P2_THROTTLE_FLOOR = 1;
 /** Groq free tier — fenêtre glissante 1 min. */
 const GROQ_FREE_TPM = 8_000;
 const GROQ_TPM_WINDOW_MS = 60_000;
-const GROQ_TPM_BUFFER_MS = 8_000;
+/** Marge après usage estimé — assez pour éviter 429 sans allonger chaque job. */
+const GROQ_TPM_BUFFER_MS = 3_000;
 /** Après un 429 : ne pas reclamer avant cette fenêtre (laisse le TPM se vider). */
-const GROQ_RATE_LIMIT_COOLDOWN_MS = 50_000;
+const GROQ_RATE_LIMIT_COOLDOWN_MS = 35_000;
 const REDIS_GROQ_USAGE_KEY = "docmind:p2:last_groq_usage";
 const REDIS_GROQ_COOLDOWN_KEY = "docmind:p2:groq_cooldown_until";
 
@@ -164,7 +165,7 @@ export function getLocalP2TpmSpacingRemainingMs(): number {
 
 /** Attend l’espacement TPM Groq avant un claim (best-effort, plafonné). */
 export async function waitForP2TpmSpacing(
-  maxWaitMs = 28_000,
+  maxWaitMs = 18_000,
 ): Promise<number> {
   const remaining = await getP2TpmSpacingRemainingMs();
   if (remaining <= 0) return 0;

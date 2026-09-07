@@ -39,6 +39,11 @@ import {
 import type { AnalysisJob, AnalysisJobMetrics } from "./types";
 import { scheduleAnalysisDrainKick } from "./kick";
 import {
+  createLatencyDiagStore,
+  finalizeLatencyDiag,
+  runWithLatencyDiag,
+} from "./latency-diag";
+import {
   noteP2RateLimitHit,
   noteP2Success,
   noteP2GroqTokenUsage,
@@ -371,7 +376,7 @@ export async function processOneAnalysisJob(
   const heartbeat = deps.heartbeat ?? heartbeatAnalysisJob;
   const runP2 = deps.runP2 ?? defaultRunP2;
 
-  await waitForP2TpmSpacing(28_000);
+  await waitForP2TpmSpacing(18_000);
   const job = await claim(workerId);
   if (!job) return "idle";
 
@@ -380,14 +385,39 @@ export async function processOneAnalysisJob(
   }, 30_000);
 
   const wallStarted = Date.now();
+  const diagStore = createLatencyDiagStore();
   try {
-    const partial = await runP2(job);
+    const queueWaitMs = Math.max(
+      0,
+      Date.parse(job.startedAt ?? job.claimedAt ?? job.createdAt) -
+        Date.parse(job.createdAt),
+    );
+    const { partial, latencyDiag } = await runWithLatencyDiag(
+      diagStore,
+      async () => {
+        diagStore.spans.queueMs = Math.round(queueWaitMs);
+        const p2 = await runP2(job);
+        const diag = finalizeLatencyDiag({ jobCreatedAt: job.createdAt });
+        return { partial: p2, latencyDiag: diag };
+      },
+    );
     const metrics: AnalysisJobMetrics | undefined = partial
       ? {
           ...partial,
           totalMs: Date.now() - wallStarted + (partial.queueWaitMs || 0),
+          latencyDiag: latencyDiag ?? undefined,
         }
-      : undefined;
+      : latencyDiag
+        ? {
+            queueWaitMs,
+            lockWaitMs: 0,
+            generateMs: 0,
+            historyMs: 0,
+            memoryMs: null,
+            totalMs: Math.max(0, Date.now() - wallStarted),
+            latencyDiag,
+          }
+        : undefined;
     if (metrics) {
       metrics.totalMs =
         metrics.queueWaitMs + Math.max(0, Date.now() - wallStarted);

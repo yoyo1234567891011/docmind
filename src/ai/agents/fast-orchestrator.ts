@@ -1,6 +1,10 @@
 import { formatPagesForLlm } from "@/ai/reasoning/citations";
 import { classifyDocumentHeuristic } from "@/ai/classification/heuristic";
-import { prepareDocumentTextForLlm, LLM_DOCUMENT_CHAR_BUDGET_LIGHT } from "@/ai/utils/prepare-document-text";
+import {
+  prepareDocumentTextForLlm,
+  LLM_DOCUMENT_CHAR_BUDGET_LIGHT,
+  truncateKnowledgeForCloud,
+} from "@/ai/utils/prepare-document-text";
 import { asStringArray } from "@/ai/validation/json";
 import { resolveTaskConfig } from "@/services/admin/config-store";
 import type { DocumentAnalysis, DocumentClassification } from "@/types";
@@ -101,8 +105,9 @@ type CoreBundle = Partial<ExtractedFacts> &
     actions?: unknown;
   };
 
-/** 3 tentatives : tokens progressifs + salvage JSON local entre chaque. */
-const CORE_BUNDLE_ATTEMPTS = 3;
+/** Tentatives bundle : 2 en cloud (salvage + fallback partiel) ; 3 en local. */
+const CORE_BUNDLE_ATTEMPTS_CLOUD = 2;
+const CORE_BUNDLE_ATTEMPTS_LOCAL = 3;
 
 function coreBundleMaxTokensForAttempt(
   attempt: number,
@@ -144,8 +149,11 @@ async function generateCoreBundleOutcome(
   >["generation"] = null;
   let jsonBundleRetries = 0;
   const baseMaxTokens = getTaskConfig("analyze").maxTokens;
+  const maxAttempts = isCloudLlmEnabled()
+    ? CORE_BUNDLE_ATTEMPTS_CLOUD
+    : CORE_BUNDLE_ATTEMPTS_LOCAL;
 
-  for (let attempt = 0; attempt < CORE_BUNDLE_ATTEMPTS; attempt += 1) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const maxTokens = coreBundleMaxTokensForAttempt(attempt, baseMaxTokens);
     const { generation, error } = await generateAgentJson(prompt, { maxTokens });
     lastGeneration = generation;
@@ -179,11 +187,11 @@ async function generateCoreBundleOutcome(
       outcome.code === "INVALID_JSON" ||
       outcome.code === "INVALID_SCHEMA" ||
       generation?.finishReason === "length";
-    if (retryable && attempt < CORE_BUNDLE_ATTEMPTS - 1) {
+    if (retryable && attempt < maxAttempts - 1) {
       jsonBundleRetries += 1;
       latencyMeta({ jsonBundleRetries });
       console.warn(
-        `[analyze] core bundle retry attempt=${attempt + 1}/${CORE_BUNDLE_ATTEMPTS} code=${outcome.code} reason=${outcome.reason} finish=${generation?.finishReason ?? "n/a"} maxTokens=${maxTokens}`,
+        `[analyze] core bundle retry attempt=${attempt + 1}/${maxAttempts} code=${outcome.code} reason=${outcome.reason} finish=${generation?.finishReason ?? "n/a"} maxTokens=${maxTokens}`,
       );
       continue;
     }
@@ -305,10 +313,13 @@ export async function runFastMultiAgentAnalysis(input: {
   };
 
   const categoryLabel = state.classification?.label || "Document";
+  const knowledgeBlock = isCloudLlmEnabled()
+    ? truncateKnowledgeForCloud(state.knowledge?.promptBlock)
+    : state.knowledge?.promptBlock;
   const prompt = buildCoreBundlePrompt({
     categoryLabel,
     documentText: state.llmText,
-    knowledgeBlock: state.knowledge?.promptBlock,
+    knowledgeBlock,
     localFacts: baselineFacts,
     compactOutput: isCloudLlmEnabled(),
   });

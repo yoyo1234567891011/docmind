@@ -2,8 +2,8 @@
   "version": 1,
   "description": "Base de connaissances DocMind — ajouter un .md + une entrée ici (ou frontmatter dans le fichier).",
   "alwaysInclude": ["general"],
-  "maxInjectChars": 3200,
-  "maxFiles": 3,
+  "maxInjectChars": 1100,
+  "maxFiles": 2,
   "domains": [
     {
       "id": "general",
