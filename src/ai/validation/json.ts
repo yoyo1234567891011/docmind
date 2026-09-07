@@ -1,12 +1,31 @@
 import { AppError } from "@/lib/errors";
 
+export type JsonParseFailureReason =
+  | "empty"
+  | "strip_no_object"
+  | "json_parse"
+  | "truncated_unclosed";
+
+/** Retire thinking / fences / bruit modèle avant extract JSON. */
 export function stripModelNoise(raw: string): string {
-  return raw
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
-    .replace(/```(?:json)?\s*/gi, "")
-    .replace(/```/g, "")
-    .trim();
+  let text = raw;
+  // Blocs thinking fermés
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  text = text.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "");
+  // Thinking non fermé : couper jusqu’au premier `{` (ne pas avaler le JSON)
+  text = text.replace(/<think>[\s\S]*?(?=\{)/gi, "");
+  text = text.replace(/<thinking>[\s\S]*?(?=\{)/gi, "");
+  text = text.replace(/<\/?think(?:ing)?>/gi, "");
+  // Marqueurs raisonnement (Groq / Qwen)
+  text = text.replace(
+    /<\|?(?:redacted_)?reasoning\|?>[\s\S]*?<\/\|?(?:redacted_)?reasoning\|?>/gi,
+    "",
+  );
+  text = text.replace(/<\|?(?:redacted_)?reasoning\|?>[\s\S]*?(?=\{)/gi, "");
+  text = text.replace(/^\s*(?:Thinking|Reasoning)\s*:\s*/i, "");
+  text = text.replace(/```(?:json)?\s*/gi, "");
+  text = text.replace(/```/g, "");
+  return text.trim();
 }
 
 /** Répare les erreurs JSON fréquentes des petits modèles locaux. */
@@ -25,6 +44,9 @@ export function repairJsonText(raw: string): string {
 
   // Clé partielle en fin de génération (ex. "mitigat)
   text = text.replace(/,\s*"[^"]*$/g, "");
+
+  // Valeur string tronquée : "key": "foo → "key": "foo"
+  text = text.replace(/:\s*"[^"]*$/g, ': ""');
 
   // Clés non quotées
   text = text.replace(
@@ -104,7 +126,7 @@ export function extractJsonObject(raw: string): string {
   if (start === -1) {
     throw new AppError(
       "ANALYSIS_FAILED",
-      "La réponse du modèle n'est pas un JSON valide.",
+      "parse_error:strip_no_object — aucun objet JSON dans la réponse.",
       502,
     );
   }
@@ -146,6 +168,47 @@ export function extractJsonObject(raw: string): string {
   return closeTruncatedJson(cleaned.slice(start));
 }
 
+export function diagnoseJsonParseFailure(raw: string): JsonParseFailureReason {
+  const trimmed = raw?.trim() ?? "";
+  if (!trimmed) return "empty";
+  const cleaned = stripModelNoise(trimmed);
+  if (!cleaned.includes("{")) return "strip_no_object";
+  const start = cleaned.indexOf("{");
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let closed = false;
+  for (let i = start; i < cleaned.length; i += 1) {
+    const ch = cleaned[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") depth += 1;
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        closed = true;
+        break;
+      }
+    }
+  }
+  if (!closed || depth > 0) return "truncated_unclosed";
+  return "json_parse";
+}
+
 export function parseJsonObject<T>(raw: string): T {
   let extracted: string;
   try {
@@ -164,9 +227,10 @@ export function parseJsonObject<T>(raw: string): T {
     try {
       return JSON.parse(repairJsonText(extracted)) as T;
     } catch {
+      const reason = diagnoseJsonParseFailure(raw);
       throw new AppError(
         "ANALYSIS_FAILED",
-        "Impossible d'interpréter la réponse JSON du modèle. Réessaie — le modèle a renvoyé un format invalide.",
+        `parse_error:${reason} — Impossible d'interpréter la réponse JSON du modèle.`,
         502,
       );
     }

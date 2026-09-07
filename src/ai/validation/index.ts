@@ -2,6 +2,8 @@ export {
   stripModelNoise,
   extractJsonObject,
   parseJsonObject,
+  tryParseJsonObject,
+  diagnoseJsonParseFailure,
   asString,
   asStringArray,
 } from "@/ai/validation/json";

@@ -15,6 +15,13 @@ export {
   type MultiAgentRunResult,
 } from "./orchestrator";
 export { runFastMultiAgentAnalysis } from "./fast-orchestrator";
+export {
+  evaluateCoreBundleGeneration,
+  isLlmAnalysisSuccess,
+  throwOnFailedCoreBundle,
+  buildDeterministicPartialCoreBundle,
+  buildLocalFallbackSummary,
+} from "./core-bundle-outcome";
 export { classifyAgent } from "./classify-agent";
 export { factsAgent } from "./facts-agent";
 export { legalAgent } from "./legal-agent";

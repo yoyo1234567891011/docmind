@@ -13,6 +13,7 @@ import {
   isSalvageAnalysisSummary,
   salvageCoreBundleFromGeneration,
   throwOnFailedCoreBundle,
+  buildDeterministicPartialCoreBundle,
   type CoreBundleOutcome,
   type CoreBundleParsed,
 } from "./core-bundle-outcome";
@@ -138,12 +139,16 @@ async function generateCoreBundleOutcome(
   generation: Awaited<ReturnType<typeof generateAgentJson>>["generation"];
 }> {
   let lastOutcome: CoreBundleOutcome | null = null;
+  let lastGeneration: Awaited<
+    ReturnType<typeof generateAgentJson>
+  >["generation"] = null;
   let jsonBundleRetries = 0;
   const baseMaxTokens = getTaskConfig("analyze").maxTokens;
 
   for (let attempt = 0; attempt < CORE_BUNDLE_ATTEMPTS; attempt += 1) {
     const maxTokens = coreBundleMaxTokensForAttempt(attempt, baseMaxTokens);
     const { generation, error } = await generateAgentJson(prompt, { maxTokens });
+    lastGeneration = generation;
     const outcome = evaluateCoreBundleGeneration({ generation, error });
     if (outcome.ok) {
       return { parsed: outcome.parsed, generation };
@@ -163,7 +168,7 @@ async function generateCoreBundleOutcome(
         latencySpan("salvageMs", Date.now() - salvageStarted);
         latencyMeta({ salvaged: true });
         console.warn(
-          `[analyze] core bundle salvaged locally code=${outcome.code} finish=${generation.finishReason ?? "n/a"}`,
+          `[analyze] core bundle salvaged locally code=${outcome.code} reason=${outcome.reason} finish=${generation.finishReason ?? "n/a"}`,
         );
         return { parsed: salvaged, generation };
       }
@@ -178,11 +183,41 @@ async function generateCoreBundleOutcome(
       jsonBundleRetries += 1;
       latencyMeta({ jsonBundleRetries });
       console.warn(
-        `[analyze] core bundle retry attempt=${attempt + 1}/${CORE_BUNDLE_ATTEMPTS} code=${outcome.code} finish=${generation?.finishReason ?? "n/a"} maxTokens=${maxTokens}`,
+        `[analyze] core bundle retry attempt=${attempt + 1}/${CORE_BUNDLE_ATTEMPTS} code=${outcome.code} reason=${outcome.reason} finish=${generation?.finishReason ?? "n/a"} maxTokens=${maxTokens}`,
       );
       continue;
     }
     break;
+  }
+
+  // P1 OK + LLM a répondu (même invalide) → partial déterministe plutôt que fail total.
+  const llmRan =
+    (lastGeneration?.totalTokens ?? 0) >= 1 ||
+    (lastGeneration?.durationMs ?? 0) >= 50 ||
+    Boolean(lastGeneration?.text?.trim());
+  const hasLocalSignal =
+    (salvageCtx.amounts?.length ?? 0) > 0 ||
+    (salvageCtx.deadlines?.length ?? 0) > 0 ||
+    Boolean(salvageCtx.categoryLabel?.trim());
+  if (
+    llmRan &&
+    hasLocalSignal &&
+    lastOutcome &&
+    (lastOutcome.code === "INVALID_JSON" ||
+      lastOutcome.code === "INVALID_SCHEMA")
+  ) {
+    const partial = enrichThinCoreBundle(
+      buildDeterministicPartialCoreBundle(salvageCtx),
+      salvageCtx,
+    );
+    latencyMeta({ partialLocalFallback: true });
+    console.warn(
+      `[analyze] core bundle partial local fallback reason=${lastOutcome.reason} code=${lastOutcome.code} finish=${lastGeneration?.finishReason ?? "n/a"}`,
+    );
+    return {
+      parsed: partial,
+      generation: lastGeneration!,
+    };
   }
 
   throwOnFailedCoreBundle(lastOutcome!);

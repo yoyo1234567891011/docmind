@@ -25,7 +25,11 @@ export type OpenAiCompatibleGenerateInput = {
 type ChatCompletionResponse = {
   model?: string;
   choices?: Array<{
-    message?: { content?: string | null };
+    message?: {
+      content?: string | null;
+      reasoning?: string | null;
+      reasoning_content?: string | null;
+    };
     finish_reason?: string | null;
   }>;
   usage?: {
@@ -34,6 +38,25 @@ type ChatCompletionResponse = {
     total_tokens?: number;
   };
 };
+
+function extractChatMessageText(
+  message:
+    | {
+        content?: string | null;
+        reasoning?: string | null;
+        reasoning_content?: string | null;
+      }
+    | undefined,
+): string {
+  const content = message?.content?.trim() ?? "";
+  if (content) return content;
+  // Certains modèles (Qwen thinking) mettent le JSON après/dans reasoning.
+  const reasoning =
+    message?.reasoning?.trim() ||
+    message?.reasoning_content?.trim() ||
+    "";
+  return reasoning;
+}
 
 const EMPTY_RESPONSE_RETRIES = 1;
 /** Retry HTTP 429 avec Retry-After avant requeue worker. */
@@ -201,7 +224,7 @@ export async function generateWithOpenAiCompatible(
 
     const payload = (await response.json()) as ChatCompletionResponse;
     const bodyEnd = Date.now();
-    const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
+    const text = extractChatMessageText(payload.choices?.[0]?.message);
     lastFinishReason = payload.choices?.[0]?.finish_reason ?? undefined;
 
     if (text) {

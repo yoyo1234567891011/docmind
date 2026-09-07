@@ -53,7 +53,10 @@ export function classifyP2Error(error: unknown): P2ErrorClass {
     return "model_error";
   }
   if (
-    /JSON d'analyse|INVALID_JSON|parse|tronqué|schéma d'analyse/i.test(raw)
+    /parse_error:|JSON d'analyse|INVALID_JSON|INVALID_SCHEMA|schéma d'analyse|schema/i.test(
+      raw,
+    ) ||
+    /parse|tronqué/i.test(raw)
   ) {
     return "parse_error";
   }
@@ -81,7 +84,10 @@ export function formatP2LastError(
   errorClass: P2ErrorClass,
   kind: "requeue" | "fail",
   attempts: number,
+  rawMessage?: string,
 ): string {
+  const raw = (rawMessage ?? "").trim().slice(0, 420);
+
   if (kind === "requeue") {
     switch (errorClass) {
       case "rate_limit":
@@ -95,6 +101,13 @@ export function formatP2LastError(
     }
   }
 
+  // Conserver la raison brute (parse_error:json_parse / schema / …).
+  if (errorClass === "parse_error") {
+    if (/^parse_error:/i.test(raw)) return raw.slice(0, 500);
+    if (raw) return `parse_error:${raw}`.slice(0, 500);
+    return `parse_error:json_or_schema after ${attempts} attempt(s)`;
+  }
+
   switch (errorClass) {
     case "rate_limit":
       return `rate_limit: échec définitif après ${attempts} tentative(s) (quota IA saturé)`;
@@ -102,12 +115,12 @@ export function formatP2LastError(
       return `timeout: échec définitif après ${attempts} tentative(s)`;
     case "model_error":
       return "model_error: modèle d’analyse indisponible ou incorrect";
-    case "parse_error":
-      return "parse_error: JSON d’analyse invalide ou tronqué";
     case "network":
       return `network: échec définitif après ${attempts} tentative(s)`;
     default:
-      return `unknown: échec définitif après ${attempts} tentative(s)`;
+      return raw
+        ? `unknown:${raw}`.slice(0, 500)
+        : `unknown: échec définitif après ${attempts} tentative(s)`;
   }
 }
 

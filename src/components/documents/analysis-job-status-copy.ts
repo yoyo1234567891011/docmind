@@ -71,6 +71,7 @@ export function analysisJobFailMessageFromLastError(
     return "Modèle d’analyse indisponible. Réessayez dans quelques minutes.";
   }
   if (/^parse_error:/i.test(raw)) {
+    // Garder le message user-friendly ; la raison brute reste dans job.last_error.
     return "L’analyse a renvoyé un résultat invalide. Réessayez — le document uploadé est conservé.";
   }
   if (/^network:/i.test(raw)) {

@@ -3,7 +3,11 @@
  * Séparé du chemin Ollama pour tests unitaires sans réseau.
  */
 import type { OllamaGenerateResult } from "@/ai/models/types";
-import { asStringArray, tryParseJsonObject } from "@/ai/validation/json";
+import {
+  asStringArray,
+  diagnoseJsonParseFailure,
+  tryParseJsonObject,
+} from "@/ai/validation/json";
 import { AppError } from "@/lib/errors";
 import {
   parseImportantPointDrafts,
@@ -25,11 +29,21 @@ export type CoreBundleFailureCode =
   | "INVALID_JSON"
   | "INVALID_SCHEMA";
 
+/** Sous-raison exposée dans last_error / logs. */
+export type CoreBundleParseReason =
+  | "empty"
+  | "json_parse"
+  | "schema"
+  | "truncated"
+  | "strip_no_object"
+  | "generate_failed";
+
 export type CoreBundleOutcome =
   | { ok: true; parsed: CoreBundleParsed; text: string }
   | {
       ok: false;
       code: CoreBundleFailureCode;
+      reason: CoreBundleParseReason;
       message: string;
       httpStatus: number;
       appCode: "OLLAMA_UNAVAILABLE" | "ANALYSIS_FAILED";
@@ -150,6 +164,7 @@ export function enrichThinCoreBundle(
 /**
  * Interprète la sortie generate (ou son absence).
  * Ne masque pas timeout / abort / HTTP / JSON / schéma.
+ * Messages préfixés `parse_error:<reason>` pour last_error job.
  */
 export function evaluateCoreBundleGeneration(input: {
   generation: OllamaGenerateResult | null;
@@ -163,6 +178,7 @@ export function evaluateCoreBundleGeneration(input: {
     return {
       ok: false,
       code: "GENERATE_FAILED",
+      reason: "generate_failed",
       message,
       httpStatus: timedOut ? 504 : 502,
       appCode: "OLLAMA_UNAVAILABLE",
@@ -175,9 +191,10 @@ export function evaluateCoreBundleGeneration(input: {
     return {
       ok: false,
       code: "GENERATE_FAILED",
+      reason: truncated ? "truncated" : "empty",
       message: truncated
-        ? "Réponse IA tronquée (limite de tokens)."
-        : "Ollama a renvoyé une réponse vide.",
+        ? "parse_error:truncated — Réponse IA tronquée (limite de tokens)."
+        : "parse_error:empty — Ollama a renvoyé une réponse vide.",
       httpStatus: 502,
       appCode: "OLLAMA_UNAVAILABLE",
     };
@@ -185,12 +202,17 @@ export function evaluateCoreBundleGeneration(input: {
 
   const parsed = tryParseJsonObject<CoreBundleParsed>(text);
   if (!parsed) {
+    const diag = diagnoseJsonParseFailure(text);
+    const reason = truncated
+      ? ("truncated" as const)
+      : diag === "strip_no_object"
+        ? ("strip_no_object" as const)
+        : ("json_parse" as const);
     return {
       ok: false,
       code: "INVALID_JSON",
-      message: truncated
-        ? "JSON d'analyse invalide ou tronqué (limite de tokens)."
-        : "JSON d'analyse invalide ou tronqué.",
+      reason,
+      message: `parse_error:${reason} — JSON d'analyse invalide ou tronqué${truncated ? " (limite de tokens)" : ""}.`,
       httpStatus: 502,
       appCode: "ANALYSIS_FAILED",
     };
@@ -200,15 +222,49 @@ export function evaluateCoreBundleGeneration(input: {
     return {
       ok: false,
       code: "INVALID_SCHEMA",
+      reason: truncated ? "truncated" : "schema",
       message: truncated
-        ? "Schéma d'analyse insuffisant (réponse tronquée)."
-        : "Schéma d'analyse insuffisant (summary / points / risques absents).",
+        ? "parse_error:truncated — Schéma d'analyse insuffisant (réponse tronquée)."
+        : "parse_error:schema — Schéma d'analyse insuffisant (summary / points / risques absents).",
       httpStatus: 502,
       appCode: "ANALYSIS_FAILED",
     };
   }
 
   return { ok: true, parsed, text };
+}
+
+/** Bundle minimal à partir des faits locaux P1 — évite fail total si LLM a tourné. */
+export function buildDeterministicPartialCoreBundle(fallbacks: {
+  categoryLabel: string;
+  fileName?: string;
+  amounts?: string[];
+  deadlines?: string[];
+}): CoreBundleParsed {
+  const amounts = (fallbacks.amounts ?? []).filter((a) => a.trim());
+  const deadlines = (fallbacks.deadlines ?? []).filter((d) => d.trim());
+  const summary = buildLocalFallbackSummary({
+    categoryLabel: fallbacks.categoryLabel,
+    fileName: fallbacks.fileName,
+    amounts,
+    deadlines,
+  });
+  return {
+    document_type: fallbacks.categoryLabel,
+    title:
+      fallbacks.fileName?.replace(/\.pdf$/i, "") || fallbacks.categoryLabel,
+    summary,
+    important_points: amounts.slice(0, 4).map((a) => ({
+      statement: a,
+      excerpt: a,
+    })),
+    risk_findings: [],
+    risks: amounts.slice(0, 3),
+    actions: [
+      ...deadlines.slice(0, 2).map((d) => `Vérifier l’échéance : ${d}`),
+      ...(amounts[0] ? [`Contrôler le montant : ${amounts[0]}`] : []),
+    ].slice(0, 4),
+  };
 }
 
 export function throwOnFailedCoreBundle(

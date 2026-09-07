@@ -469,6 +469,7 @@ export async function processOneAnalysisJob(
         errorClass,
         "requeue",
         job.attempts,
+        rawMessage,
       );
       console.warn(
         `[analysis-jobs] requeue after ${errorClass} job=${job.id} deferMs=${requeueDecision.deferMs}`,
@@ -497,7 +498,12 @@ export async function processOneAnalysisJob(
       return "requeued";
     }
 
-    const failMsg = formatP2LastError(errorClass, "fail", job.attempts);
+    const failMsg = formatP2LastError(
+      errorClass,
+      "fail",
+      job.attempts,
+      rawMessage,
+    );
     await trackAnalyticsEvent({
       name: "analysis.error",
       userId: job.userId,
