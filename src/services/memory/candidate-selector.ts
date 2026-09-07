@@ -60,6 +60,9 @@ function neverCompare(a: string, b: string): boolean {
   if (pair.has("banque") && pair.has("contrat")) return true;
   if (pair.has("banque") && pair.has("bail")) return true;
   if (pair.has("banque") && pair.has("impots")) return true;
+  if (pair.has("banque") && pair.has("courrier-administratif")) return true;
+  if (pair.has("impots") && pair.has("banque")) return true;
+  if (pair.has("impots") && pair.has("assurance")) return true;
   return false;
 }
 

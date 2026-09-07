@@ -13,6 +13,7 @@ import {
   resolveWatchDocFamily,
   isFactureTtcWatchTitle,
   isRecouvrementTotalWatchTitle,
+  isVacuousGenericWatchTitle,
   type WatchDocFamily,
   type WatchFamilyContext,
 } from "@/ai/post-processing/watch-ranking";
@@ -116,7 +117,7 @@ const LOCAL_FINDING_META: Partial<Record<RiskCriterionId, LocalFindingMeta>> = {
 
 function firstEuroAmount(text: string): string | null {
   const m = text.match(
-    /(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?\b)/i,
+    /(\d+(?:[\s\u00a0\u202f]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?\b)/i,
   );
   if (!m) return null;
   return `${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
@@ -124,7 +125,7 @@ function firstEuroAmount(text: string): string | null {
 
 function euroAmountNear(text: string, keyword: RegExp): string | null {
   const amountGroup =
-    "(\\d+(?:[\\s\\u00a0]\\d{3})*(?:[.,]\\d{1,2})?)\\s*(?:€|euros?\\b)";
+    "(\\d+(?:[\\s\\u00a0\\u202f]\\d{3})*(?:[.,]\\d{1,2})?)\\s*(?:€|euros?\\b)";
   const after = text.match(
     new RegExp(`${keyword.source}[^\\d]{0,40}${amountGroup}`, "i"),
   );
@@ -498,7 +499,7 @@ function findClaimedTotalSnippet(documentText: string): {
   label: "total" | "principal";
 } | null {
   const amountGap = String.raw`[^0-9*]{0,20}(?:\*{0,2})?`;
-  const amountGroup = String.raw`(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)`;
+  const amountGroup = String.raw`(\d+(?:[\s\u00a0\u202f]\d{3})*(?:[.,]\d{1,2})?)`;
   const euroSuffix = String.raw`\s*(?:\*{0,2})?(?:€|euros?\b)`;
   const patterns: Array<{ re: RegExp; label: "total" | "principal" }> = [
     {
@@ -573,7 +574,7 @@ function findRecouvrementLabeledFacts(
   );
   if (total) {
     facts.push({
-      criterionId: "frais_caches",
+      criterionId: "obligations_importantes",
       description: `Total réclamé : ${total.amount}`,
       excerpt: total.excerpt,
       pinFirst: true,
@@ -586,7 +587,7 @@ function findRecouvrementLabeledFacts(
   );
   if (principal) {
     facts.push({
-      criterionId: "frais_caches",
+      criterionId: "obligations_importantes",
       description: `Principal / montant impayé : ${principal.amount}`,
       excerpt: principal.excerpt,
       pinFirst: !total,
@@ -648,7 +649,7 @@ function findLabeledEuroFact(
   // Encapsuler le keyword (évite qu’un | interne casse le motif global).
   const kw = `(?:${keyword.source})`;
   const amountGroup =
-    "(\\d+(?:[\\s\\u00a0]\\d{3})*(?:[.,]\\d{1,2})?)\\s*(?:€|euros?\\b)";
+    "(\\d+(?:[\\s\\u00a0\\u202f]\\d{3})*(?:[.,]\\d{1,2})?)\\s*(?:€|euros?\\b)";
   const after = new RegExp(`${kw}[^\\d]{0,60}${amountGroup}`, "i");
   const before = new RegExp(`${amountGroup}[^\\d]{0,60}${kw}`, "i");
   for (const re of [after, before]) {
@@ -657,7 +658,7 @@ function findLabeledEuroFact(
     const idx = m.index ?? 0;
     const excerpt = snippetAround(documentText, idx, m[0]!.length);
     if (IRRELEVANT_MONEY_CONTEXT.test(excerpt)) continue;
-    const raw = (m[1] ?? "").replace(/[\s\u00a0]+/g, " ").trim();
+    const raw = (m[1] ?? "").replace(/[\s\u00a0\u202f]+/g, " ").trim();
     if (!raw) continue;
     return { amount: `${raw} €`, excerpt };
   }
@@ -678,9 +679,9 @@ function findBailLabeledFacts(documentText: string): BailLabeledFact[] {
     documentText,
     /loyer(?:\s+mensuel)?(?:\s+hors\s+charges|\s+hc)?/i,
   );
-  if (loyer) {
+  if (loyer && !IRRELEVANT_MONEY_CONTEXT.test(loyer.excerpt)) {
     facts.push({
-      criterionId: "frais_caches",
+      criterionId: "obligations_importantes",
       description: `Loyer : ${loyer.amount}/mois`,
       excerpt: loyer.excerpt,
     });
@@ -690,9 +691,9 @@ function findBailLabeledFacts(documentText: string): BailLabeledFact[] {
     documentText,
     /(?:provisions?\s+(?:pour\s+)?charges|charges\s+locatives|charges\s+mensuelles)/i,
   );
-  if (charges) {
+  if (charges && !IRRELEVANT_MONEY_CONTEXT.test(charges.excerpt)) {
     facts.push({
-      criterionId: "frais_caches",
+      criterionId: "obligations_importantes",
       description: `Charges : ${charges.amount}/mois`,
       excerpt: charges.excerpt,
     });
@@ -702,9 +703,9 @@ function findBailLabeledFacts(documentText: string): BailLabeledFact[] {
     documentText,
     /d[ée]p[ôo]t\s+de\s+garantie/i,
   );
-  if (depot) {
+  if (depot && !IRRELEVANT_MONEY_CONTEXT.test(depot.excerpt)) {
     facts.push({
-      criterionId: "frais_caches",
+      criterionId: "obligations_importantes",
       description: `Dépôt de garantie : ${depot.amount}`,
       excerpt: depot.excerpt,
     });
@@ -831,32 +832,81 @@ function findImpotsLabeledFacts(documentText: string): ImpotsLabeledFact[] {
   );
   const aPayer = findLabeledEuroFact(
     documentText,
-    /montant\s+[àa]\s+(?:payer|r[ée]gler)|somme\s+[àa]\s+payer|solde\s+[àa]\s+payer|reste\s+[àa]\s+payer|montant\s+d[ûu]|cotisation\s+[àa]\s+payer|total\s+[àa]\s+payer|net\s+[àa]\s+payer/i,
+    /montant\s+[àa]\s+(?:payer|r[ée]gler)|somme\s+[àa]\s+payer|solde\s+[àa]\s+payer|reste\s+[àa]\s+payer|montant\s+d[ûu]|cotisation\s+[àa]\s+payer|total\s+[àa]\s+(?:payer|r[ée]gler)|net\s+[àa]\s+payer|total\s+[àa]\s+r[ée]gler/i,
+  );
+  const principal = findLabeledEuroFact(
+    documentText,
+    /principal\s+d[ûu]|principal\s*:|montant\s+principal/i,
   );
 
   const due =
-    (isTaxeFonciere ? taxeDue || prelever || aPayer : null) ||
+    (isTaxeFonciere ? taxeDue || prelever || aPayer || principal : null) ||
+    principal ||
+    aPayer ||
     prelever ||
-    taxeDue ||
-    aPayer;
+    taxeDue;
 
   if (due && !IRRELEVANT_MONEY_CONTEXT.test(due.excerpt)) {
     let description: string;
     if (isTaxeFonciere) {
       description = `Taxe foncière : ${due.amount}`;
+    } else if (principal && due.amount === principal.amount) {
+      description = `Principal dû : ${due.amount}`;
     } else if (prelever && due.amount === prelever.amount) {
       description = `Montant à prélever : ${due.amount}`;
     } else if (aPayer && due.amount === aPayer.amount) {
-      description = `Montant à payer : ${due.amount}`;
+      description = /total/i.test(aPayer.excerpt)
+        ? `Total à régler : ${due.amount}`
+        : `Montant à payer : ${due.amount}`;
     } else if (taxeDue) {
       description = `Taxe foncière : ${due.amount}`;
     } else {
       description = `Montant à payer : ${due.amount}`;
     }
     facts.push({
-      criterionId: "frais_caches",
+      criterionId: "obligations_importantes",
       description,
       excerpt: due.excerpt,
+    });
+  }
+
+  // Principal + total distincts → les deux (principal ≠ frais cachés).
+  if (
+    principal &&
+    !IRRELEVANT_MONEY_CONTEXT.test(principal.excerpt) &&
+    !facts.some((f) => /principal\s+d[ûu]/i.test(f.description))
+  ) {
+    facts.push({
+      criterionId: "obligations_importantes",
+      description: `Principal dû : ${principal.amount}`,
+      excerpt: principal.excerpt,
+    });
+  }
+  if (
+    aPayer &&
+    principal &&
+    aPayer.amount !== principal.amount &&
+    !IRRELEVANT_MONEY_CONTEXT.test(aPayer.excerpt) &&
+    !facts.some((f) => /total\s+[àa]\s+r[ée]gler|montant\s+[àa]\s+payer/i.test(f.description))
+  ) {
+    facts.push({
+      criterionId: "obligations_importantes",
+      description: /total/i.test(aPayer.excerpt)
+        ? `Total à régler : ${aPayer.amount}`
+        : `Montant à payer : ${aPayer.amount}`,
+      excerpt: aPayer.excerpt,
+    });
+  }
+
+  const fraisRelance = findLabeledEuroFact(
+    documentText,
+    /frais\s+de\s+relance|frais\s+annexes/i,
+  );
+  if (fraisRelance && !IRRELEVANT_MONEY_CONTEXT.test(fraisRelance.excerpt)) {
+    facts.push({
+      criterionId: "frais_caches",
+      description: `Frais de relance : ${fraisRelance.amount}`,
+      excerpt: fraisRelance.excerpt,
     });
   }
 
@@ -922,7 +972,7 @@ function findImpotsLabeledFacts(documentText: string): ImpotsLabeledFact[] {
   }
 
   const majoration = documentText.match(
-    /majoration(?:\s+de)?\s+(\d+)\s*%|p[ée]nalit[ée]s?(?:\s+de\s+retard)?[^\d%]{0,20}(\d+)\s*%/i,
+    /majoration?(?:\s+(?:pour\s+retard|de))?\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*%|p[ée]nalit[ée]s?(?:\s+de\s+retard)?[^\d%]{0,20}(\d+(?:[.,]\d+)?)\s*%/i,
   );
   if (majoration) {
     const pct = majoration[1] || majoration[2];
@@ -1060,6 +1110,17 @@ function makeLocalFinding(
   const meta = LOCAL_FINDING_META[id];
   if (!meta) return null;
   const label = description ?? describeLocalFinding(id, excerpt, family);
+  if (isVacuousGenericWatchTitle(label)) return null;
+  // Banque / fiscal : délais génériques sans date calendaire = glossaire.
+  if (
+    id === "delais" &&
+    (family === "banque" || family === "administratif") &&
+    /^d[ée]lai(?:\s*\/\s*pr[ée]avis)?\s*[:\-–]?\s*\d+\s*jours?\s*\.?$/i.test(
+      label,
+    )
+  ) {
+    return null;
+  }
   const pinnedTotal =
     isRecouvrementTotalWatchTitle(label) || isFactureTtcWatchTitle(label);
   return {
@@ -1236,7 +1297,7 @@ export function buildMissingLocalRiskFindings(
       );
       if (!alreadyLabeled) {
         const finding = makeLocalFinding(
-          "frais_caches",
+          "obligations_importantes",
           total.excerpt,
           family,
           `Total réclamé : ${total.amount}`,
@@ -1288,10 +1349,10 @@ export function buildMissingLocalRiskFindings(
             /^taxe\s+fonci/i.test(fact.description) &&
             /montant\s+[àa]\s+(?:pr[ée]lever|payer)/i.test(prev.description);
           const preferLabeled =
-            /taxe\s+fonci|montant\s+[àa]\s+|pr[ée]l[eè]vement\s+le|opposition\s+possible|date\s+limite\s+de\s+paiement|majoration\s*\//i.test(
+            /principal|total\s+[àa]\s+r[ée]gler|taxe\s+fonci|montant\s+[àa]\s+|pr[ée]l[eè]vement\s+le|opposition\s+possible|date\s+limite\s+de\s+paiement|majoration\s*\//i.test(
               fact.description,
             ) &&
-            !/taxe\s+fonci|montant\s+[àa]\s+|pr[ée]l[eè]vement\s+le|opposition\s+possible|date\s+limite\s+de\s+paiement|majoration\s*\//i.test(
+            !/principal|total\s+[àa]\s+r[ée]gler|taxe\s+fonci|montant\s+[àa]\s+|pr[ée]l[eè]vement\s+le|opposition\s+possible|date\s+limite\s+de\s+paiement|majoration\s*\//i.test(
               prev.description,
             );
           if (
@@ -1304,11 +1365,16 @@ export function buildMissingLocalRiskFindings(
         }
         continue;
       }
-      injected.push(finding);
+      // Principal / total en tête pour l'UI watch.
+      if (/principal\s+d[ûu]|total\s+[àa]\s+r[ée]gler|montant\s+[àa]\s+/i.test(fact.description)) {
+        injected.unshift(finding);
+      } else {
+        injected.push(finding);
+      }
     }
 
     const hasTaxDue = injected.some((f) =>
-      /taxe\s+fonci|montant\s+[àa]\s+pr[ée]lever|montant\s+[àa]\s+payer/i.test(
+      /principal|taxe\s+fonci|montant\s+[àa]\s+pr[ée]lever|montant\s+[àa]\s+payer|total\s+[àa]\s+r[ée]gler/i.test(
         f.description,
       ),
     );
@@ -1367,10 +1433,10 @@ export function buildMissingLocalRiskFindings(
   if (family === "facture" || /\bfacture\b|total\s+ttc/i.test(documentText)) {
     const totalTtc =
       documentText.match(
-        /total\s+ttc(?:\s+[àa]\s+payer)?\s*:?\s*(?:\*{0,2})?(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:\*{0,2})?(?:€|euros?)?/i,
+        /total\s+ttc(?:\s+[àa]\s+payer)?\s*:?\s*(?:\*{0,2})?(\d+(?:[\s\u00a0\u202f]\d{3})*(?:[.,]\d{1,2})?)\s*(?:\*{0,2})?(?:€|euros?)?/i,
       ) ||
       documentText.match(
-        /net\s+[àa]\s+payer\s*:?\s*(?:\*{0,2})?(\d+(?:[\s\u00a0]\d{3})*(?:[.,]\d{1,2})?)\s*(?:\*{0,2})?(?:€|euros?)?/i,
+        /net\s+[àa]\s+payer\s*:?\s*(?:\*{0,2})?(\d+(?:[\s\u00a0\u202f]\d{3})*(?:[.,]\d{1,2})?)\s*(?:\*{0,2})?(?:€|euros?)?/i,
       );
     if (totalTtc) {
       const idx = totalTtc.index ?? 0;

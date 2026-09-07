@@ -145,6 +145,8 @@ export async function detectRelationsForPair(input: {
   );
 
   // --- duplicate_of ---
+  // Hash exact = même fichier (OK cross-catégorie). SimHash : même famille seulement
+  // pour éviter fiscal ↔ MED ↔ banque en « doublon » sur boilerplate partagé.
   if (
     source.contentHash &&
     candidate.contentHash &&
@@ -168,9 +170,13 @@ export async function detectRelationsForPair(input: {
         ],
       }),
     );
-  } else if (source.simhash && candidate.simhash) {
+  } else if (
+    categoriesCompatible &&
+    source.simhash &&
+    candidate.simhash
+  ) {
     const dist = hammingDistanceHex(source.simhash, candidate.simhash);
-    if (dist <= 2 && (sameCategory || dist === 0)) {
+    if (dist <= 2 && (sameCategory || (dist === 0 && categoriesCompatible))) {
       out.push(
         makeRelation({
           userId,

@@ -36,6 +36,9 @@ const ORG_LABELS = [
   "creancier",
 ];
 
+const HEADER_ORG_RE =
+  /(?:^|\n)\s*(?:\*\*)?(?:direction\s+g[ée]n[ée]rale\s+des\s+finances\s+publiques|dgfip|finances\s+publiques|service\s+recouvrement|banque\s+[A-ZÀ-Ü][\w'’-]{2,}(?:\s+[A-ZÀ-Ü][\w'’-]+){0,2})(?:\*\*)?/gim;
+
 function normalizeKey(value: string): string {
   return value
     .toLowerCase()
@@ -157,12 +160,25 @@ function extractOrgFromTitle(text: string): string[] {
 }
 
 /**
- * Extraction déterministe des organisations (labels + titre).
+ * Extraction déterministe des organisations (labels + titre + en-tête).
  */
 export function extractOrganizations(text: string): string[] {
   const fromLabels = extractLabeledValues(text, ORG_LABELS)
     .map(cleanValue)
     .filter((v) => v.length >= 3 && !/^\d+$/.test(v) && !/^(sas|sarl|sa)$/i.test(v));
-  const fromTitle = fromLabels.length === 0 ? extractOrgFromTitle(text) : [];
-  return mergeUniqueStrings([...fromLabels, ...fromTitle]).slice(0, 8);
+  const fromHeader: string[] = [];
+  let m: RegExpExecArray | null;
+  const headerRe = new RegExp(HEADER_ORG_RE.source, HEADER_ORG_RE.flags);
+  while ((m = headerRe.exec(text.slice(0, 2500))) !== null) {
+    const value = cleanValue(m[0] || "");
+    if (looksLikeOrganization(value)) fromHeader.push(value);
+  }
+  const fromTitle =
+    fromLabels.length === 0 && fromHeader.length === 0
+      ? extractOrgFromTitle(text)
+      : [];
+  return mergeUniqueStrings([...fromLabels, ...fromHeader, ...fromTitle]).slice(
+    0,
+    8,
+  );
 }

@@ -41,16 +41,16 @@ export const WATCH_CRITERION_ORDER_BY_FAMILY: Record<
     "sanctions",
   ],
   recouvrement: [
+    "obligations_importantes",
     "frais_caches",
     "penalites",
     "delais",
     "sanctions",
-    "obligations_importantes",
     "engagement",
     "resiliation",
-    "renouvellement_tacite",
-    "augmentation_tarif",
     "clauses_abusives",
+    "augmentation_tarif",
+    "renouvellement_tacite",
   ],
   facture: [
     "frais_caches",
@@ -78,6 +78,7 @@ export const WATCH_CRITERION_ORDER_BY_FAMILY: Record<
   ],
   /** Bail / location : économie du logement avant délais génériques. */
   bail: [
+    "obligations_importantes",
     "frais_caches",
     "engagement",
     "renouvellement_tacite",
@@ -85,7 +86,6 @@ export const WATCH_CRITERION_ORDER_BY_FAMILY: Record<
     "clauses_abusives",
     "augmentation_tarif",
     "delais",
-    "obligations_importantes",
     "penalites",
     "sanctions",
   ],
@@ -103,10 +103,10 @@ export const WATCH_CRITERION_ORDER_BY_FAMILY: Record<
   ],
   /** Impôts / taxe / avis de prélèvement : montant dû puis échéances. */
   administratif: [
-    "frais_caches",
-    "delais",
-    "penalites",
     "obligations_importantes",
+    "penalites",
+    "delais",
+    "frais_caches",
     "sanctions",
     "engagement",
     "resiliation",
@@ -115,16 +115,16 @@ export const WATCH_CRITERION_ORDER_BY_FAMILY: Record<
     "clauses_abusives",
   ],
   default: [
-    "frais_caches",
-    "renouvellement_tacite",
-    "engagement",
-    "penalites",
-    "resiliation",
-    "augmentation_tarif",
-    "delais",
-    "clauses_abusives",
     "obligations_importantes",
+    "frais_caches",
+    "penalites",
+    "delais",
     "sanctions",
+    "engagement",
+    "resiliation",
+    "renouvellement_tacite",
+    "augmentation_tarif",
+    "clauses_abusives",
   ],
 };
 
@@ -134,11 +134,11 @@ export const LOCAL_INJECT_CRITERIA_BY_FAMILY: Record<
   readonly RiskCriterionId[]
 > = {
   recouvrement: [
+    "obligations_importantes",
     "frais_caches",
     "penalites",
     "delais",
     "sanctions",
-    "obligations_importantes",
   ],
   abonnement: [
     "engagement",
@@ -157,13 +157,13 @@ export const LOCAL_INJECT_CRITERIA_BY_FAMILY: Record<
   ],
   banque: ["frais_caches", "penalites", "delais", "sanctions"],
   bail: [
+    "obligations_importantes",
     "frais_caches",
     "engagement",
     "renouvellement_tacite",
     "resiliation",
     "augmentation_tarif",
     "delais",
-    "obligations_importantes",
     "clauses_abusives",
   ],
   pret: [
@@ -174,20 +174,20 @@ export const LOCAL_INJECT_CRITERIA_BY_FAMILY: Record<
     "obligations_importantes",
   ],
   administratif: [
-    "frais_caches",
-    "delais",
-    "penalites",
     "obligations_importantes",
+    "penalites",
+    "delais",
+    "frais_caches",
     "sanctions",
   ],
   facture: ["frais_caches", "penalites", "delais", "obligations_importantes"],
   default: [
-    "renouvellement_tacite",
+    "obligations_importantes",
     "frais_caches",
     "penalites",
     "engagement",
-    "resiliation",
     "delais",
+    "sanctions",
   ],
 };
 
@@ -213,15 +213,15 @@ const VACUOUS_RESILIATION_TITLE_RE =
 export function isVacuousGenericWatchTitle(description: string): boolean {
   const t = description.trim();
   if (!t) return true;
-  if (hasConcreteWatchSignal(t)) return false;
-  if (VACUOUS_RESILIATION_TITLE_RE.test(t)) return true;
-  if (GENERIC_TITLE_RE.test(t)) return true;
-  // « Délai 30 jours » / « Délai : 10 jours » sans autre contexte
+  // « Délai / préavis : 10 jours » — avant le signal « préavis » générique
   if (
     /^d[ée]lai(?:\s*\/\s*pr[ée]avis)?\s*[:\-–]?\s*\d+\s*jours?\s*\.?$/i.test(t)
   ) {
     return true;
   }
+  if (hasConcreteWatchSignal(t)) return false;
+  if (VACUOUS_RESILIATION_TITLE_RE.test(t)) return true;
+  if (GENERIC_TITLE_RE.test(t)) return true;
   if (
     /^obligation\s+(?:de\s+)?(?:payer|r[ée]gulariser)(?:\s+(?:le\s+)?solde)?\s*\.?$/i.test(
       t,
@@ -260,11 +260,27 @@ export function resolveWatchDocFamily(
     return "facture";
   }
 
+  // Impôts / avis fiscal : priorité catégorie (évite glossaire « mise en demeure »).
+  if (ctx.category === "impots") {
+    return "administratif";
+  }
+  if (ctx.category === "bail") {
+    return "bail";
+  }
+  if (ctx.category === "banque") {
+    return "banque";
+  }
+  if (ctx.category === "assurance") {
+    return "assurance";
+  }
+
   const strongRecouvrement =
-    /(?:^|[\n\r])[^\n]{0,100}(?:1[èe]re\s+relance|mise\s+en\s+demeure\s+de\s+payer|montant\s+impay[ée]|total\s+r[ée]clam[ée]\s*:)/i.test(
+    /(?:^|[\n\r#])[^\n]{0,120}(?:1[èe]re\s+relance|mise\s+en\s+demeure\s+de\s+payer|mise\s+en\s+demeure\s*[—–-]|montant\s+impay[ée]|total\s+r[ée]clam[ée]\s*:)/i.test(
       blob,
     ) ||
-    /huissier|commandement\s+de\s+payer|recouvrement\s+judiciaire/.test(blob);
+    /huissier|commandement\s+de\s+payer|recouvrement\s+judiciaire|service\s+recouvrement/.test(
+      blob,
+    );
 
   const looksFacture =
     /\bfacture\b|total\s+ttc|net\s+[àa]\s+payer|n[°o]\s*(?:de\s*)?facture|[ée]lectricit[ée]/i.test(
@@ -275,8 +291,11 @@ export function resolveWatchDocFamily(
     return "facture";
   }
 
+  if (strongRecouvrement) {
+    return "recouvrement";
+  }
   if (
-    /mise\s+en\s+demeure|recouvrement|huissier|commandement\s+de\s+payer|cr[ée]ance|relance(?:\s+de\s+)?paiement|montant\s+impay[ée]|1[èe]re\s+relance|2[eè]me\s+relance/.test(
+    /(?:^|[\n\r#*])[^\n]{0,80}mise\s+en\s+demeure|montant\s+impay[ée]\s*:|total\s+r[ée]clam[ée]\s*:|1[èe]re\s+relance|2[eè]me\s+relance|commandement\s+de\s+payer/.test(
       blob,
     )
   ) {
@@ -408,14 +427,19 @@ export function isFactureTtcWatchTitle(description: string): boolean {
 /** Ordre d’affichage impôts / taxe / avis de prélèvement. */
 function administratifTitlePriority(description: string): number {
   const t = description.toLowerCase();
-  if (/taxe\s+fonci|montant\s+[àa]\s+pr[ée]lever|montant\s+[àa]\s+payer|cotisation\s+[àa]\s+payer/.test(t)) {
+  if (
+    /principal\s+d[ûu]|total\s+[àa]\s+r[ée]gler|taxe\s+fonci|montant\s+[àa]\s+pr[ée]lever|montant\s+[àa]\s+payer|cotisation\s+[àa]\s+payer/.test(
+      t,
+    )
+  ) {
     return 0;
   }
   if (/^pr[ée]l[eè]vement\s+le\b/.test(t)) return 1;
   if (/opposition|date\s+limite\s+de\s+paiement|date\s+limite\s+de\s+d[ée]claration/.test(t)) {
     return 2;
   }
-  if (/majoration|p[ée]nalit/.test(t)) return 3;
+  if (/majoration|p[ée]nalit|frais\s+de\s+relance/.test(t)) return 3;
+  if (/contester|obligation\s+de\s+contester/.test(t)) return 40;
   if (
     /produit\s+national|ensemble\s+des\s+foyers|taxe\s+d['']habitation|valeur\s+locative\s+cadastrale|collectivit/.test(
       t,
@@ -507,6 +531,15 @@ export function watchRankScore(
     GENERIC_TITLE_RE.test(finding.description)
   ) {
     genericPenalty = 80;
+  }
+  // Banque / fiscal : délai générique « 10 jours » = bruit glossaire.
+  if (
+    (family === "banque" || family === "administratif") &&
+    /^d[ée]lai(?:\s*\/\s*pr[ée]avis)?\s*[:\-–]?\s*\d+\s*jours?\s*\.?$/i.test(
+      finding.description,
+    )
+  ) {
+    genericPenalty += 150;
   }
   // Bail / prêt : un délai générique « 10 jours » ne doit pas passer devant loyer / dépôt.
   if (

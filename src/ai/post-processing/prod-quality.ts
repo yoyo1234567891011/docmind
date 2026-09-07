@@ -9,6 +9,7 @@ import {
 } from "@/ai/post-processing/display-cleanup";
 import {
   resolveWatchDocFamily,
+  isVacuousGenericWatchTitle,
   type WatchDocFamily,
 } from "@/ai/post-processing/watch-ranking";
 import { isRecipientObligation } from "@/services/reply/letter-intents";
@@ -40,6 +41,21 @@ const BANK_PRIORITY_AMOUNT_RE =
 const BANK_DEPRIORITY_AMOUNT_RE =
   /solde\s+arr[eê]t[eé]|^\s*solde\b|salaire|loyer|pr[eé]l[eè]vement\s+loyer|d[eé]couvert\s+autoris[eé]/i;
 
+const FISCAL_PRIORITY_AMOUNT_RE =
+  /principal|total\s+[àa]\s+r[ée]gler|montant\s+[àa]\s+(?:payer|pr[ée]lever)|taxe|majoration|frais\s+de\s+relance|net\s+[àa]\s+payer/i;
+const MED_PRIORITY_AMOUNT_RE =
+  /total\s+r[ée]clam|principal|impay|frais\s+de\s+recouvrement|p[ée]nalit|huissier/i;
+const BAIL_PRIORITY_AMOUNT_RE =
+  /loyer|charges|d[ée]p[ôo]t\s+de\s+garantie|honoraires|frais\s+de\s+relance|irl/i;
+const PRET_PRIORITY_AMOUNT_RE =
+  /taeg|mensualit|frais\s+de\s+dossier|capital|remboursement|p[ée]nalit/i;
+const ASSURANCE_PRIORITY_AMOUNT_RE =
+  /cotisation|franchise|prime|exclusion/i;
+
+/** Montants / libellés qui ne sont PAS des « frais cachés ». */
+const NOT_HIDDEN_FEE_RE =
+  /principal(?:\s+d[ûu])?|taxe\s+fonci[eè]re|montant\s+[àa]\s+pr[ée]lever|montant\s+[àa]\s+(?:payer|r[ée]gler)|total\s+[àa]\s+r[ée]gler|total\s+r[ée]clam|solde\s+arr[eê]t|^\s*solde\b|salaire|loyer(?:\s+mensuel)?|charges\s+locatives|provisions?\s+pour\s+charges|d[ée]p[ôo]t\s+de\s+garantie|capital\s+emprunt|mensualit[ée]/i;
+
 /** Critères souvent déclenchés par le glossaire boilerplate des relevés bancaires. */
 const BANQUE_GLOSSARY_CRITERIA = new Set([
   "resiliation",
@@ -47,6 +63,14 @@ const BANQUE_GLOSSARY_CRITERIA = new Set([
   "engagement",
   "renouvellement_tacite",
   "delais",
+]);
+
+/** Sur MED/recouvrement : pas de reconduction tacite inventée via glossaire. */
+const RECOUVREMENT_GLOSSARY_CRITERIA = new Set([
+  "renouvellement_tacite",
+  "resiliation",
+  "augmentation_tarif",
+  "engagement",
 ]);
 
 const BANK_LOW_QUALITY_SUMMARY_RE =
@@ -129,6 +153,19 @@ export function isWeakScoreProofSnippet(
       return true;
     }
   }
+  if (family === "recouvrement" || family === "administratif") {
+    if (
+      /reconduction\s+tacite|renouvellement\s+tacite|prorogation\s+automatique/i.test(
+        t,
+      ) &&
+      !/mise\s+en\s+demeure|huissier|frais\s+de\s+recouvrement/i.test(t)
+    ) {
+      return true;
+    }
+    if (/d[ée]finitions?\b|obligations?\s+r[ée]ciproques/i.test(t)) {
+      return true;
+    }
+  }
   return false;
 }
 
@@ -150,12 +187,18 @@ export function sanitizeProductionDeadlines(deadlines: string[]): string[] {
   return out.slice(0, 8);
 }
 
-function shouldZeroBanqueGlossaryCriterion(
+function shouldZeroGlossaryCriterion(
   criterion: RiskCriterionResult,
   family: WatchDocFamily,
   reasons: string[],
 ): boolean {
-  if (family !== "banque" || !BANQUE_GLOSSARY_CRITERIA.has(criterion.id)) {
+  const glossarySet =
+    family === "banque"
+      ? BANQUE_GLOSSARY_CRITERIA
+      : family === "recouvrement"
+        ? RECOUVREMENT_GLOSSARY_CRITERIA
+        : null;
+  if (!glossarySet || !glossarySet.has(criterion.id)) {
     return false;
   }
   if (reasons.length === 0) {
@@ -175,15 +218,33 @@ export function prioritizeProductionAmounts(
   const usable = amounts.filter(
     (amount) => /\d/.test(amount) && !FICTITIOUS_AMOUNT_RE.test(amount),
   );
-  if (family !== "banque") {
+
+  const priorityRe =
+    family === "banque"
+      ? BANK_PRIORITY_AMOUNT_RE
+      : family === "administratif"
+        ? FISCAL_PRIORITY_AMOUNT_RE
+        : family === "recouvrement"
+          ? MED_PRIORITY_AMOUNT_RE
+          : family === "bail"
+            ? BAIL_PRIORITY_AMOUNT_RE
+            : family === "pret"
+              ? PRET_PRIORITY_AMOUNT_RE
+              : family === "assurance"
+                ? ASSURANCE_PRIORITY_AMOUNT_RE
+                : null;
+  const depriorityRe =
+    family === "banque" ? BANK_DEPRIORITY_AMOUNT_RE : null;
+
+  if (!priorityRe) {
     return usable.slice(0, 8);
   }
 
   const scored = usable.map((amount, index) => {
     let score = 1;
-    if (BANK_PRIORITY_AMOUNT_RE.test(amount) && !BANK_DEPRIORITY_AMOUNT_RE.test(amount)) {
+    if (priorityRe.test(amount) && !(depriorityRe?.test(amount))) {
       score = 3;
-    } else if (BANK_DEPRIORITY_AMOUNT_RE.test(amount)) {
+    } else if (depriorityRe?.test(amount)) {
       score = 0;
     }
     return { amount, index, score };
@@ -201,7 +262,7 @@ export function filterCriteriaProofs(
     const reasons = (criterion.reasons ?? []).filter(
       (reason) => !isWeakScoreProofSnippet(reason, family),
     );
-    if (shouldZeroBanqueGlossaryCriterion(criterion, family, reasons)) {
+    if (shouldZeroGlossaryCriterion(criterion, family, reasons)) {
       return {
         ...criterion,
         reasons: [],
@@ -281,73 +342,123 @@ export function buildDeterministicDisplaySummary(
     (c) => c.detected && c.score > 0,
   );
   const deadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
-
-  const local = buildLocalFallbackSummary({
-    categoryLabel,
-    fileName: analysis.title,
-    amounts,
-    deadlines,
-    risks:
-      risks.length > 0
-        ? risks
-        : criteria.map((c) => c.label).slice(0, 3),
-    importantPoints: analysis.important_points,
-  });
-
-  const sentences: string[] = [];
-  if (org) {
-    sentences.push(
-      `Document ${categoryLabel} émis par ${org}.`,
-    );
-  } else {
-    sentences.push(`Document de type « ${categoryLabel} ».`);
-  }
-
-  if (amounts.length > 0) {
-    sentences.push(`Montants repérés : ${amounts.join(", ")}.`);
-  }
+  const findings = (analysis.risk_findings ?? [])
+    .filter((f) => f.status !== "rejected")
+    .map((f) => f.description)
+    .filter((d) => d.trim().length > 8 && !isProdDisplayNoise(d));
 
   const alert =
+    findings[0] ||
     risks[0] ||
     criteria[0]?.label ||
-    (analysis.risk_findings ?? [])
-      .filter((f) => f.status !== "rejected")
-      .map((f) => f.description)
-      .find((d) => d.trim().length > 8);
+    deadlines[0];
+
+  const sentences: string[] = [];
+
+  const familyLead: Record<WatchDocFamily, string> = {
+    banque: org
+      ? `Relevé bancaire émis par ${org}.`
+      : `Relevé bancaire de type « ${categoryLabel} ».`,
+    administratif: org
+      ? `Avis fiscal / administratif émis par ${org}.`
+      : `Document fiscal ou administratif (« ${categoryLabel} »).`,
+    recouvrement: org
+      ? `Mise en demeure / recouvrement de ${org}.`
+      : `Mise en demeure ou courrier de recouvrement.`,
+    bail: org
+      ? `Bail / location — ${org}.`
+      : `Bail de location (« ${categoryLabel} »).`,
+    pret: org
+      ? `Offre ou contrat de prêt — ${org}.`
+      : `Document de prêt / crédit.`,
+    assurance: org
+      ? `Contrat d'assurance / mutuelle — ${org}.`
+      : `Document d'assurance.`,
+    abonnement: org
+      ? `Abonnement / contrat — ${org}.`
+      : `Abonnement ou conditions contractuelles.`,
+    facture: org
+      ? `Facture émise par ${org}.`
+      : `Facture (« ${categoryLabel} »).`,
+    default: org
+      ? `Document ${categoryLabel} émis par ${org}.`
+      : `Document de type « ${categoryLabel} ».`,
+  };
+  sentences.push(familyLead[family] ?? familyLead.default);
+
+  if (amounts.length > 0) {
+    const prefix =
+      family === "banque"
+        ? "Frais / montants à surveiller"
+        : family === "administratif" || family === "recouvrement"
+          ? "Montants clés"
+          : family === "bail"
+            ? "Loyers / montants"
+            : "Montants repérés";
+    sentences.push(`${prefix} : ${amounts.join(", ")}.`);
+  }
 
   if (alert) {
     const clean = alert.replace(/\s+/g, " ").trim().slice(0, 140);
-    sentences.push(
-      clean.endsWith(".") ? clean : `${clean}.`,
-    );
-  } else if (deadlines[0]) {
-    sentences.push(`Échéance notable : ${deadlines[0].slice(0, 100)}.`);
-  } else if (local && !SUMMARY_PLACEHOLDER_RE.test(local)) {
-    sentences.push(local);
+    sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+  } else {
+    const local = buildLocalFallbackSummary({
+      categoryLabel,
+      fileName: analysis.title,
+      amounts,
+      deadlines,
+      risks:
+        risks.length > 0
+          ? risks
+          : criteria.map((c) => c.label).slice(0, 3),
+      importantPoints: analysis.important_points,
+    });
+    if (local && !SUMMARY_PLACEHOLDER_RE.test(local)) {
+      sentences.push(local);
+    }
   }
 
   return sentences.join(" ").slice(0, 420);
 }
 
-function isBankSummaryLowQuality(
+function isFamilySummaryLowQuality(
   summary: string,
   family: WatchDocFamily,
 ): boolean {
-  if (family !== "banque") return false;
-  const hasFeeSignal =
-    /frais|commission|tenue|rejet|mouvement|agios|int[ée]r[êe]ts?\s+d[ée]bite/i.test(
-      summary,
-    );
-  if (
-    /solde|salaire|loyer|\+\s*\d[\d\s]{2,}/i.test(summary) &&
-    !hasFeeSignal
-  ) {
-    return true;
+  if (family === "banque") {
+    const hasFeeSignal =
+      /frais|commission|tenue|rejet|mouvement|agios|int[ée]r[êe]ts?\s+d[ée]bite/i.test(
+        summary,
+      );
+    if (
+      /solde|salaire|loyer|\+\s*\d[\d\s]{2,}/i.test(summary) &&
+      !hasFeeSignal
+    ) {
+      return true;
+    }
+    if (!BANK_LOW_QUALITY_SUMMARY_RE.test(summary)) return false;
+    const hasNoiseAmount =
+      /solde|salaire|loyer|\+\s*2\s*\d{3}/i.test(summary) && !hasFeeSignal;
+    return hasNoiseAmount || /2\s*148|2\s*086/i.test(summary);
   }
-  if (!BANK_LOW_QUALITY_SUMMARY_RE.test(summary)) return false;
-  const hasNoiseAmount =
-    /solde|salaire|loyer|\+\s*2\s*\d{3}/i.test(summary) && !hasFeeSignal;
-  return hasNoiseAmount || /2\s*148|2\s*086/i.test(summary);
+  if (family === "administratif") {
+    // Résumé faible si solde/salaire en tête sans principal/taxe/délai
+    if (
+      /solde|salaire/i.test(summary) &&
+      !/principal|taxe|pr[ée]lever|majoration|dgfip|finances/i.test(summary)
+    ) {
+      return true;
+    }
+  }
+  if (family === "bail") {
+    if (
+      /capital\s+social|garantie\s+financi[eè]re/i.test(summary) &&
+      !/loyer|charges|d[ée]p[ôo]t/i.test(summary)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function resolveDisplaySummary(
@@ -363,7 +474,7 @@ export function resolveDisplaySummary(
   if (
     cleaned &&
     !SUMMARY_PLACEHOLDER_RE.test(cleaned) &&
-    !isBankSummaryLowQuality(cleaned, family)
+    !isFamilySummaryLowQuality(cleaned, family)
   ) {
     return cleaned;
   }
@@ -374,7 +485,7 @@ export function resolveDisplaySummary(
     if (
       relaxed.length >= 36 &&
       !/^(relev[ée]|document|contrat)\s*$/i.test(relaxed) &&
-      !isBankSummaryLowQuality(relaxed, family)
+      !isFamilySummaryLowQuality(relaxed, family)
     ) {
       return relaxed;
     }
@@ -489,6 +600,22 @@ export function finalizeAnalysisForProd(
         .join(" ");
       if (isProdDisplayNoise(blob) || isWeakScoreProofSnippet(blob, family)) {
         return { ...finding, status: "rejected" as const };
+      }
+      if (isVacuousGenericWatchTitle(finding.description)) {
+        return { ...finding, status: "rejected" as const };
+      }
+      // Principal / loyer / solde ne doivent jamais rester sous « frais cachés ».
+      if (
+        finding.criterion_id === "frais_caches" &&
+        NOT_HIDDEN_FEE_RE.test(blob) &&
+        !/frais\s+de\s+relance|commission|franchise|frais\s+de\s+recouvrement|honoraires/i.test(
+          blob,
+        )
+      ) {
+        return {
+          ...finding,
+          criterion_id: "obligations_importantes" as const,
+        };
       }
       return finding;
     })

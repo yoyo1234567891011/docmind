@@ -20,14 +20,14 @@ import {
 
 function firstOrg(analysis: DocumentAnalysis, sheet?: DocumentSheet | null): string {
   return (
-    sheet?.organizations?.[0] ||
-    analysis.organizations[0] ||
-    "[Destinataire]"
+    sheet?.organizations?.find((o) => o.trim().length > 2) ||
+    analysis.organizations.find((o) => o.trim().length > 2) ||
+    ""
   );
 }
 
 function greeting(recipient: string): string {
-  if (recipient && recipient !== "[Destinataire]") {
+  if (recipient && !/^\[/.test(recipient)) {
     return `Madame, Monsieur,\n\nÀ l'attention de ${recipient},`;
   }
   return "Madame, Monsieur,";
