@@ -1,4 +1,10 @@
 import { cn } from "@/lib/utils";
+import {
+  cleanProseForDisplay,
+  endsWithIncompleteToken,
+  startsWithBrokenFragment,
+} from "@/ai/post-processing/display-cleanup";
+import { isProdDisplayNoise } from "@/ai/post-processing/prod-quality";
 import type { RiskAssessment } from "@/types";
 
 interface RiskScoreCardProps {
@@ -37,8 +43,40 @@ function getLevelMeta(level: RiskAssessment["risk_level"]) {
   }
 }
 
+function cleanReason(raw: string): string | null {
+  const cleaned = cleanProseForDisplay(raw, { minLength: 12 });
+  if (!cleaned) return null;
+  if (endsWithIncompleteToken(cleaned) || startsWithBrokenFragment(cleaned)) {
+    return null;
+  }
+  return cleaned;
+}
+
+function cleanExplanation(raw: string): string {
+  const lines = raw
+    .split(/\n+/)
+    .map((line) => cleanProseForDisplay(line, { minLength: 12 }))
+    .filter((line): line is string => Boolean(line))
+    .filter(
+      (line) =>
+        !endsWithIncompleteToken(line) && !startsWithBrokenFragment(line),
+    );
+  if (lines.length > 0) return lines.join("\n");
+  const whole = cleanProseForDisplay(raw, { minLength: 12 });
+  if (
+    whole &&
+    !endsWithIncompleteToken(whole) &&
+    !startsWithBrokenFragment(whole)
+  ) {
+    return whole;
+  }
+  // Trop abîmé → ne pas afficher une coupe mid-mot
+  return "";
+}
+
 export function RiskScoreCard({ assessment }: RiskScoreCardProps) {
   const level = getLevelMeta(assessment.risk_level);
+  const explanation = cleanExplanation(assessment.risk_explanation || "");
 
   return (
     <article className="animate-fade-up surface-panel rounded-2xl text-left">
@@ -71,47 +109,56 @@ export function RiskScoreCard({ assessment }: RiskScoreCardProps) {
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {assessment.risk_criteria.map((criterion) => (
-            <div
-              key={criterion.id}
-              className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-3"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-[var(--foreground)]">
-                  {criterion.label}
-                </p>
-                <p className="text-xs text-[var(--muted)]">
-                  {criterion.score}/{criterion.max_score}
-                </p>
-              </div>
-              <p
-                className={cn(
-                  "mt-1 text-xs font-medium",
-                  criterion.detected
-                    ? "text-[var(--warning)]"
-                    : "text-[var(--muted)]",
-                )}
+        <div className="grid gap-3 md:grid-cols-2">
+          {assessment.risk_criteria.map((criterion) => {
+            const rawReason = criterion.reasons[0];
+            const reason =
+              rawReason && !isProdDisplayNoise(rawReason)
+                ? cleanReason(rawReason)
+                : null;
+            return (
+              <div
+                key={criterion.id}
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-3"
               >
-                {criterion.detected ? "Détecté" : "Non détecté"}
-              </p>
-              {criterion.reasons[0] ? (
-                <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[var(--foreground)]">
-                  {criterion.reasons[0]}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-[var(--foreground)]">
+                    {criterion.label}
+                  </p>
+                  <p className="text-xs text-[var(--muted)]">
+                    {criterion.score}/{criterion.max_score}
+                  </p>
+                </div>
+                <p
+                  className={cn(
+                    "mt-1 text-xs font-medium",
+                    criterion.detected
+                      ? "text-[var(--warning)]"
+                      : "text-[var(--muted)]",
+                  )}
+                >
+                  {criterion.detected ? "Détecté" : "Non détecté"}
                 </p>
-              ) : null}
-            </div>
-          ))}
+                {reason ? (
+                  <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[var(--foreground)]">
+                    {reason}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
 
-        <div className="rounded-xl bg-[var(--background)] px-4 py-3">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
-            Pourquoi ce score
-          </p>
-          <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-[var(--foreground)]">
-            {assessment.risk_explanation}
-          </pre>
-        </div>
+        {explanation ? (
+          <div className="rounded-xl bg-[var(--background)] px-4 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Pourquoi ce score
+            </p>
+            <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-[var(--foreground)]">
+              {explanation}
+            </pre>
+          </div>
+        ) : null}
       </div>
     </article>
   );

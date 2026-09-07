@@ -5,6 +5,7 @@ export {
   containsProdQualityForbiddenPattern,
   finalizeAnalysisForProd,
   isAnalysisActionNoise,
+  isProdDisplayNoise,
   isDictionaryDefinitionSnippet,
   isFakeScheduleDeadline,
   prioritizeProductionAmounts,

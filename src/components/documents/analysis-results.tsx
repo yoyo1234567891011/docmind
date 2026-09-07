@@ -16,6 +16,7 @@ import {
 } from "@/ai/post-processing/watch-ranking";
 import {
   buildWatchPointsFromCriteria,
+  isProdDisplayNoise,
   resolveDisplaySummary,
   sanitizeProductionDeadlines,
   shouldShowWatchEmptyState,
@@ -320,19 +321,21 @@ function buildWatchPoints(
 
   const fromFindings: WatchPoint[] = ranked.flatMap((finding, index) => {
     const title = shortTitle(finding.description);
-    if (!title) return [];
+    if (!title || isProdDisplayNoise(title)) return [];
+    const explanation = shortExplanation(finding);
+    if (isProdDisplayNoise(explanation)) return [];
+    const excerptRaw =
+      finding.citation?.excerpt || finding.excerpt || undefined;
+    if (excerptRaw && isProdDisplayNoise(excerptRaw)) return [];
     return [
       {
         key: `rf-${index}-${finding.description.slice(0, 20)}`,
         category: criterionPlainLabel(finding.criterion_id),
         title,
-        explanation: shortExplanation(finding),
+        explanation,
         severity: finding.severity,
         finding,
-        excerpt:
-          cleanExcerptForDisplay(
-            finding.citation?.excerpt || finding.excerpt || undefined,
-          ) || undefined,
+        excerpt: cleanExcerptForDisplay(excerptRaw) || undefined,
       },
     ];
   });
@@ -354,7 +357,7 @@ function buildWatchPoints(
   );
   const fromImportant: WatchPoint[] = importantTitles.flatMap((title, index) => {
     const cleanedTitle = shortTitle(title);
-    if (!cleanedTitle) return [];
+    if (!cleanedTitle || isProdDisplayNoise(cleanedTitle)) return [];
     return [
       {
         key: `ip-${index}`,
@@ -371,7 +374,7 @@ function buildWatchPoints(
 
   const fromRisks: WatchPoint[] = (analysis.risks ?? []).flatMap((r, index) => {
     const title = shortTitle(r);
-    if (!title) return [];
+    if (!title || isProdDisplayNoise(title)) return [];
     return [
       {
         key: `rk-${index}`,

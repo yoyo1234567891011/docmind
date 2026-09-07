@@ -5,6 +5,10 @@ import {
   truncateAtTextBoundary,
 } from "@/ai/post-processing/display-cleanup";
 import {
+  isProdDisplayNoise,
+  isWeakScoreProofSnippet,
+} from "@/ai/post-processing/prod-quality";
+import {
   LOCAL_INJECT_CRITERIA_BY_FAMILY,
   resolveWatchDocFamily,
   isFactureTtcWatchTitle,
@@ -1173,6 +1177,12 @@ export function buildMissingLocalRiskFindings(
     if (!hit.detected || hit.reasons.length === 0) continue;
 
     const excerpt = pickBestExcerpt(id, hit.reasons, family);
+    if (
+      isProdDisplayNoise(excerpt) ||
+      isWeakScoreProofSnippet(excerpt, family)
+    ) {
+      continue;
+    }
     const finding = makeLocalFinding(
       id,
       excerpt.length > 180

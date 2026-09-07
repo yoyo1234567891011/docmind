@@ -1,5 +1,6 @@
 import { classifyDocumentHeuristic } from "@/ai/classification/heuristic";
 import { localFacts } from "@/ai/agents/parse-specialists";
+import { finalizeAnalysisForProd } from "@/ai/post-processing/prod-quality";
 import { buildDocumentSheetFromAnalysis } from "@/services/sheets";
 import { EMPTY_READY_REPLY } from "@/types";
 import type {
@@ -92,25 +93,28 @@ export async function quickAnalyzeDocumentText(
     facts,
   });
 
-  const analysis: DocumentAnalysis = {
-    document_type: classification.label,
-    title,
-    summary,
-    date: facts.date,
-    dates: facts.dates,
-    people: facts.people,
-    organizations: facts.organizations,
-    amounts: facts.amounts,
-    deadlines: facts.deadlines,
-    important_points: buildKeyPoints(facts),
-    risks: [],
-    actions: [],
-    risk_score: 0,
-    risk_level: "faible",
-    risk_explanation:
-      "Score non calculé — en attente de l’analyse juridique (phase 2).",
-    risk_criteria: [],
-  };
+  const analysis: DocumentAnalysis = finalizeAnalysisForProd(
+    {
+      document_type: classification.label,
+      title,
+      summary,
+      date: facts.date,
+      dates: facts.dates,
+      people: facts.people,
+      organizations: facts.organizations,
+      amounts: facts.amounts,
+      deadlines: facts.deadlines,
+      important_points: buildKeyPoints(facts),
+      risks: [],
+      actions: [],
+      risk_score: 0,
+      risk_level: "faible",
+      risk_explanation:
+        "Score non calculé — en attente de l’analyse juridique (phase 2).",
+      risk_criteria: [],
+    },
+    classification,
+  );
 
   return {
     documentId: request.documentId,

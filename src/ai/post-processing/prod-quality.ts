@@ -22,14 +22,17 @@ export const SUMMARY_PLACEHOLDER_RE =
   /aucun r[ée]sum[ée]|relancer si besoin|analyse de secours|indisponible|non disponible/i;
 
 export const ACTION_NOISE_RE =
-  /signaler\s+(?:sans\s+d[eé]lai\s+)?(?:tout\s+)?changement|changement\s+d['']adresse|traiter\s+les\s+r[ée]clamations|conserver\s+une\s+copie|espace\s+client|journal\s+technique|obligation\s+du\s+(?:client|titulaire|destinataire)|vous\s+devez\s+(?:nous\s+)?informer|mettre\s+[àa]\s+jour\s+vos\s+coordonn|anticiper\s+l['']échéance\s*:\s*(?:signaler|traiter|conserver)/i;
+  /signaler\s+(?:sans\s+d[eé]lai\s+)?(?:tout\s+)?changement|changement\s+d['']adresse|traiter\s+les\s+r[ée]clamations|dans\s+un\s+d[ée]lai\s+raisonnable|conserver\s+une\s+copie|espace\s+client|journal\s+technique|obligation\s+du\s+(?:client|titulaire|destinataire)|vous\s+devez\s+(?:nous\s+)?informer|mettre\s+[àa]\s+jour\s+vos\s+coordonn|anticiper\s+l['']échéance\s*:\s*(?:signaler|traiter|conserver)/i;
 
 /** Patterns interdits dans le JSON final persisté / affiché (tests d’intégration). */
 export const PROD_QUALITY_FORBIDDEN_PATTERNS = [
   /changement\s+d['']adresse/i,
   /échéance\s+n[°o]?\s*\d/i,
+  /\|\s*échéance/i,
+  /^\s*\|.+\|.+\|/m,
   /date\s+à\s+laquelle\s+une\s+obligation/i,
-  /signal\s+détecté\s+sur\s+le\s+critère/i,
+  /signal\s+d[ée]tect[ée]\s+(?:sur\s+le\s+critère|score)/i,
+  /traiter\s+les\s+r[ée]clamations/i,
 ] as const;
 
 const BANK_PRIORITY_AMOUNT_RE =
@@ -43,6 +46,7 @@ const BANQUE_GLOSSARY_CRITERIA = new Set([
   "obligations_importantes",
   "engagement",
   "renouvellement_tacite",
+  "delais",
 ]);
 
 const BANK_LOW_QUALITY_SUMMARY_RE =
@@ -69,7 +73,19 @@ export function isAnalysisActionNoise(text: string): boolean {
   if (MARKDOWN_TABLE_ROW_RE.test(t)) return true;
   if (FAKE_SCHEDULE_RE.test(t)) return true;
   if (DICTIONARY_DEFINITION_RE.test(t)) return true;
+  if (containsProdQualityForbiddenPattern(t)) return true;
   return ACTION_NOISE_RE.test(t);
+}
+
+/** Texte display (finding / point / preuve) à exclure. */
+export function isProdDisplayNoise(text: string): boolean {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t || t.length < 4) return true;
+  if (isAnalysisActionNoise(t)) return true;
+  if (isDictionaryDefinitionSnippet(t)) return true;
+  if (isFakeScheduleDeadline(t)) return true;
+  if (/signal\s+d[ée]tect[ée]/i.test(t)) return true;
+  return false;
 }
 
 export function isDictionaryDefinitionSnippet(text: string): boolean {
@@ -215,12 +231,20 @@ export function assertProdQualityCleanPayload(parts: {
   deadlines?: string[];
   actions?: string[];
   riskCriteriaReasons?: string[];
+  findings?: string[];
+  importantPoints?: string[];
+  risks?: string[];
+  riskExplanation?: string;
 }): void {
   const blobs = [
     parts.summary ?? "",
+    parts.riskExplanation ?? "",
     ...(parts.deadlines ?? []),
     ...(parts.actions ?? []),
     ...(parts.riskCriteriaReasons ?? []),
+    ...(parts.findings ?? []),
+    ...(parts.importantPoints ?? []),
+    ...(parts.risks ?? []),
   ];
   for (const blob of blobs) {
     for (const pattern of PROD_QUALITY_FORBIDDEN_PATTERNS) {
@@ -309,12 +333,20 @@ function isBankSummaryLowQuality(
   summary: string,
   family: WatchDocFamily,
 ): boolean {
-  if (family !== "banque" || !BANK_LOW_QUALITY_SUMMARY_RE.test(summary)) {
-    return false;
+  if (family !== "banque") return false;
+  const hasFeeSignal =
+    /frais|commission|tenue|rejet|mouvement|agios|int[ée]r[êe]ts?\s+d[ée]bite/i.test(
+      summary,
+    );
+  if (
+    /solde|salaire|loyer|\+\s*\d[\d\s]{2,}/i.test(summary) &&
+    !hasFeeSignal
+  ) {
+    return true;
   }
+  if (!BANK_LOW_QUALITY_SUMMARY_RE.test(summary)) return false;
   const hasNoiseAmount =
-    /solde|salaire|loyer|\+\s*2\s*\d{3}/i.test(summary) &&
-    !/frais|commission|tenue|rejet|mouvement/i.test(summary);
+    /solde|salaire|loyer|\+\s*2\s*\d{3}/i.test(summary) && !hasFeeSignal;
   return hasNoiseAmount || /2\s*148|2\s*086/i.test(summary);
 }
 
@@ -428,7 +460,7 @@ export function buildWatchPointsFromCriteria(
   return out.slice(0, 4);
 }
 
-/** Normalise l'analyse persistée avant stockage (verify / enrich). */
+/** Normalise l'analyse persistée avant stockage (verify / enrich / worker). */
 export function finalizeAnalysisForProd(
   analysis: DocumentAnalysis,
   classification?: DocumentClassification,
@@ -439,28 +471,105 @@ export function finalizeAnalysisForProd(
     title: analysis.title,
   });
 
-  const summary = resolveDisplaySummary(analysis, classification);
+  const amounts = prioritizeProductionAmounts(analysis.amounts ?? [], family);
   const deadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
   const actions = cleanActionsForDisplay(
     (analysis.actions ?? []).filter((action) => !isAnalysisActionNoise(action)),
-  );
-  const amounts = prioritizeProductionAmounts(analysis.amounts ?? [], family);
+  ).slice(0, 6);
+
+  const risk_findings = (analysis.risk_findings ?? [])
+    .map((finding) => {
+      const blob = [
+        finding.description,
+        finding.why,
+        finding.excerpt,
+        finding.implication,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      if (isProdDisplayNoise(blob) || isWeakScoreProofSnippet(blob, family)) {
+        return { ...finding, status: "rejected" as const };
+      }
+      return finding;
+    })
+    .filter((finding) => finding.status !== "rejected")
+    .slice(0, 6);
+
+  const feeAmounts = amounts.filter((a) => BANK_PRIORITY_AMOUNT_RE.test(a));
+  const important_points = (analysis.important_points ?? [])
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter((p) => p.length >= 8 && !isProdDisplayNoise(p))
+    .filter((p) => {
+      if (family !== "banque" || feeAmounts.length === 0) return true;
+      if (/solde\s+arr[eê]t|salaire|loyer/i.test(p) && !BANK_PRIORITY_AMOUNT_RE.test(p)) {
+        return false;
+      }
+      return true;
+    })
+    .slice(0, 6);
+
+  const risks = (analysis.risks ?? [])
+    .map((r) => r.replace(/\s+/g, " ").trim())
+    .filter((r) => r.length >= 8 && !isProdDisplayNoise(r))
+    .slice(0, 6);
+
   const risk_criteria = filterCriteriaProofs(
     analysis.risk_criteria ?? [],
     family,
   );
   const risk_score = Math.min(
     100,
-    Math.max(0, risk_criteria.reduce((total, criterion) => total + criterion.score, 0)),
+    Math.max(
+      0,
+      risk_criteria.reduce((total, criterion) => total + criterion.score, 0),
+    ),
   );
 
-  return {
+  const risk_explanation = rebuildRiskExplanation(risk_criteria, risk_score);
+
+  const draft: DocumentAnalysis = {
     ...analysis,
-    summary,
+    amounts,
     deadlines,
     actions,
-    amounts,
+    risk_findings,
+    important_points,
+    risks,
     risk_criteria,
     risk_score,
+    risk_explanation,
   };
+  const summary = resolveDisplaySummary(draft, classification);
+
+  return {
+    ...draft,
+    summary,
+  };
+}
+
+function rebuildRiskExplanation(
+  criteria: RiskCriterionResult[],
+  riskScore: number,
+): string {
+  const detected = criteria.filter((c) => c.detected && c.score > 0);
+  const lines = [
+    `Score de risque pondéré : ${riskScore}/100.`,
+    "",
+  ];
+  if (detected.length === 0) {
+    lines.push("Aucun critère confirmé avec preuve exploitable.");
+    return lines.join("\n");
+  }
+  lines.push("Critères retenus :");
+  for (const item of detected) {
+    const proofs = (item.reasons ?? [])
+      .filter((r) => !isProdDisplayNoise(r))
+      .slice(0, 2);
+    const evidence =
+      proofs.length > 0
+        ? ` Preuve(s) : ${proofs.map((r) => `"${r}"`).join(" ; ")}`
+        : "";
+    lines.push(`- ${item.label} : +${item.score}/${item.max_score}.${evidence}`);
+  }
+  return lines.join("\n");
 }

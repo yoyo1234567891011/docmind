@@ -105,26 +105,33 @@ export function normalizeBankFeeLine(raw: string): string | null {
     return `${rateOnly[1].trim()} : ${rateOnly[2].trim()}`;
   }
 
-  const amountMatch = t.match(/[-−]?\s*(\d+(?:[,.]\d{2})?)\s*€/);
+  const amountMatch = t.match(/[-−]?\s*(\d+(?:[,.]\d{1,2})?)\s*€/);
   if (!amountMatch) return null;
 
   const amount = amountMatch[1].replace(".", ",");
   let label = t
-    .replace(/[-−]?\s*\d+[,.]\d{2}\s*€.*$/, "")
+    .replace(/[-−]?\s*\d+(?:[,.]\d{1,2})?\s*€.*$/i, "")
     .replace(/^montant\s*:\s*/i, "")
     .replace(/[-−]\s*$/, "")
+    .replace(/\s+(?:de|du|des|le|la|les|d[''])\s*$/i, "")
     .trim();
 
-  if (!label || isBankNonFeeLine(label)) return null;
+  if (!label || label.length < 3 || isBankNonFeeLine(label)) return null;
+  if (/^\d+(?:[,.]\d{1,2})?\s*€?$/i.test(label)) return null;
+  if (label.replace(/\s/g, "").toLowerCase() === `${amount}€`.toLowerCase()) {
+    return null;
+  }
 
   const debited =
-    /[-−]\s*\d+[,.]\d{2}\s*€/.test(t) || BANK_FEE_KEYWORD_RE.test(label);
+    /[-−]\s*\d+(?:[,.]\d{1,2})?\s*€/.test(t) || BANK_FEE_KEYWORD_RE.test(label);
   if (!debited) return null;
 
   label = label
     .replace(/\s*:\s*$/, "")
     .replace(/\s*-\s*$/, "")
+    .replace(/\s+(?:de|du|des|le|la|les|d[''])\s*$/i, "")
     .trim();
+  if (!label || label.length < 3) return null;
 
   return `${label} : ${amount} €`;
 }

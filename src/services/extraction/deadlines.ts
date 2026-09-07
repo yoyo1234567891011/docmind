@@ -1,6 +1,7 @@
 import {
   isFakeScheduleDeadline,
   isDictionaryDefinitionSnippet,
+  isAnalysisActionNoise,
 } from "@/ai/post-processing/prod-quality";
 import { uniqueStrings } from "@/lib/array";
 import { isRecipientObligation } from "@/services/reply/letter-intents";
@@ -55,6 +56,7 @@ export function sanitizeDeadlines(values: string[]): string[] {
       .filter((value) => !isRecipientObligation(value))
       .filter((value) => !isFakeScheduleDeadline(value))
       .filter((value) => !isDictionaryDefinitionSnippet(value))
+      .filter((value) => !isAnalysisActionNoise(value))
       .filter((value) => HAS_DATE.test(value) || HAS_DURATION.test(value)),
   );
 }
