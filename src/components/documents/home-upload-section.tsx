@@ -5,11 +5,11 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 
 import {
+  analysisJobFailMessageFromLastError,
   analysisJobPollTimeoutMessage,
   analysisJobProcessingHint,
   analysisJobQueuePositionLine,
   analysisJobLongWaitHint,
-  analysisJobSaturationFailMessage,
   analysisJobSaturationWaitHint,
   analysisJobStatusBody,
   analysisJobStatusTitle,
@@ -267,11 +267,7 @@ export function HomeUploadSection() {
               clearPendingAnalysis();
               setJobUiStatus("failed");
               setAnalysisError(
-                job.lastError?.trim()
-                  ? isAnalysisJobSaturationHint(job.lastError)
-                    ? analysisJobSaturationFailMessage()
-                    : `L’analyse approfondie a échoué : ${job.lastError}`
-                  : "L’analyse approfondie a échoué. L’aperçu reste disponible — réessayez plus tard.",
+                analysisJobFailMessageFromLastError(job.lastError),
               );
               trackAbandon("p2_failed", input.historyId);
               return;

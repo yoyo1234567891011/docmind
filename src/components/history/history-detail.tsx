@@ -2,14 +2,30 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import {
+  analysisJobFailMessageFromLastError,
+  analysisJobLongWaitHint,
+  analysisJobPollTimeoutMessage,
+  analysisJobProcessingHint,
+  analysisJobQueuePositionLine,
+  analysisJobSaturationWaitHint,
+  analysisJobStatusBody,
+  analysisJobStatusTitle,
+  isAnalysisJobSaturationHint,
+} from "@/components/documents/analysis-job-status-copy";
 import { AnalysisResults } from "@/components/documents/analysis-results";
 import { ExtractedTextPanel } from "@/components/documents/extracted-text-panel";
 import { FolderSelect } from "@/components/folders/folder-select";
-import { Alert, AnalysisSkeleton, Button } from "@/components/ui";
+import { Alert, AnalysisSkeleton, Button, ProgressBar } from "@/components/ui";
 import { ArrowLeftIcon, TrashIcon } from "@/components/ui/icons";
-import { deleteHistoryItem, fetchHistoryRecord } from "@/lib/client";
+import {
+  deleteHistoryItem,
+  fetchAnalysisJob,
+  fetchAnalysisJobByHistory,
+  fetchHistoryRecord,
+} from "@/lib/client";
 import { formatDateTime } from "@/lib/format";
 import type { HistoryRecord } from "@/types";
 
@@ -23,6 +39,24 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [jobUiStatus, setJobUiStatus] = useState<
+    "pending" | "processing" | "completed" | "failed" | null
+  >(null);
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [jobError, setJobError] = useState<string | null>(null);
+  const [saturationWait, setSaturationWait] = useState(false);
+  const [longWaitHint, setLongWaitHint] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const formatJobError = (lastError?: string | null) =>
+    analysisJobFailMessageFromLastError(lastError);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -30,10 +64,94 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
     const load = async () => {
       setIsLoading(true);
       setError(null);
+      setJobError(null);
+      stopPolling();
 
       try {
         const data = await fetchHistoryRecord(id);
-        if (!cancelled) setRecord(data);
+        if (cancelled) return;
+        setRecord(data);
+
+        if (data.analysisPhase === "preview") {
+          let jobId: string | undefined;
+          try {
+            const byHistory = await fetchAnalysisJobByHistory(id);
+            jobId = byHistory.jobId;
+            if (!cancelled) {
+              setJobUiStatus(byHistory.status);
+              setQueuePosition(
+                byHistory.status === "pending" ? byHistory.queuePosition : null,
+              );
+              if (byHistory.status === "completed") {
+                const refreshed = await fetchHistoryRecord(id);
+                if (!cancelled) {
+                  setRecord(refreshed);
+                  setJobUiStatus("completed");
+                }
+                return;
+              }
+              if (byHistory.status === "failed") {
+                setJobUiStatus("failed");
+                setJobError(formatJobError(byHistory.lastError));
+                return;
+              }
+            }
+          } catch {
+            // pas de job — aperçu seul
+          }
+
+          if (!jobId || cancelled) return;
+
+          let attempts = 0;
+          pollRef.current = setInterval(() => {
+            attempts += 1;
+            void (async () => {
+              if (attempts > 50) {
+                stopPolling();
+                setJobError(analysisJobPollTimeoutMessage());
+                return;
+              }
+              try {
+                const job = await fetchAnalysisJob(jobId!);
+                setJobUiStatus(job.status);
+                setQueuePosition(
+                  job.status === "pending" ? job.queuePosition : null,
+                );
+                setSaturationWait(
+                  (job.status === "pending" || job.status === "processing") &&
+                    isAnalysisJobSaturationHint(job.lastError),
+                );
+                setLongWaitHint(
+                  job.status === "pending" || job.status === "processing"
+                    ? analysisJobLongWaitHint(job.attempts)
+                    : null,
+                );
+                if (job.status === "completed") {
+                  stopPolling();
+                  const refreshed = await fetchHistoryRecord(id);
+                  setRecord(refreshed);
+                  setJobUiStatus("completed");
+                  setQueuePosition(null);
+                  setSaturationWait(false);
+                  setLongWaitHint(null);
+                  return;
+                }
+                if (job.status === "failed") {
+                  stopPolling();
+                  setJobUiStatus("failed");
+                  setQueuePosition(null);
+                  setSaturationWait(false);
+                  setLongWaitHint(null);
+                  setJobError(formatJobError(job.lastError));
+                  const refreshed = await fetchHistoryRecord(id);
+                  setRecord(refreshed);
+                }
+              } catch {
+                // retry jusqu’au plafond
+              }
+            })();
+          }, 4000);
+        }
       } catch (loadError) {
         if (!cancelled) {
           setError(
@@ -51,6 +169,7 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
 
     return () => {
       cancelled = true;
+      stopPolling();
     };
   }, [id]);
 
@@ -64,7 +183,7 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
 
     try {
       await deleteHistoryItem(id);
-      router.push("/historique");
+      router.push("/dashboard");
       router.refresh();
     } catch (deleteError) {
       setError(
@@ -107,6 +226,13 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
 
   if (!record) return null;
 
+  const phase =
+    record.analysisPhase === "preview"
+      ? "preview"
+      : record.analysisPhase === "failed"
+        ? "preview"
+        : "complete";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4 text-left">
@@ -146,7 +272,7 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
           <FolderSelect
             historyId={record.id}
             value={record.folderId}
-            className="min-w-[200px]"
+            className="w-full min-w-0 md:min-w-[200px] md:w-auto"
             onMoved={(folderId) => {
               setRecord((current) =>
                 current ? { ...current, folderId } : current,
@@ -181,6 +307,58 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
         </Alert>
       ) : null}
 
+      {jobUiStatus === "pending" || jobUiStatus === "processing" ? (
+        <Alert
+          tone="info"
+          title={analysisJobStatusTitle(jobUiStatus)}
+        >
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p>{analysisJobStatusBody()}</p>
+              {jobUiStatus === "pending" && queuePosition != null ? (
+                <p className="text-sm opacity-90">
+                  {analysisJobQueuePositionLine(queuePosition)}
+                </p>
+              ) : null}
+              {jobUiStatus === "processing" ? (
+                <p className="text-sm opacity-90">
+                  {analysisJobProcessingHint()}
+                </p>
+              ) : null}
+              {saturationWait ? (
+                <p className="text-sm opacity-90">
+                  {analysisJobSaturationWaitHint()}
+                </p>
+              ) : null}
+              {longWaitHint ? (
+                <p className="text-sm opacity-90">{longWaitHint}</p>
+              ) : null}
+            </div>
+            <ProgressBar
+              indeterminate
+              label="Analyse approfondie (risques, citations…)"
+            />
+          </div>
+        </Alert>
+      ) : null}
+
+      {jobUiStatus === "failed" || record.analysisPhase === "failed" ? (
+        <Alert tone="error" title="L’analyse n’a pas pu aboutir">
+          <div className="space-y-2">
+            <p>
+              {jobError ||
+                "L’aperçu reste disponible. Vous pouvez relancer l’analyse depuis la page Analyser."}
+            </p>
+            <Link
+              href="/analyser"
+              className="inline-flex text-sm font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+            >
+              Réessayer depuis Analyser
+            </Link>
+          </div>
+        </Alert>
+      ) : null}
+
       <AnalysisResults
         analysis={record.analysis}
         classification={record.classification}
@@ -189,7 +367,10 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
         historyId={record.id}
         documentId={record.documentId}
         relationsPhase={record.relationsPhase}
-        phase={record.analysisPhase === "preview" ? "preview" : "complete"}
+        phase={phase}
+        backgroundPending={
+          jobUiStatus === "pending" || jobUiStatus === "processing"
+        }
         onLetterDrafted={(letter) => {
           setRecord((current) =>
             current ? { ...current, readyReply: letter } : current,

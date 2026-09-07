@@ -47,12 +47,10 @@ import {
 } from "./p2-concurrency";
 import {
   classifyP2Error,
+  formatP2LastError,
   shouldRequeueAfterP2Failure,
 } from "./requeue-policy";
-import {
-  LLM_SATURATION_REQUEUE_MESSAGE,
-  sanitizeAnalysisFailureMessage,
-} from "@/lib/sanitize";
+import { sanitizeAnalysisFailureMessage } from "@/lib/sanitize";
 
 function jobMetricsForAnalytics(
   metrics: AnalysisJobMetrics,
@@ -438,7 +436,6 @@ export async function processOneAnalysisJob(
         `[analysis-jobs] EROFS raw job=${job.id} history=${job.historyId} message=${rawMessage}`,
       );
     }
-    const message = sanitizeAnalysisFailureMessage(rawMessage);
     const attached = (
       error as { analysisJobMetrics?: Omit<AnalysisJobMetrics, "totalMs"> }
     )?.analysisJobMetrics;
@@ -464,10 +461,15 @@ export async function processOneAnalysisJob(
     const errorClass = classifyP2Error(error);
     const requeueDecision = shouldRequeueAfterP2Failure(job, error);
     console.warn(
-      `[analysis-jobs] P2 failed job=${job.id} class=${errorClass} attempts=${job.attempts} requeue=${requeueDecision.requeue}`,
+      `[analysis-jobs] P2 failed job=${job.id} class=${errorClass} attempts=${job.attempts} requeue=${requeueDecision.requeue} raw=${rawMessage.slice(0, 120)}`,
     );
 
     if (requeueDecision.requeue) {
+      const requeueMsg = formatP2LastError(
+        errorClass,
+        "requeue",
+        job.attempts,
+      );
       console.warn(
         `[analysis-jobs] requeue after ${errorClass} job=${job.id} deferMs=${requeueDecision.deferMs}`,
       );
@@ -475,11 +477,7 @@ export async function processOneAnalysisJob(
       await noteP2GroqRateLimitCooldown(requeueDecision.deferMs).catch(
         () => undefined,
       );
-      await requeue(
-        job.id,
-        LLM_SATURATION_REQUEUE_MESSAGE,
-        requeueDecision.deferMs,
-      );
+      await requeue(job.id, requeueMsg, requeueDecision.deferMs);
       await trackAnalyticsEvent({
         name: "analysis.error",
         userId: job.userId,
@@ -490,6 +488,7 @@ export async function processOneAnalysisJob(
           phase: "p2",
           errorCode: "OLLAMA_UNAVAILABLE",
           message: `requeued_${errorClass}`,
+          errorClass,
           attempts: job.attempts,
           ...jobMetricsForAnalytics(failMetrics),
         },
@@ -498,6 +497,7 @@ export async function processOneAnalysisJob(
       return "requeued";
     }
 
+    const failMsg = formatP2LastError(errorClass, "fail", job.attempts);
     await trackAnalyticsEvent({
       name: "analysis.error",
       userId: job.userId,
@@ -507,7 +507,10 @@ export async function processOneAnalysisJob(
         jobId: job.id,
         phase: "p2",
         errorCode: error instanceof AppError ? error.code : "ANALYSIS_FAILED",
-        message: message.slice(0, 200),
+        message: failMsg.slice(0, 200),
+        errorClass,
+        attempts: job.attempts,
+        sanitized: sanitizeAnalysisFailureMessage(rawMessage).slice(0, 120),
         ...jobMetricsForAnalytics(failMetrics),
       },
     }).catch(() => undefined);
@@ -516,7 +519,7 @@ export async function processOneAnalysisJob(
       analysisPhase: "failed",
     }).catch(() => undefined);
 
-    await fail(job.id, message, failMetrics);
+    await fail(job.id, failMsg, failMetrics);
     return "failed";
   } finally {
     clearInterval(beat);

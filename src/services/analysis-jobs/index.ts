@@ -43,6 +43,7 @@ export {
   noteP2Success,
   noteP2GroqTokenUsage,
   getP2TpmSpacingRemainingMs,
+  getLocalP2TpmSpacingRemainingMs,
   waitForP2TpmSpacing,
   noteP2GroqRateLimitCooldown,
   __resetP2ConcurrencyForTests,
@@ -57,8 +58,10 @@ export {
 
 export {
   classifyP2Error,
+  formatP2LastError,
   shouldRequeueAfterP2Failure,
   computeRequeueDeferMs,
+  RATE_LIMIT_MAX_ATTEMPTS,
   type P2ErrorClass,
 } from "./requeue-policy";
 

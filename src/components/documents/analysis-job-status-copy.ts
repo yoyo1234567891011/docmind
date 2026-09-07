@@ -26,12 +26,12 @@ export function analysisJobProcessingHint(): string {
 
 /** Job remis en file après saturation Groq (pas un échec). */
 export function analysisJobSaturationWaitHint(): string {
-  return "Quota IA temporairement atteint — votre document reste en file, nouvelle tentative automatique dans ~20–30 s.";
+  return "En file d’attente — nouvel essai automatique sous peu (quota IA temporaire).";
 }
 
 export function isAnalysisJobSaturationHint(lastError?: string | null): boolean {
   if (!lastError?.trim()) return false;
-  return /satur|file d['’]attente|limite de débit|rate.?limit|TPM|nouvelle tentative automatique|quota ia/i.test(
+  return /^(rate_limit|timeout|network):|satur|file d['’]attente|en file|limite de débit|rate.?limit|TPM|nouvelle? essai|quota ia/i.test(
     lastError,
   );
 }
@@ -43,7 +43,7 @@ export function analysisJobPollTimeoutMessage(): string {
 /** Job en retry saturation ou dépassement habituel — rassurer sans masquer l’échec. */
 export function analysisJobLongWaitHint(attempts: number): string | null {
   if (attempts >= 2) {
-    return "Quota IA ou file d’attente — nouvelles tentatives automatiques en cours (jusqu’à ~10 min). L’aperçu reste disponible.";
+    return "Nouvelles tentatives automatiques en cours (jusqu’à 5). L’aperçu reste disponible.";
   }
   return null;
 }
@@ -51,6 +51,32 @@ export function analysisJobLongWaitHint(attempts: number): string | null {
 /** Message d’échec définitif après saturation TPM ou timeout job. */
 export function analysisJobSaturationFailMessage(): string {
   return "Le service d’analyse est temporairement saturé. Réessayez dans quelques minutes — votre document reste disponible.";
+}
+
+/** Mappe last_error classé → message UI d’échec. */
+export function analysisJobFailMessageFromLastError(
+  lastError?: string | null,
+): string {
+  const raw = lastError?.trim() ?? "";
+  if (!raw) {
+    return "L’analyse approfondie a échoué. L’aperçu reste disponible — réessayez plus tard.";
+  }
+  if (/^rate_limit:/i.test(raw) || isAnalysisJobSaturationHint(raw)) {
+    return analysisJobSaturationFailMessage();
+  }
+  if (/^timeout:/i.test(raw)) {
+    return "L’analyse a dépassé le délai autorisé. Réessayez — le document uploadé est conservé.";
+  }
+  if (/^model_error:/i.test(raw)) {
+    return "Modèle d’analyse indisponible. Réessayez dans quelques minutes.";
+  }
+  if (/^parse_error:/i.test(raw)) {
+    return "L’analyse a renvoyé un résultat invalide. Réessayez — le document uploadé est conservé.";
+  }
+  if (/^network:/i.test(raw)) {
+    return "Service d’analyse temporairement injoignable. Réessayez dans un instant.";
+  }
+  return `L’analyse approfondie a échoué : ${raw}`;
 }
 
 /** Message pendant l’appel initial (P1 / démarrage P2). */

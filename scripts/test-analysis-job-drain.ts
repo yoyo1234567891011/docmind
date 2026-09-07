@@ -239,7 +239,7 @@ async function main() {
   assert.equal(nFail, 0);
   const failed = await getAnalysisJob(errJob.id);
   assert.equal(failed?.status, "pending");
-  assert.match(failed?.lastError ?? "", /file d'attente|quota ia/i);
+  assert.match(failed?.lastError ?? "", /timeout:|en file/i);
   console.log("OK 8) drain → timeout 504 requeue (pas failed terminal)");
 
   console.log("\nAll analysis-job-drain tests passed.");

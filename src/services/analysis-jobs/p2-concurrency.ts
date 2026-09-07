@@ -149,6 +149,19 @@ export async function getP2TpmSpacingRemainingMs(): Promise<number> {
   return Math.max(cooldownWait, tokenWait);
 }
 
+/** Lecture sync (process-local) — pour alléger le prompt sous cooldown. */
+export function getLocalP2TpmSpacingRemainingMs(): number {
+  const local = localState();
+  const cooldownWait =
+    typeof local.groqCooldownUntil === "number"
+      ? Math.max(0, local.groqCooldownUntil - Date.now())
+      : 0;
+  const tokenWait = local.lastGroqUsage
+    ? spacingMsForUsage(local.lastGroqUsage)
+    : 0;
+  return Math.max(cooldownWait, tokenWait);
+}
+
 /** Attend l’espacement TPM Groq avant un claim (best-effort, plafonné). */
 export async function waitForP2TpmSpacing(
   maxWaitMs = 28_000,

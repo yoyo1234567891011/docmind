@@ -45,8 +45,8 @@ export const ANALYSIS_REQUEUE_MIN_REMAINING_MS = 40_000;
 /** Remise en file après saturation : ne pas reclamer tout de suite. */
 export const ANALYSIS_RATE_LIMIT_DEFER_MS = 22_000;
 
-/** Au-delà → échec définitif (évite boucle infinie). */
-export const ANALYSIS_MAX_TRANSIENT_ATTEMPTS = 8;
+/** Au-delà → échec définitif pour erreurs transient non-429 (évite boucle). */
+export const ANALYSIS_MAX_TRANSIENT_ATTEMPTS = 5;
 
 /**
  * @deprecated utiliser ANALYSIS_P2_MAX_CONCURRENCY (plafond) + getEffectiveP2Concurrency().
@@ -575,10 +575,14 @@ export async function requeueAnalysisJob(
   const now = new Date().toISOString();
   const deferIso = new Date(Date.now() + Math.max(5_000, deferMs)).toISOString();
   let msg = (errorMessage?.trim() || LLM_SATURATION_REQUEUE_MESSAGE).slice(0, 500);
+  // Conserver le préfixe de classe (rate_limit: / timeout: / …) pour l’observabilité.
   if (msg.trim().startsWith("{") || /rate_limit_exceeded|"error"/i.test(msg)) {
-    msg = LLM_SATURATION_REQUEUE_MESSAGE;
-  } else if (/rate_limit|tokens per minute|\bTPM\b/i.test(msg)) {
-    msg = LLM_SATURATION_REQUEUE_MESSAGE;
+    msg = `rate_limit: ${LLM_SATURATION_REQUEUE_MESSAGE}`;
+  } else if (
+    !/^(rate_limit|timeout|model_error|parse_error|network|unknown):/i.test(msg) &&
+    /rate_limit|tokens per minute|\bTPM\b/i.test(msg)
+  ) {
+    msg = `rate_limit: ${LLM_SATURATION_REQUEUE_MESSAGE}`;
   }
 
   if (usePersistentStorage()) {

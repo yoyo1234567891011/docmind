@@ -1,6 +1,6 @@
 import { formatPagesForLlm } from "@/ai/reasoning/citations";
 import { classifyDocumentHeuristic } from "@/ai/classification/heuristic";
-import { prepareDocumentTextForLlm } from "@/ai/utils/prepare-document-text";
+import { prepareDocumentTextForLlm, LLM_DOCUMENT_CHAR_BUDGET_LIGHT } from "@/ai/utils/prepare-document-text";
 import { asStringArray } from "@/ai/validation/json";
 import { resolveTaskConfig } from "@/services/admin/config-store";
 import type { DocumentAnalysis, DocumentClassification } from "@/types";
@@ -18,6 +18,7 @@ import {
 } from "./core-bundle-outcome";
 import { docmindConfig } from "@/config/docmind";
 import { isCloudLlmEnabled } from "@/ai/models/llm-provider";
+import { getLocalP2TpmSpacingRemainingMs } from "@/services/analysis-jobs/p2-concurrency";
 import { generateAgentJson } from "./llm";
 import { getTaskConfig } from "@/ai/models";
 import {
@@ -211,10 +212,17 @@ export async function runFastMultiAgentAnalysis(input: {
 
   const baselineFacts = localFacts(input.documentText);
   const heuristicClass = classifyDocumentHeuristic(documentText);
+  const underTpmPressure = getLocalP2TpmSpacingRemainingMs() > 0;
+  const docBudget = underTpmPressure ? LLM_DOCUMENT_CHAR_BUDGET_LIGHT : undefined;
+  if (underTpmPressure) {
+    console.info(
+      `[analyze] light prompt budget=${LLM_DOCUMENT_CHAR_BUDGET_LIGHT} (tpm_spacing)`,
+    );
+  }
 
   let state: AgentPipelineState = {
     documentText,
-    llmText: prepareDocumentTextForLlm(llmSource),
+    llmText: prepareDocumentTextForLlm(llmSource, docBudget),
     pages: pages.length > 0 ? pages : undefined,
     fileName: input.fileName,
     model,
