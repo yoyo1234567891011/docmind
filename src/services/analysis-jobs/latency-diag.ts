@@ -51,6 +51,9 @@ export type LatencyDiag = {
     completionTokens?: number;
     totalTokens?: number;
     salvaged: boolean;
+    /** Fallback déterministe après échec parse/generate. */
+    partialLocalFallback?: boolean;
+    fallbackReason?: string;
     /** Nombre de retries LLM bundle sur JSON invalide / tronqué. */
     jsonBundleRetries?: number;
     jobId?: string;
