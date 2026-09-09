@@ -359,10 +359,9 @@ function buildFamilyLetter(input: {
   }
 
   if (family === "bail") {
-    const isConge = letterType === "resiliation";
     return {
       subject: shortenLetterSubject(
-        isConge ? "Congé / fin de bail" : "Demande relative au bail de location",
+        "Demande relative au bail de location",
         letterType === "contestation" ? "contestation" : "autre",
         family,
       ),
@@ -389,10 +388,8 @@ function buildFamilyLetter(input: {
   if (family === "assurance") {
     return {
       subject: shortenLetterSubject(
-        letterType === "resiliation"
-          ? "Résiliation / demande relative au contrat d'assurance"
-          : "Demande de précisions — contrat d'assurance",
-        letterType === "resiliation" ? "resiliation" : "reponse_administrative",
+        "Demande de précisions — contrat d'assurance",
+        "reponse_administrative",
         family,
       ),
       reason: reason || "Courrier relatif au contrat d'assurance / mutuelle.",
@@ -416,10 +413,8 @@ function buildFamilyLetter(input: {
   if (family === "abonnement" || family === "facture") {
     return {
       subject: shortenLetterSubject(
-        letterType === "resiliation"
-          ? "Résiliation d'abonnement / contrat"
-          : "Contestation de facturation",
-        letterType === "resiliation" ? "resiliation" : "contestation",
+        "Contestation de facturation",
+        "contestation",
         family,
       ),
       reason: reason || "Courrier relatif à l'abonnement ou à la facture.",
@@ -430,9 +425,7 @@ function buildFamilyLetter(input: {
         "",
         factsBlock,
         "",
-        letterType === "resiliation"
-          ? "Je vous demande de confirmer la résiliation et la date de fin d'engagement."
-          : "Je conteste les frais ou options concernés et demande un décompte corrigé.",
+        "Je conteste les frais ou options concernés et demande un décompte corrigé.",
         "",
         deadlineBlock,
         closing(),
