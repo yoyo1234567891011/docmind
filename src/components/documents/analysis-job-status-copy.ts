@@ -85,6 +85,9 @@ export function analysisJobFailMessageFromLastError(
   if (/^network:/i.test(raw)) {
     return "Service d’analyse temporairement injoignable. Réessayez dans un instant.";
   }
+  if (/^runtime_error:/i.test(raw)) {
+    return "L’analyse a rencontré une erreur interne de traitement. Réessayez — le document uploadé est conservé.";
+  }
   return `L’analyse approfondie a échoué : ${raw}`;
 }
 

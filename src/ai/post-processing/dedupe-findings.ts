@@ -7,6 +7,7 @@ import type { RiskFinding } from "@/types";
 const TOKEN_RE = /[a-z0-9]+/g;
 
 export function normalizeFindingText(raw: string): string {
+  if (typeof raw !== "string") return "";
   return raw
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -37,16 +38,18 @@ export function jaccardSimilarity(a: string, b: string): number {
 
 /** Signaux de précision : montant, %, date, label chiffré. */
 export function findingPrecisionScore(finding: RiskFinding): number {
-  const blob = `${finding.description} ${finding.excerpt ?? ""}`;
-  let score = finding.description.length;
+  const description =
+    typeof finding.description === "string" ? finding.description : "";
+  const blob = `${description} ${finding.excerpt ?? ""}`;
+  let score = description.length;
   if (/\d/.test(blob)) score += 40;
   if (/€|euro|%\s*$|\/mois/i.test(blob)) score += 30;
   if (/\d{1,2}[./]\d{1,2}[./]\d{2,4}/.test(blob)) score += 25;
   if (finding.status === "confirmed") score += 15;
   score += Math.round((finding.confidence ?? 0) * 20);
   // Titres trop génériques « Menace de… » perdants vs libellés concrets.
-  if (/^menace\s+de\b/i.test(finding.description)) score -= 40;
-  if (/^risque\s+de\b/i.test(finding.description) && !/\d/.test(blob)) {
+  if (/^menace\s+de\b/i.test(description)) score -= 40;
+  if (/^risque\s+de\b/i.test(description) && !/\d/.test(blob)) {
     score -= 20;
   }
   return score;
@@ -143,6 +146,7 @@ export function dedupeLabeledAmounts(amounts: string[]): string[] {
   const keys: string[] = [];
 
   for (const raw of amounts) {
+    if (typeof raw !== "string") continue;
     const t = raw.replace(/\s+/g, " ").trim();
     if (!t || !/\d/.test(t)) continue;
     const key = normalizeFindingText(t);
@@ -201,6 +205,7 @@ export function dedupeLabeledAmounts(amounts: string[]): string[] {
 export function dedupeRiskStrings(items: string[]): string[] {
   const out: string[] = [];
   for (const raw of items) {
+    if (typeof raw !== "string") continue;
     const t = raw.replace(/\s+/g, " ").trim();
     if (t.length < 8) continue;
     const isDup = out.some((prev) => {

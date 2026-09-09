@@ -45,6 +45,7 @@ function firstOrg(
 
 /** Article + destinataire : « la Direction… », « la Banque… », « du Crédit… ». */
 export function formatAttentionRecipient(recipient: string): string {
+  if (typeof recipient !== "string") return "";
   const r = recipient.replace(/\s+/g, " ").trim();
   if (!r || /^\[/.test(r)) return "";
   if (/^(madame|monsieur|messieurs|mesdames)\b/i.test(r)) {
@@ -105,6 +106,7 @@ function cleanFactsList(lines: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of lines) {
+    if (typeof raw !== "string") continue;
     const t = raw
       .replace(/^[-•*]\s*/, "")
       .replace(/^v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:\s*/i, "")
@@ -141,7 +143,10 @@ function familyAmountLines(
 
   const findingAmounts = (analysis.risk_findings ?? [])
     .map((f) => f.description)
-    .filter((d) => /\d/.test(d) && /€|%|euro|\/mois/i.test(d));
+    .filter(
+      (d): d is string =>
+        typeof d === "string" && /\d/.test(d) && /€|%|euro|\/mois/i.test(d),
+    );
 
   const pool = [
     ...(analysis.amounts ?? []),
@@ -183,11 +188,12 @@ function familyAmountLines(
   const fromFacts = allowedFacts
     .filter(
       (f) =>
-        f.label.startsWith("Montant :") ||
-        f.label.startsWith("Frais :") ||
-        /principal|total|majoration|loyer|commission|relance|aide|indu|ttc|capital|taeg/i.test(
-          f.label,
-        ),
+        typeof f.label === "string" &&
+        (f.label.startsWith("Montant :") ||
+          f.label.startsWith("Frais :") ||
+          /principal|total|majoration|loyer|commission|relance|aide|indu|ttc|capital|taeg/i.test(
+            f.label,
+          )),
     )
     .map((f) => f.label.replace(/^(?:Montant|Frais)\s*:\s*/i, ""));
 

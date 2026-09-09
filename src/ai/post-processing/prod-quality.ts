@@ -100,6 +100,7 @@ const BANQUE_BOILERPLATE_RESILIATION_RE =
   /r[ée]sili(?:ation|er)|reconduction\s+tacite|renouvellement\s+tacite|prorogation\s+automatique/i;
 
 export function isAnalysisActionNoise(text: string): boolean {
+  if (typeof text !== "string") return true;
   const t = text.trim();
   if (!t) return true;
   if (isRecipientObligation(t)) return true;
@@ -112,6 +113,7 @@ export function isAnalysisActionNoise(text: string): boolean {
 
 /** Texte display (finding / point / preuve) à exclure. */
 export function isProdDisplayNoise(text: string): boolean {
+  if (typeof text !== "string") return true;
   const t = text.replace(/\s+/g, " ").trim();
   if (!t || t.length < 4) return true;
   if (isAnalysisActionNoise(t)) return true;
@@ -182,6 +184,7 @@ export function sanitizeProductionDeadlines(deadlines: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of deadlines) {
+    if (typeof raw !== "string") continue;
     const value = raw.replace(/\s+/g, " ").trim();
     if (!value || value.length < 8 || value.length > 160) continue;
     if (isRecipientObligation(value)) continue;
@@ -236,7 +239,10 @@ export function prioritizeProductionAmounts(
   family: WatchDocFamily,
 ): string[] {
   const usable = amounts.filter(
-    (amount) => /\d/.test(amount) && !FICTITIOUS_AMOUNT_RE.test(amount),
+    (amount): amount is string =>
+      typeof amount === "string" &&
+      /\d/.test(amount) &&
+      !FICTITIOUS_AMOUNT_RE.test(amount),
   );
 
   const priorityRe =
@@ -639,6 +645,7 @@ export function buildDeterministicDisplaySummary(
 }
 
 function isTelegraphicSummary(summary: string): boolean {
+  if (typeof summary !== "string") return true;
   const t = summary.replace(/\s+/g, " ").trim();
   if (!t) return true;
   // Pas de ponctuation de phrase → télégraphique
@@ -991,7 +998,12 @@ export function finalizeAnalysisForProd(
         ...(analysis.amounts ?? []),
         ...risk_findings
           .map((f) => f.description)
-          .filter((d) => /\d/.test(d) && /€|euro|%|\/mois/i.test(d)),
+          .filter(
+            (d): d is string =>
+              typeof d === "string" &&
+              /\d/.test(d) &&
+              /€|euro|%|\/mois/i.test(d),
+          ),
       ],
       family,
     ),
@@ -1000,10 +1012,12 @@ export function finalizeAnalysisForProd(
     ...(analysis.deadlines ?? []),
     ...risk_findings
       .filter((f) => f.criterion_id === "delais")
-      .map((f) => f.description),
+      .map((f) => f.description)
+      .filter((d): d is string => typeof d === "string" && d.trim().length > 0),
   ]);
   const actions = cleanActionsForDisplay(
     (analysis.actions ?? [])
+      .filter((action): action is string => typeof action === "string")
       .map((action) =>
         action
           .replace(/^v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:\s*/i, "")
@@ -1016,6 +1030,7 @@ export function finalizeAnalysisForProd(
   const feeAmounts = amounts.filter((a) => BANK_PRIORITY_AMOUNT_RE.test(a));
   const important_points = dedupeRiskStrings(
     (analysis.important_points ?? [])
+      .filter((p): p is string => typeof p === "string")
       .map((p) => p.replace(/\s+/g, " ").trim())
       .filter((p) => p.length >= 8 && !isProdDisplayNoise(p))
       .filter((p) => {
@@ -1032,6 +1047,7 @@ export function finalizeAnalysisForProd(
 
   const risks = dedupeRiskStrings(
     (analysis.risks ?? [])
+      .filter((r): r is string => typeof r === "string")
       .map((r) => r.replace(/\s+/g, " ").trim())
       .filter((r) => r.length >= 8 && !isProdDisplayNoise(r)),
   ).slice(0, 6);

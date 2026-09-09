@@ -104,6 +104,21 @@ function main() {
     ),
     /incomplète|invalide|JSON|champs/i,
   );
+  assert.equal(
+    classifyP2Error(
+      new TypeError("Cannot read properties of undefined (reading 'replace')"),
+    ),
+    "runtime_error",
+  );
+  assert.match(
+    formatP2LastError(
+      "runtime_error",
+      "fail",
+      1,
+      "Cannot read properties of undefined (reading 'replace')",
+    ),
+    /^runtime_error:Cannot read properties/,
+  );
   console.log("OK last_error classé + UX wait vs fail");
 
   assert.equal(RATE_LIMIT_MAX_ATTEMPTS, 5);

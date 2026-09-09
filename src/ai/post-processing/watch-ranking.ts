@@ -272,6 +272,7 @@ const VACUOUS_RESILIATION_TITLE_RE =
  * (pas de chiffre / frais / préavis / pénalité concrète).
  */
 export function isVacuousGenericWatchTitle(description: string): boolean {
+  if (typeof description !== "string") return true;
   const t = description.trim();
   if (!t) return true;
   // « Délai / préavis : 10 jours » — avant le signal « préavis » générique
@@ -726,7 +727,7 @@ export function watchRankScore(
 
 function findingDedupeKey(finding: RiskFinding): string {
   const criterion = finding.criterion_id ?? "";
-  const desc = finding.description
+  const desc = (finding.description ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()

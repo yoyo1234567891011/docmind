@@ -21,6 +21,7 @@ export type P2ErrorClass =
   | "model_error"
   | "parse_error"
   | "network"
+  | "runtime_error"
   | "unknown";
 
 /** Tentatives max avant fail définitif sous 429/TPM (objectif user : 3–5). */
@@ -62,6 +63,14 @@ export function classifyP2Error(error: unknown): P2ErrorClass {
   }
   if (/injoignable|réseau|network|fetch failed|ECONNRESET/i.test(raw)) {
     return "network";
+  }
+  if (
+    error instanceof TypeError ||
+    /Cannot read propert(?:y|ies) of (?:undefined|null)|is not a function|is not iterable/i.test(
+      raw,
+    )
+  ) {
+    return "runtime_error";
   }
   return "unknown";
 }
@@ -117,6 +126,10 @@ export function formatP2LastError(
       return "model_error: modèle d’analyse indisponible ou incorrect";
     case "network":
       return `network: échec définitif après ${attempts} tentative(s)`;
+    case "runtime_error":
+      return raw
+        ? `runtime_error:${raw}`.slice(0, 500)
+        : `runtime_error: échec définitif après ${attempts} tentative(s)`;
     default:
       return raw
         ? `unknown:${raw}`.slice(0, 500)

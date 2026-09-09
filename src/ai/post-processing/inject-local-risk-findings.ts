@@ -1603,10 +1603,13 @@ export function mergeWithLocalRiskFindings(
     (f) => !f.criterion_id || !priorityIds.has(f.criterion_id),
   );
   const merged = [...missing, ...rest].filter((f, i, arr) => {
-    const key = f.description.replace(/\s+/g, " ").trim().toLowerCase();
+    const key = (f.description ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+    if (!key) return false;
     return (
       arr.findIndex(
-        (o) => o.description.replace(/\s+/g, " ").trim().toLowerCase() === key,
+        (o) =>
+          (o.description ?? "").replace(/\s+/g, " ").trim().toLowerCase() ===
+          key,
       ) === i
     );
   });
