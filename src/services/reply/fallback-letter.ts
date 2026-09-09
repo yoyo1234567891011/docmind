@@ -87,7 +87,7 @@ function cleanFactsList(lines: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of lines) {
-    let t = raw
+    const t = raw
       .replace(/^[-•*]\s*/, "")
       .replace(/^v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:\s*/i, "")
       .replace(/^anticiper\s+l['']échéance\s*:\s*/i, "")
