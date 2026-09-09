@@ -1485,6 +1485,142 @@ export function buildMissingLocalRiskFindings(
     }
   }
 
+  if (family === "social") {
+    const cafSignals: Array<{
+      re: RegExp;
+      title: string;
+      criterion: RiskCriterionId;
+    }> = [
+      {
+        re: /aide\s+mensuelle[^\n€]{0,60}?(\d[\d\s\u00a0\u202f.,]*)\s*€/i,
+        title: "Aide mensuelle",
+        criterion: "obligations_importantes",
+      },
+      {
+        re: /indu[^\n€]{0,60}?(\d[\d\s\u00a0\u202f.,]*)\s*€/i,
+        title: "Indu / trop-perçus",
+        criterion: "penalites",
+      },
+      {
+        re: /avant\s+le\s+(\d{1,2}[./]\d{1,2}[./]\d{2,4})|sous\s+\d+\s+jours\s+ouvr/i,
+        title: "Délai de transmission des pièces",
+        criterion: "delais",
+      },
+      {
+        re: /suspension\s+du\s+versement|suspension\s+des?\s+droits/i,
+        title: "Risque de suspension des droits",
+        criterion: "sanctions",
+      },
+      {
+        re: /d[ée]clarer\s+tout\s+changement\s+de\s+situation|maintien\s+de\s+vos\s+droits|pi[èe]ces?\s+pour\s+le\s+maintien/i,
+        title: "Obligation de produire les pièces",
+        criterion: "obligations_importantes",
+      },
+    ];
+    for (const sig of cafSignals) {
+      const m = documentText.match(sig.re);
+      if (!m) continue;
+      const idx = m.index ?? 0;
+      let title = sig.title;
+      if (m[1] && /aide|indu/i.test(sig.title)) {
+        title = `${sig.title} : ${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
+      }
+      const already = [...existing, ...injected].some(
+        (f) =>
+          f.criterion_id === sig.criterion &&
+          (f.description
+            .toLowerCase()
+            .includes(sig.title.toLowerCase().slice(0, 12)) ||
+            f.description.toLowerCase().includes(title.toLowerCase().slice(0, 16))),
+      );
+      if (already) continue;
+      const finding = makeLocalFinding(
+        sig.criterion,
+        snippetAround(documentText, idx, m[0]!.length),
+        family,
+        title,
+      );
+      if (finding) injected.push(finding);
+    }
+    // Jamais d'engagement boîte / glossaire sur CAF.
+    for (let i = injected.length - 1; i >= 0; i -= 1) {
+      const f = injected[i]!;
+      if (
+        f.criterion_id === "engagement" ||
+        /^engagement\b/i.test(f.description)
+      ) {
+        injected.splice(i, 1);
+      }
+    }
+  }
+
+  if (family === "pret") {
+    const pretSignals: Array<{
+      re: RegExp;
+      title: (m: RegExpMatchArray) => string;
+      criterion: RiskCriterionId;
+    }> = [
+      {
+        re: /capital\s+emprunt[ée]\s*:?\s*(?:\*{0,2})?(\d[\d\s.,]*)\s*(?:\*{0,2})?€/i,
+        title: (m) =>
+          `Capital emprunté : ${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`,
+        criterion: "engagement",
+      },
+      {
+        re: /\btaeg\s*:?\s*(?:\*{0,2})?(\d+[.,]\d+)\s*%/i,
+        title: (m) => `TAEG : ${m[1]!.replace(".", ",")} %`,
+        criterion: "frais_caches",
+      },
+      {
+        re: /mensualit[ée]\s*:?\s*(?:\*{0,2})?(\d[\d\s.,]*)\s*(?:\*{0,2})?€/i,
+        title: (m) =>
+          `Mensualité : ${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`,
+        criterion: "obligations_importantes",
+      },
+      {
+        re: /frais\s+de\s+dossier\s*:?\s*(?:\*{0,2})?(\d[\d\s.,]*)\s*(?:\*{0,2})?€/i,
+        title: (m) =>
+          `Frais de dossier : ${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`,
+        criterion: "frais_caches",
+      },
+      {
+        re: /d[ée]lai\s+de\s+r[ée]tractation\s*:?\s*(\d+)\s*jours/i,
+        title: (m) => `Délai de rétractation : ${m[1]} jours`,
+        criterion: "delais",
+      },
+      {
+        re: /d[ée]ch[ée]ance\s+du\s+terme|exigibilit[ée]\s+imm[ée]diate/i,
+        title: () => "Déchéance du terme / exigibilité",
+        criterion: "sanctions",
+      },
+      {
+        re: /p[ée]nalit[ée]s?\s+de\s+remboursement\s+anticip[ée][^%]{0,40}?(\d+[.,]\d+)\s*%/i,
+        title: (m) => `Pénalité remboursement anticipé : ${m[1]} %`,
+        criterion: "penalites",
+      },
+    ];
+    for (const sig of pretSignals) {
+      const m = documentText.match(sig.re);
+      if (!m) continue;
+      const idx = m.index ?? 0;
+      const title = sig.title(m);
+      const already = [...existing, ...injected].some((f) =>
+        f.description.toLowerCase().includes(title.toLowerCase().slice(0, 14)),
+      );
+      if (already) continue;
+      const finding = makeLocalFinding(
+        sig.criterion,
+        snippetAround(documentText, idx, m[0]!.length),
+        family,
+        title,
+      );
+      if (finding) {
+        if (/capital|taeg|mensualit/i.test(title)) injected.unshift(finding);
+        else injected.push(finding);
+      }
+    }
+  }
+
   if (family === "banque") {
     const banqueSignals: Array<{ re: RegExp; title: string; criterion: RiskCriterionId }> = [
       {

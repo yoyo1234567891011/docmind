@@ -243,15 +243,17 @@ export function prioritizeProductionAmounts(
       ? BANK_PRIORITY_AMOUNT_RE
       : family === "administratif"
         ? FISCAL_PRIORITY_AMOUNT_RE
-        : family === "recouvrement"
-          ? MED_PRIORITY_AMOUNT_RE
-          : family === "bail"
-            ? BAIL_PRIORITY_AMOUNT_RE
-            : family === "pret"
-              ? PRET_PRIORITY_AMOUNT_RE
-              : family === "assurance"
-                ? ASSURANCE_PRIORITY_AMOUNT_RE
-                : null;
+        : family === "social"
+          ? /aide|indu|trop|allocation|mensuel|€/i
+          : family === "pret"
+            ? PRET_PRIORITY_AMOUNT_RE
+            : family === "recouvrement"
+              ? MED_PRIORITY_AMOUNT_RE
+              : family === "bail"
+                ? BAIL_PRIORITY_AMOUNT_RE
+                : family === "assurance"
+                  ? ASSURANCE_PRIORITY_AMOUNT_RE
+                  : null;
   const depriorityRe =
     family === "banque" ? BANK_DEPRIORITY_AMOUNT_RE : null;
 
@@ -356,6 +358,7 @@ function formatAmountClause(amounts: string[]): string | null {
 export function buildDeterministicDisplaySummary(
   analysis: DocumentAnalysis,
   classification?: DocumentClassification,
+  documentText?: string,
 ): string {
   const categoryLabel =
     classification?.label || analysis.document_type || "Document";
@@ -363,6 +366,7 @@ export function buildDeterministicDisplaySummary(
     category: classification?.category,
     documentType: analysis.document_type,
     title: analysis.title,
+    textHint: documentText?.slice(0, 4500),
   });
   const org = analysis.organizations?.find((o) => o.trim().length > 0);
   const amounts = dedupeLabeledAmounts(
@@ -433,6 +437,109 @@ export function buildDeterministicDisplaySummary(
       } else {
         sentences.push(
           "En l'absence de règlement, un recouvrement ou des poursuites peuvent être engagés.",
+        );
+      }
+      break;
+    }
+    case "social": {
+      sentences.push(
+        org
+          ? `Cette notification sociale / CAF est émise par ${org}.`
+          : "Il s'agit d'une notification CAF ou de prestations sociales.",
+      );
+      if (amountClause) {
+        sentences.push(`Montants concernés : ${amountClause}.`);
+      }
+      if (deadlineHint) {
+        sentences.push(
+          `Délai pour transmettre les pièces : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
+        );
+      } else if (alertFinding) {
+        const clean = alertFinding.replace(/\s+/g, " ").trim().slice(0, 120);
+        sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+      } else {
+        sentences.push(
+          "Sans réponse dans le délai, une suspension de droits ou un indu peut être engagé.",
+        );
+      }
+      break;
+    }
+    case "pret": {
+      sentences.push(
+        org
+          ? `Cette offre de prêt / crédit est proposée par ${org}.`
+          : "Il s'agit d'une offre de prêt ou de crédit.",
+      );
+      if (amountClause) {
+        sentences.push(`Conditions financières : ${amountClause}.`);
+      }
+      if (alertFinding) {
+        const clean = alertFinding.replace(/\s+/g, " ").trim().slice(0, 120);
+        sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+      } else if (deadlineHint) {
+        sentences.push(
+          `Point d'attention : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
+        );
+      } else {
+        sentences.push(
+          "Vérifier TAEG, mensualité, assurance emprunteur et délai de rétractation avant acceptation.",
+        );
+      }
+      break;
+    }
+    case "facture": {
+      sentences.push(
+        org
+          ? `Cette facture est émise par ${org}.`
+          : `Il s'agit d'une facture (« ${categoryLabel} »).`,
+      );
+      if (amountClause) {
+        sentences.push(`Montants facturés : ${amountClause}.`);
+      }
+      if (deadlineHint) {
+        sentences.push(
+          `Échéance de paiement : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
+        );
+      } else if (alertFinding) {
+        const clean = alertFinding.replace(/\s+/g, " ").trim().slice(0, 120);
+        sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+      }
+      break;
+    }
+    case "abonnement": {
+      sentences.push(
+        org
+          ? `Ce contrat d'abonnement / service est proposé par ${org}.`
+          : `Il s'agit d'un contrat d'abonnement (« ${categoryLabel} »).`,
+      );
+      if (amountClause) {
+        sentences.push(`Montants et options : ${amountClause}.`);
+      }
+      if (alertFinding) {
+        const clean = alertFinding.replace(/\s+/g, " ").trim().slice(0, 120);
+        sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+      } else if (deadlineHint) {
+        sentences.push(
+          `Engagement / préavis : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
+        );
+      }
+      break;
+    }
+    case "assurance": {
+      sentences.push(
+        org
+          ? `Ce contrat d'assurance / mutuelle est émis par ${org}.`
+          : `Il s'agit d'un contrat d'assurance ou de mutuelle (« ${categoryLabel} »).`,
+      );
+      if (amountClause) {
+        sentences.push(`Cotisations et montants : ${amountClause}.`);
+      }
+      if (alertFinding) {
+        const clean = alertFinding.replace(/\s+/g, " ").trim().slice(0, 120);
+        sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+      } else if (deadlineHint) {
+        sentences.push(
+          `Point d'attention : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
         );
       }
       break;
@@ -595,11 +702,13 @@ function isFamilySummaryLowQuality(
 export function resolveDisplaySummary(
   analysis: DocumentAnalysis,
   classification?: DocumentClassification,
+  documentText?: string,
 ): string {
   const family = resolveWatchDocFamily({
     category: classification?.category,
     documentType: analysis.document_type,
     title: analysis.title,
+    textHint: documentText?.slice(0, 4500),
   });
   const cleaned = cleanSummaryForDisplay(analysis.summary);
   if (
@@ -622,7 +731,7 @@ export function resolveDisplaySummary(
     }
   }
 
-  return buildDeterministicDisplaySummary(analysis, classification);
+  return buildDeterministicDisplaySummary(analysis, classification, documentText);
 }
 
 /** Réactive délais/sanctions/etc. quand un finding solide existe mais le score LLM est à 0. */
@@ -757,11 +866,13 @@ export function buildWatchPointsFromCriteria(
 export function finalizeAnalysisForProd(
   analysis: DocumentAnalysis,
   classification?: DocumentClassification,
+  documentText?: string,
 ): DocumentAnalysis {
   const family = resolveWatchDocFamily({
     category: classification?.category,
     documentType: analysis.document_type,
     title: analysis.title,
+    textHint: documentText?.slice(0, 4500),
   });
 
   const risk_findings_raw = (analysis.risk_findings ?? [])
@@ -831,6 +942,7 @@ export function finalizeAnalysisForProd(
         category: classification?.category,
         documentType: analysis.document_type,
         title: analysis.title,
+        textHint: documentText?.slice(0, 4500),
       },
       8,
     ),
@@ -904,7 +1016,7 @@ export function finalizeAnalysisForProd(
     risk_score,
     risk_explanation,
   };
-  const summary = resolveDisplaySummary(draft, classification);
+  const summary = resolveDisplaySummary(draft, classification, documentText);
 
   return {
     ...draft,

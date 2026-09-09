@@ -170,6 +170,7 @@ function runFamily(opts: {
       })),
     }),
     classification,
+    text,
   );
 
   assert.ok(out.summary.trim().length >= 24, `${opts.name} résumé vide`);

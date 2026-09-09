@@ -34,10 +34,12 @@ const ORG_LABELS = [
   "organisme",
   "fournisseur",
   "creancier",
+  "operateur",
+  "operateur fictif",
 ];
 
 const HEADER_ORG_RE =
-  /(?:^|\n)\s*(?:\*\*)?(?:direction\s+g[ée]n[ée]rale\s+des\s+finances\s+publiques|dgfip|finances\s+publiques|service\s+recouvrement|banque\s+[A-ZÀ-Ü][\w'’-]{2,}(?:\s+[A-ZÀ-Ü][\w'’-]+){0,2})(?:\*\*)?/gim;
+  /(?:^|\n)\s*(?:\*\*)?(?:direction\s+g[ée]n[ée]rale\s+des\s+finances\s+publiques|dgfip|finances\s+publiques|caisse\s+d['']allocations\s+familiales|service\s+recouvrement|banque\s+[A-ZÀ-Ü][\w'’-]{2,}(?:\s+[A-ZÀ-Ü][\w'’-]+){0,2}|cr[ée]dit\s+[A-ZÀ-Ü][\w'’-]{2,}(?:\s+[A-ZÀ-Ü][\w'’-]+){0,2})(?:\*\*)?/gim;
 
 function normalizeKey(value: string): string {
   return value

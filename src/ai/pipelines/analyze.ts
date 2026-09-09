@@ -161,6 +161,7 @@ async function analyzeDocumentTextUnlocked(
           ? { ...cached.analysis, summary: cleanedSummary }
           : cached.analysis,
         cached.classification,
+        text,
       );
       const readyReply =
         canLetter && cached.readyReply && !request.skipReadyReply
@@ -231,6 +232,7 @@ async function analyzeDocumentTextUnlocked(
     const analysis = finalizeAnalysisForProd(
       multi.analysis,
       classification,
+      text,
     );
     category = classification.category;
     categoryLabel = classification.label;

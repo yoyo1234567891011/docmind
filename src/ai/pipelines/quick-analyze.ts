@@ -114,6 +114,7 @@ export async function quickAnalyzeDocumentText(
       risk_criteria: [],
     },
     classification,
+    text,
   );
 
   return {

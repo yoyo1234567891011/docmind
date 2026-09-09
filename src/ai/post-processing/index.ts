@@ -28,6 +28,11 @@ export {
 export {
   rankFindingsForWatch,
   resolveWatchDocFamily,
+  extractDocumentSignalHead,
+  hasPretDocumentSignal,
+  hasCafDocumentSignal,
+  hasReleveBancaireSignal,
+  hasBailDocumentSignal,
   filterGenericImportantPoints,
   isVacuousGenericWatchTitle,
   hasConcreteWatchSignal,

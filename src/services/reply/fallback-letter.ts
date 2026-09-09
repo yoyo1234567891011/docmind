@@ -26,12 +26,21 @@ import {
 function firstOrg(
   analysis: DocumentAnalysis,
   sheet?: DocumentSheet | null,
+  documentText = "",
 ): string {
-  return (
+  const fromLists =
     sheet?.organizations?.find((o) => o.trim().length > 2) ||
     analysis.organizations.find((o) => o.trim().length > 2) ||
-    ""
-  );
+    "";
+  if (fromLists) return fromLists;
+
+  const bailleur = documentText.match(
+    /(?:^|\n)\s*(?:\*\*)?\s*bailleur\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*([^\n*]{3,60})/i,
+  )?.[1];
+  if (bailleur) return bailleur.replace(/\*\*/g, "").trim();
+
+  const person = analysis.people.find((p) => p.trim().length > 2);
+  return person ?? "";
 }
 
 /** Article + destinataire : « la Direction… », « la Banque… ». */
@@ -74,13 +83,15 @@ function closing(): string {
 }
 
 function extractDocReference(documentText: string, analysis: DocumentAnalysis): string {
-  const blob = `${documentText}\n${analysis.title}\n${(analysis.amounts ?? []).join("\n")}`;
-  const m =
+  const head = documentText.slice(0, 2500);
+  const blob = `${head}\n${analysis.title}\n${(analysis.amounts ?? []).join("\n")}`;
+  const preferred =
     blob.match(
-      /\b((?:IMP|REL|BQE|BAIL|FAC|DOS|PIE)[-–]?\d{4,})\b/i,
+      /\b((?:IMP|REL|BQE|BAIL|FAC|PRT|CAF|MUT|ASS|NET|MOB|EDF)[-–]?\d{4,})\b/i,
     ) ||
-    blob.match(/\br[eé]f[eé]rence\s*[:\-]?\s*([A-Z]{2,5}[-–]?\d{4,})/i);
-  return m?.[1]?.replace(/–/g, "-").toUpperCase() ?? "";
+    blob.match(/\br[eé]f[eé]rence\s*[:\-]?\s*([A-Z]{2,5}[-–]?\d{4,})/i) ||
+    blob.match(/\bn[°o]\s*offre\s*[:\-]?\s*([A-Z]{2,5}[-–]?\d{4,})/i);
+  return preferred?.[1]?.replace(/–/g, "-").toUpperCase() ?? "";
 }
 
 function cleanFactsList(lines: string[]): string[] {
@@ -134,6 +145,10 @@ function familyAmountLines(
       return /principal|total|majoration|relance|pr[ée]lever|payer|taxe/i.test(
         a,
       );
+    }
+    if (family === "social") {
+      return /aide|indu|trop|allocation|mensuel|pi[èe]ce|483|447/i.test(a) ||
+        /€/.test(a);
     }
     if (family === "recouvrement") {
       return /total|principal|impay|frais|p[ée]nalit|recouvrement/i.test(a);
@@ -212,7 +227,7 @@ function buildFamilyLetter(input: {
   const head = greeting(recipient);
   const factsBlock =
     amountLines.length > 0
-      ? `Faits relevés dans le document :\n${amountLines.join("\n")}`
+      ? `Faits du document :\n${amountLines.join("\n")}`
       : null;
   const deadlineBlock = deadline
     ? `Je prends note de l'échéance suivante : ${deadline}.`
@@ -292,6 +307,36 @@ function buildFamilyLetter(input: {
           "Je vous demande de me communiquer le détail motivé du principal, de la majoration et des frais annexes.",
         "",
         "Je vous prie de réexaminer mon dossier, de justifier chaque montant et de me confirmer par écrit la suite donnée.",
+        "",
+        deadlineBlock,
+        closing(),
+      ]
+        .filter((l) => l !== null)
+        .join("\n"),
+    };
+  }
+
+  if (family === "social") {
+    return {
+      subject: shortenLetterSubject(
+        ref
+          ? `Réponse / transmission de pièces — dossier CAF ${ref}`
+          : "Réponse / transmission de pièces — dossier CAF",
+        "reponse_administrative",
+        family,
+      ),
+      reason:
+        reason ||
+        "Réponse à une notification CAF : pièces ou maintien des droits.",
+      body: [
+        head,
+        "",
+        `Suite à votre notification de ${orgLabel} en date du ${dateDoc}${refBit}, je vous adresse la présente réponse concernant mes droits et les pièces demandées.`,
+        "",
+        factsBlock ??
+          "Je vous prie de préciser les pièces attendues et le délai applicable pour le maintien de mes droits.",
+        "",
+        "Je vous demande de confirmer le maintien de mes droits (aide au logement ou prestations concernées) et de m'indiquer toute suite donnée concernant un éventuel indu ou trop-perçu.",
         "",
         deadlineBlock,
         closing(),
@@ -438,19 +483,24 @@ function buildFamilyLetter(input: {
   if (family === "pret") {
     return {
       subject: shortenLetterSubject(
-        "Demande relative à mon prêt / crédit",
-        "autre",
+        ref
+          ? `Demande relative à l'offre de crédit ${ref}`
+          : "Demande relative à mon offre de crédit",
+        letterType === "contestation" ? "contestation" : "autre",
         family,
       ),
-      reason: reason || "Demande d'information ou contestation sur un prêt.",
+      reason: reason || "Demande d'information ou contestation sur une offre de prêt.",
       body: [
         head,
         "",
-        `Je souhaite obtenir des précisions sur mon prêt / crédit auprès de ${orgLabel} (document du ${dateDoc})${refBit}.`,
+        `Je vous contacte au sujet de l'offre de prêt / crédit de ${orgLabel} en date du ${dateDoc}${refBit}.`,
         "",
-        factsBlock,
+        factsBlock ??
+          "Je vous prie de me communiquer le TAEG, le capital, la mensualité et le détail des frais (dossier, assurance).",
         "",
-        "Je vous prie de me communiquer le TAEG, le tableau d'amortissement et le détail des frais de dossier ou pénalités applicables.",
+        letterType === "contestation"
+          ? "Je conteste les frais ou clauses concernés et demande un réexamen motivé avant toute acceptation définitive."
+          : "Je vous prie de me communiquer le TAEG, le tableau d'amortissement, les modalités de rétractation et le détail des frais de dossier ou pénalités de remboursement anticipé.",
         "",
         deadlineBlock,
         closing(),
@@ -521,7 +571,7 @@ export function buildFallbackLetter(
   const family = resolveLetterDocFamily(documentText, analysis, classification);
   const orgs = [...(sheet?.organizations ?? []), ...analysis.organizations];
   const recipient = sanitizeRecipient(
-    firstOrg(analysis, sheet),
+    firstOrg(analysis, sheet, documentText),
     orgs,
     documentText,
     analysis.title,
@@ -576,6 +626,16 @@ export function buildFallbackLetter(
     amountLines.length > 0
   ) {
     effectiveType = "contestation";
+  }
+  if (
+    family === "social" &&
+    (letterType === "autre" || letterType === "contestation") &&
+    !/indu|trop[\s-]per|contest/i.test(documentText.slice(0, 2000))
+  ) {
+    effectiveType = "reponse_administrative";
+  }
+  if (family === "pret" && letterType === "reponse_administrative") {
+    effectiveType = "autre";
   }
 
   const picked = buildFamilyLetter({

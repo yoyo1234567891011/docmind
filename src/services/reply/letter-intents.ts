@@ -27,6 +27,13 @@ export const LETTER_FAMILY_RULES: Record<WatchDocFamily, LetterFamilyRule> = {
     defaultReason:
       "Avis fiscal / administratif : contestation ou demande de délai sur la créance.",
   },
+  social: {
+    allowed: ["reponse_administrative", "contestation", "autre"],
+    forbidden: ["resiliation", "remboursement"],
+    defaultType: "reponse_administrative",
+    defaultReason:
+      "CAF / social : réponse avec pièces ou demande de maintien des droits.",
+  },
   banque: {
     allowed: ["contestation", "autre", "remboursement"],
     forbidden: ["resiliation"],
@@ -509,6 +516,32 @@ export function rankLetterIntents(
             reason: "Réponse administrative avec pièces ou demande de délai.",
             confidence: 0.8,
             score: 75,
+          },
+          family,
+        );
+      }
+      break;
+
+    case "social":
+      pushCandidate(
+        candidates,
+        {
+          letterType: "reponse_administrative",
+          reason:
+            "Transmission de pièces ou demande de maintien des droits (CAF / social).",
+          confidence: 0.9,
+          score: 95,
+        },
+        family,
+      );
+      if (hasContestSignal || /indu|trop[\s-]per|suspension/i.test(corpus)) {
+        pushCandidate(
+          candidates,
+          {
+            letterType: "contestation",
+            reason: "Contestation d’un indu, trop-perçu ou suspension de droits.",
+            confidence: 0.82,
+            score: 80,
           },
           family,
         );

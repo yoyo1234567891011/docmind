@@ -10,7 +10,48 @@ export type WatchDocFamily =
   | "pret"
   | "facture"
   | "administratif"
+  /** CAF / prestations sociales (≠ bail, ≠ fiscal). */
+  | "social"
   | "default";
+
+/**
+ * En-tête utile pour typer le document — coupe avant le glossaire
+ * boilerplate (Préambule / Définitions) qui pollue bail/MED/engagement.
+ */
+export function extractDocumentSignalHead(
+  text: string,
+  maxLen = 2800,
+): string {
+  const cut = text.search(
+    /\n##\s*1\.\s*Pr[ée]ambule|\n##\s*2\.\s*D[ée]finitions|\n##\s*D[ée]finitions\b|\nPour l['']application du pr[ée]sent document/i,
+  );
+  const head = cut > 80 ? text.slice(0, cut) : text.slice(0, maxLen);
+  return head.slice(0, maxLen);
+}
+
+export function hasPretDocumentSignal(blob: string): boolean {
+  return /offre\s+de\s+pr[êe]t|\bpr[êe]t\s+(?:personnel|immobilier|consommation)|capital\s+emprunt[ée]|\btaeg\b|d[ée]ch[ée]ance\s+du\s+terme|pr[êe]teur\s*:|n[°o]\s*offre\s*:?\s*prt-/i.test(
+    blob,
+  );
+}
+
+export function hasCafDocumentSignal(blob: string): boolean {
+  return /\bcaf\b|caisse\s+d['']allocations|allocataire|aide\s+au\s+logement|trop[\s-]per[çc]us|\bindu\b|espace\s+allocataire|maintien\s+de\s+vos\s+droits/i.test(
+    blob,
+  );
+}
+
+export function hasReleveBancaireSignal(blob: string): boolean {
+  return /relev[ée]\s+(?:de\s+compte|bancaire)|commission\s+d['']intervention|tenue\s+de\s+compte|int[ée]r[êe]ts?\s+d[ée]biteurs|agios|fichier\s+des\s+incidents|ficp/i.test(
+    blob,
+  );
+}
+
+export function hasBailDocumentSignal(blob: string): boolean {
+  return /\bbail\b|loyer\s*:|loyer\s+mensuel|d[ée]p[ôo]t\s+de\s+garantie|bailleur|charges\s+locatives|clause\s+r[ée]solutoire|location\s+(?:vide|meubl)/i.test(
+    blob,
+  );
+}
 
 /** Ordre des critères pour « Points à surveiller » selon le type de document. */
 export const WATCH_CRITERION_ORDER_BY_FAMILY: Record<
@@ -115,6 +156,19 @@ export const WATCH_CRITERION_ORDER_BY_FAMILY: Record<
     "augmentation_tarif",
     "clauses_abusives",
   ],
+  /** CAF / social : pièces, délais, indu — jamais engagement boîte. */
+  social: [
+    "obligations_importantes",
+    "delais",
+    "sanctions",
+    "penalites",
+    "frais_caches",
+    "resiliation",
+    "engagement",
+    "renouvellement_tacite",
+    "augmentation_tarif",
+    "clauses_abusives",
+  ],
   default: [
     "obligations_importantes",
     "frais_caches",
@@ -180,6 +234,12 @@ export const LOCAL_INJECT_CRITERIA_BY_FAMILY: Record<
     "delais",
     "frais_caches",
     "sanctions",
+  ],
+  social: [
+    "obligations_importantes",
+    "delais",
+    "sanctions",
+    "penalites",
   ],
   facture: ["frais_caches", "penalites", "delais", "obligations_importantes"],
   default: [
@@ -247,45 +307,59 @@ export type WatchFamilyContext = {
 export function resolveWatchDocFamily(
   ctx: WatchFamilyContext = {},
 ): WatchDocFamily {
-  const blob = [
-    ctx.category,
-    ctx.documentType,
-    ctx.title,
-    ctx.textHint?.slice(0, 1200),
-  ]
+  const headSource = [ctx.documentType, ctx.title, ctx.textHint ?? ""]
+    .filter(Boolean)
+    .join("\n");
+  const head = extractDocumentSignalHead(headSource).toLowerCase();
+  const blob = [ctx.category, ctx.documentType, ctx.title, head]
     .filter(Boolean)
     .join(" \n ")
     .toLowerCase();
 
+  // --- Signaux forts (prioritaires sur une mauvaise catégorie heuristique) ---
+  if (hasPretDocumentSignal(blob) && !hasReleveBancaireSignal(head)) {
+    return "pret";
+  }
+  if (hasCafDocumentSignal(blob)) {
+    return "social";
+  }
+
+  // Bail avant MED : les baux citent souvent « commandement de payer » / résiliation.
+  if (hasBailDocumentSignal(head) || (ctx.category === "bail" && hasBailDocumentSignal(blob))) {
+    return "bail";
+  }
+
+  // Assurance / mutuelle avant MED (glossaire « mise en demeure »).
+  if (
+    (ctx.category === "assurance" ||
+      /mutuelle|police\s+d['']assurance|\bfranchise\b|sinistre|cotisation\s+(?:mensuelle|annuelle)|contrat\s+d['']assurance/.test(
+        head,
+      )) &&
+    !hasPretDocumentSignal(head)
+  ) {
+    return "assurance";
+  }
+
   if (ctx.category === "facture") {
     return "facture";
   }
-
   // Impôts / avis fiscal : priorité catégorie (évite glossaire « mise en demeure »).
   if (ctx.category === "impots") {
     return "administratif";
   }
-  if (ctx.category === "bail") {
-    return "bail";
-  }
-  if (ctx.category === "banque") {
-    return "banque";
-  }
-  if (ctx.category === "assurance") {
-    return "assurance";
-  }
 
   const strongRecouvrement =
     /(?:^|[\n\r#])[^\n]{0,120}(?:1[èe]re\s+relance|mise\s+en\s+demeure\s+de\s+payer|mise\s+en\s+demeure\s*[—–-]|montant\s+impay[ée]|total\s+r[ée]clam[ée]\s*:)/i.test(
-      blob,
+      head,
     ) ||
-    /huissier|commandement\s+de\s+payer|recouvrement\s+judiciaire|service\s+recouvrement/.test(
-      blob,
-    );
+    (/huissier|commandement\s+de\s+payer|recouvrement\s+judiciaire|service\s+recouvrement/.test(
+      head,
+    ) &&
+      !hasBailDocumentSignal(head));
 
   const looksFacture =
     /\bfacture\b|total\s+ttc|net\s+[àa]\s+payer|n[°o]\s*(?:de\s*)?facture|[ée]lectricit[ée]/i.test(
-      blob,
+      head,
     );
 
   if (looksFacture && !strongRecouvrement) {
@@ -297,67 +371,67 @@ export function resolveWatchDocFamily(
   }
   if (
     /(?:^|[\n\r#*])[^\n]{0,80}mise\s+en\s+demeure|montant\s+impay[ée]\s*:|total\s+r[ée]clam[ée]\s*:|1[èe]re\s+relance|2[eè]me\s+relance|commandement\s+de\s+payer/.test(
-      blob,
-    )
+      head,
+    ) &&
+    !hasBailDocumentSignal(head)
   ) {
     return "recouvrement";
   }
-  if (
-    ctx.category === "bail" ||
-    /\bbail\b|location\s+(?:vide|meubl[ée]e)|loyer\s+mensuel|d[ée]p[ôo]t\s+de\s+garantie|bailleur|locataire|charges\s+locatives|clause\s+r[ée]solutoire/.test(
-      blob,
-    )
-  ) {
+
+  // Bail déjà traité plus haut ; garde-fou si catégorie seule.
+  if (ctx.category === "bail") {
     return "bail";
   }
-  if (
-    ctx.category === "assurance" ||
-    /assurance|mutuelle|franchise|sinistre|cotisation/.test(blob)
-  ) {
+
+  // Assurance déjà traitée plus haut.
+  if (ctx.category === "assurance") {
     return "assurance";
   }
+
+  // Relevé bancaire — jamais une offre de prêt.
   if (
-    ctx.category === "banque" ||
-    /relev[ée]\s+bancaire|tenue\s+de\s+compte|d[ée]couvert|commission\s+d['']intervention|fichier\s+des\s+incidents|ficp|int[ée]r[êe]ts?\s+d[ée]biteurs/.test(
-      blob,
-    )
+    ((ctx.category === "banque" && hasReleveBancaireSignal(head)) ||
+      hasReleveBancaireSignal(head)) &&
+    !hasPretDocumentSignal(head)
   ) {
     return "banque";
   }
+  // Catégorie banque sans signal relevé mais aussi sans prêt → banque par défaut catégorie.
+  if (ctx.category === "banque" && !hasPretDocumentSignal(head)) {
+    return "banque";
+  }
+
   if (
-    ctx.category === "facture" ||
     /\bfacture\b|n[°o]\s*(?:de\s*)?facture|total\s+ttc|net\s+[àa]\s+payer/.test(
-      blob,
+      head,
     )
   ) {
     return "facture";
   }
+
   if (
-    /offre\s+de\s+pr[êe]t|\bpr[êe]t\s+(?:immobilier|personnel|consommation)|cr[ée]dit\s+(?:immobilier|consommation)|taeg|assurance\s+emprunteur|remboursement\s+anticip[ée]/.test(
-      blob,
+    /avis\s+d['']imposition|avis\s+fiscal|avis\s+de\s+pr[ée]l[eè]vement|taxe\s+fonci[eè]re|montant\s+[àa]\s+pr[ée]lever|dgfip|direction\s+g[ée]n[ée]rale\s+des\s+finances|principal\s+d[ûu]|reste\s+[àa]\s+payer/.test(
+      head,
     )
-  ) {
-    return "pret";
-  }
-  if (
-    (ctx.category === "impots" ||
-      ctx.category === "courrier-administratif" ||
-      /\bcaf\b|imp[ôo]ts?|amendes?\s+fiscale|avis\s+d['']imposition|avis\s+de\s+pr[ée]l[eè]vement|taxe\s+fonci[eè]re|montant\s+[àa]\s+pr[ée]lever|dgfip|direction\s+g[ée]n[ée]rale\s+des\s+finances|notification\s+(?:caf|urssaf)/.test(
-        blob,
-      )) &&
-    !/mise\s+en\s+demeure|recouvrement|huissier/.test(blob)
   ) {
     return "administratif";
   }
+
   if (
     ctx.category === "contrat" ||
     ctx.category === "conditions-generales" ||
     /abonnement|box|fibre|forfait|internet|t[ée]l[ée]phonie|mobile|engagement\s+de\s+\d+\s*mois/.test(
-      blob,
+      head,
     )
   ) {
+    if (hasPretDocumentSignal(head)) return "pret";
     return "abonnement";
   }
+
+  if (ctx.category === "courrier-administratif") {
+    return "administratif";
+  }
+
   return "default";
 }
 
@@ -706,7 +780,17 @@ export function rankFindingsForWatch(
       continue;
     }
 
-    // Hors recouvrement : masquer les titres vagues si des points concrets existent.
+  // Social / CAF : masquer engagement issu du glossaire annexes.
+  if (
+    family === "social" &&
+    (finding.criterion_id === "engagement" ||
+      /^engagement\b/i.test(finding.description)) &&
+    !/aide|allocation|droits|pi[èe]ces/i.test(finding.description)
+  ) {
+    continue;
+  }
+
+  // Hors recouvrement : masquer les titres vagues si des points concrets existent.
     if (
       family !== "recouvrement" &&
       isVacuousGenericWatchTitle(finding.description)

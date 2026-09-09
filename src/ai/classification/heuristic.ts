@@ -1,5 +1,11 @@
 import { DOCUMENT_CATEGORY_LABELS, type DocumentCategory } from "@/types";
 import type { DocumentClassification } from "@/types";
+import {
+  extractDocumentSignalHead,
+  hasCafDocumentSignal,
+  hasPretDocumentSignal,
+  hasReleveBancaireSignal,
+} from "@/ai/post-processing/watch-ranking";
 
 type WeightedPattern = { re: RegExp; weight: number };
 
@@ -18,12 +24,14 @@ const CATEGORY_PATTERNS: Record<
   ],
   bail: [
     { re: /\bbail\b/i, weight: 5 },
-    { re: /\blocation\b/i, weight: 2 },
-    { re: /\bloyer\b/i, weight: 3 },
-    { re: /\blocataire\b/i, weight: 3 },
+    { re: /\blocation\s+(?:vide|meubl)/i, weight: 4 },
+    { re: /\bloyer\s*:/i, weight: 4 },
+    { re: /\bloyer\s+mensuel\b/i, weight: 4 },
     { re: /\bbailleur\b/i, weight: 3 },
     { re: /\bd[ée]p[ôo]t\s+de\s+garantie\b/i, weight: 3 },
     { re: /\bcharges\s+locatives\b/i, weight: 2 },
+    // « locataire » seul trop fréquent dans le glossaire → poids faible
+    { re: /\blocataire\b/i, weight: 1 },
   ],
   "contrat-de-travail": [
     { re: /\bcontrat\s+de\s+travail\b/i, weight: 6 },
@@ -35,23 +43,26 @@ const CATEGORY_PATTERNS: Record<
     { re: /\bconvention\s+collective\b/i, weight: 2 },
   ],
   assurance: [
-    { re: /\bassurance\b/i, weight: 4 },
     { re: /\bpolice\s+d['’]?assurance\b/i, weight: 5 },
+    { re: /\bmutuelle\b/i, weight: 5 },
+    { re: /\bcontrat\s+d['’]?assurance\b/i, weight: 4 },
     { re: /\bprime\s+(?:annuelle|mensuelle)\b/i, weight: 3 },
     { re: /\bfranchise\b/i, weight: 2 },
     { re: /\bsinistre\b/i, weight: 2 },
     { re: /\bgaranties?\b/i, weight: 1 },
-    { re: /\bassur[ée]\b/i, weight: 1 },
+    // « assurance » seul + « assurance emprunteur » → poids réduit
+    { re: /\bassurance\b/i, weight: 2 },
   ],
   banque: [
     { re: /\brelev[ée]\s+(?:de\s+compte|bancaire)\b/i, weight: 6 },
     { re: /\brelev[ée]\s+bancaire\b/i, weight: 6 },
+    { re: /\bcommission\s+d['’]?intervention\b/i, weight: 4 },
+    { re: /\btenue\s+de\s+compte\b/i, weight: 3 },
     { re: /\bbanque\b/i, weight: 2 },
-    { re: /\biban\b/i, weight: 3 },
-    { re: /\bbic\b/i, weight: 2 },
-    { re: /\bcompte\s+bancaire\b/i, weight: 3 },
+    { re: /\biban\b/i, weight: 1 },
+    { re: /\bbic\b/i, weight: 1 },
+    { re: /\bcompte\s+bancaire\b/i, weight: 2 },
     { re: /\bsolde\s+(?:cr[ée]diteur|d[ée]biteur|disponible)\b/i, weight: 3 },
-    { re: /\bpr[êe]t\s+(?:immobilier|personnel)\b/i, weight: 3 },
     { re: /\bcarte\s+bancaire\b/i, weight: 2 },
     { re: /\bagios?\b/i, weight: 2 },
     { re: /\bvirement\b/i, weight: 1 },
@@ -73,6 +84,11 @@ const CATEGORY_PATTERNS: Record<
     { re: /\bcontribuable\b/i, weight: 2 },
   ],
   "courrier-administratif": [
+    { re: /\bcaisse\s+d['’]?allocations\s+familiales\b/i, weight: 8 },
+    { re: /\bcaf\b/i, weight: 6 },
+    { re: /\ballocataire\b/i, weight: 4 },
+    { re: /\baide\s+au\s+logement\b/i, weight: 5 },
+    { re: /\btrop[\s-]per[çc]us\b/i, weight: 4 },
     { re: /\bmonsieur\s+le\s+pr[ée]fet\b/i, weight: 3 },
     { re: /\bmise\s+en\s+demeure\b/i, weight: 5 },
     { re: /\bcommandement\s+de\s+payer\b/i, weight: 4 },
@@ -90,6 +106,12 @@ const CATEGORY_PATTERNS: Record<
     { re: /\bpolitique\s+de\s+confidentialit[ée]\b/i, weight: 2 },
   ],
   contrat: [
+    { re: /\boffre\s+de\s+pr[êe]t\b/i, weight: 8 },
+    { re: /\bpr[êe]t\s+(?:personnel|immobilier|consommation)\b/i, weight: 7 },
+    { re: /\bcapital\s+emprunt[ée]\b/i, weight: 6 },
+    { re: /\btaeg\b/i, weight: 5 },
+    { re: /\bd[ée]ch[ée]ance\s+du\s+terme\b/i, weight: 5 },
+    { re: /\bpr[êe]teur\s*:/i, weight: 4 },
     { re: /\bcontrat\b/i, weight: 3 },
     { re: /\bconvention\b/i, weight: 2 },
     { re: /\bparties\s+contractantes\b/i, weight: 3 },
@@ -126,18 +148,39 @@ function fallbackAutre(): DocumentClassification {
 /**
  * Classification locale instantanée (mots-clés).
  * Retourne toujours une catégorie (au pire "autre").
+ * Les overrides prêt / CAF se basent sur l’en-tête (hors glossaire).
  */
 export function classifyDocumentHeuristic(
   documentText: string,
 ): DocumentClassification {
+  const head = extractDocumentSignalHead(documentText);
   const sample = documentText.slice(0, 12_000);
+
+  // Overrides durs : ne jamais laisser IBAN / glossaire gagner.
+  if (hasPretDocumentSignal(head) && !hasReleveBancaireSignal(head)) {
+    return {
+      category: "contrat",
+      label: "Offre de prêt",
+      confidence: 0.92,
+    };
+  }
+  if (hasCafDocumentSignal(head)) {
+    return {
+      category: "courrier-administratif",
+      label: "Notification CAF",
+      confidence: 0.92,
+    };
+  }
+
   const scores = (
     Object.entries(CATEGORY_PATTERNS) as Array<
       [Exclude<DocumentCategory, "autre">, WeightedPattern[]]
     >
   ).map(([category, patterns]) => ({
     category,
-    score: scoreCategory(sample, patterns),
+    // Scorer d’abord sur l’en-tête (x1.5) puis le corps (x1) pour limiter le glossaire.
+    score:
+      scoreCategory(head, patterns) * 1.5 + scoreCategory(sample, patterns) * 0.35,
   }));
 
   scores.sort((a, b) => b.score - a.score);
@@ -148,17 +191,40 @@ export function classifyDocumentHeuristic(
     return fallbackAutre();
   }
   if (second && best.score - second.score < HEURISTIC_CLASSIFY_MIN_MARGIN) {
-    // Signal ambigu → on garde quand même le meilleur si score correct
     if (best.score < HEURISTIC_CLASSIFY_MIN_SCORE + 2) {
       return fallbackAutre();
     }
   }
 
-  const confidence = Math.min(0.95, 0.55 + best.score * 0.04);
+  // Banque gagnante uniquement via IBAN sans relevé → autre / contrat
+  if (
+    best.category === "banque" &&
+    !hasReleveBancaireSignal(head) &&
+    hasPretDocumentSignal(sample)
+  ) {
+    return {
+      category: "contrat",
+      label: "Offre de prêt",
+      confidence: 0.88,
+    };
+  }
+
+  const confidence = Math.min(0.95, 0.55 + best.score * 0.03);
+
+  let label = DOCUMENT_CATEGORY_LABELS[best.category];
+  if (best.category === "contrat" && hasPretDocumentSignal(head)) {
+    label = "Offre de prêt";
+  }
+  if (
+    best.category === "courrier-administratif" &&
+    hasCafDocumentSignal(head)
+  ) {
+    label = "Notification CAF";
+  }
 
   return {
     category: best.category,
-    label: DOCUMENT_CATEGORY_LABELS[best.category],
+    label,
     confidence,
   };
 }

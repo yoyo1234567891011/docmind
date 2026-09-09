@@ -54,8 +54,14 @@ const FAMILY_FORBIDDEN: Partial<Record<WatchDocFamily, string[]>> = {
     "Ne pas proposer de résiliation commerciale.",
     "Ne pas demander un remboursement sans montant contesté dans le contexte.",
   ],
+  social: [
+    "Ne pas rédiger un congé de bail ni une contestation de charges locatives.",
+    "Ne pas traiter comme un avis fiscal DGFiP.",
+    "Rester sur pièces, droits, indu, trop-perçus, maintien des allocations.",
+  ],
   pret: [
     "Ne pas utiliser le terme « résiliation » pour un prêt — parler de remboursement anticipé ou rétractation si applicable.",
+    "Ne pas rédiger comme un relevé bancaire (pas de contestation de commissions de compte).",
   ],
   default: [
     "Sans contrat clairement identifiable, rester sur une demande d’information.",

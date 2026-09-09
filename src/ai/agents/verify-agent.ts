@@ -254,7 +254,11 @@ export const verifyAgent: AnalysisAgent = {
     }
 
     analysis = scrubAnalysisForDisplay(analysis);
-    analysis = finalizeAnalysisForProd(analysis, state.classification ?? undefined);
+    analysis = finalizeAnalysisForProd(
+      analysis,
+      state.classification ?? undefined,
+      state.documentText,
+    );
 
     const v = verified._verification;
     const note = [

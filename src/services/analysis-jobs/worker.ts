@@ -300,6 +300,7 @@ async function defaultRunP2(
   const productionAnalysis = finalizeAnalysisForProd(
     full.analysis,
     full.classification,
+    text,
   );
   const updated = await updateHistoryRecord(job.userId, job.historyId, {
     classification: full.classification,
