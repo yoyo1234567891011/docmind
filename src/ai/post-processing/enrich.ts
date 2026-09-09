@@ -191,9 +191,9 @@ function enrichLegacyRegex(
   documentText: string,
 ): DocumentAnalysis {
   const risk = assessDocumentRisk(enrichedBase, documentText);
-  const legalRisks = buildLegalRiskFindings(risk.risk_criteria).map((item) =>
-    item.replace(/^\[([^\]]+)\]\s*/, "$1 : "),
-  );
+  const legalRisks = buildLegalRiskFindings(risk.risk_criteria)
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.replace(/^\[([^\]]+)\]\s*/, "$1 : "));
 
   const risks = mergeUniqueStrings(enrichedBase.risks, legalRisks).slice(0, 8);
   const actions = cleanActionsForDisplay(

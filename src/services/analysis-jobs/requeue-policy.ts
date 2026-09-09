@@ -94,8 +94,31 @@ export function formatP2LastError(
   kind: "requeue" | "fail",
   attempts: number,
   rawMessage?: string,
+  error?: unknown,
 ): string {
-  const raw = (rawMessage ?? "").trim().slice(0, 420);
+  let raw = (rawMessage ?? "").trim().slice(0, 420);
+  if (
+    !raw &&
+    error instanceof Error &&
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    raw = error.message.trim().slice(0, 420);
+  }
+  // Première ligne de stack pour localiser le throw (fichier:ligne).
+  if (
+    error instanceof Error &&
+    typeof error.stack === "string" &&
+    errorClass === "runtime_error"
+  ) {
+    const frame = error.stack
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.startsWith("at ") && !l.includes("node:"));
+    if (frame) {
+      raw = `${raw || "TypeError"} | ${frame}`.slice(0, 500);
+    }
+  }
 
   if (kind === "requeue") {
     switch (errorClass) {

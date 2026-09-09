@@ -375,14 +375,17 @@ export function buildDeterministicDisplaySummary(
     title: analysis.title,
     textHint: documentText?.slice(0, 4500),
   });
-  const org = analysis.organizations?.find((o) => o.trim().length > 0);
+  const org = analysis.organizations?.find(
+    (o) => typeof o === "string" && o.trim().length > 0,
+  );
   const amounts = dedupeLabeledAmounts(
     prioritizeProductionAmounts(
       [
         ...(analysis.amounts ?? []),
         ...(analysis.risk_findings ?? [])
           .filter((f) => f.status !== "rejected")
-          .map((f) => f.description),
+          .map((f) => f.description)
+          .filter((d): d is string => typeof d === "string"),
       ],
       family,
     ),
@@ -391,7 +394,10 @@ export function buildDeterministicDisplaySummary(
   const findings = (analysis.risk_findings ?? [])
     .filter((f) => f.status !== "rejected")
     .map((f) => f.description)
-    .filter((d) => d.trim().length > 8 && !isProdDisplayNoise(d));
+    .filter(
+      (d): d is string =>
+        typeof d === "string" && d.trim().length > 8 && !isProdDisplayNoise(d),
+    );
 
   const amountClause = formatAmountClause(amounts.slice(0, 2));
   const deadlineHint =

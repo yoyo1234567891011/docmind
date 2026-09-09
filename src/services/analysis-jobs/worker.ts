@@ -525,6 +525,7 @@ export async function processOneAnalysisJob(
         "requeue",
         job.attempts,
         rawMessage,
+        error,
       );
       console.warn(
         `[analysis-jobs] requeue after ${errorClass} job=${job.id} deferMs=${requeueDecision.deferMs}`,
@@ -558,6 +559,7 @@ export async function processOneAnalysisJob(
       "fail",
       job.attempts,
       rawMessage,
+      error,
     );
     await trackAnalyticsEvent({
       name: "analysis.error",

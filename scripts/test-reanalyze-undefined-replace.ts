@@ -74,6 +74,7 @@ function main() {
   assert.ok(Array.isArray(once.deadlines));
   assert.ok(Array.isArray(once.amounts));
   assert.ok(typeof once.summary === "string");
+  assert.ok(once.summary.length > 10, "summary must be built without throw");
 
   // Simule « Réessayer l’analyse » : même payload sparse, 2e passage.
   const again = finalizeAnalysisForProd(
@@ -87,11 +88,25 @@ function main() {
     "deadlines must not contain null/undefined",
   );
 
+  // buildDeterministicDisplaySummary path (summary LLM vide)
+  const emptySummary = finalizeAnalysisForProd(
+    { ...sparseAnalysis(), summary: "" },
+    classification,
+    "Avis de taxe foncière. Principal 1 073 €. Payer avant le 15/05/2026.",
+  );
+  assert.ok(emptySummary.summary.length > 20);
+
   const err = new TypeError(
     "Cannot read properties of undefined (reading 'replace')",
   );
   assert.equal(classifyP2Error(err), "runtime_error");
-  const msg = formatP2LastError("runtime_error", "fail", 1, err.message);
+  const msg = formatP2LastError(
+    "runtime_error",
+    "fail",
+    1,
+    err.message,
+    err,
+  );
   assert.match(msg, /^runtime_error:/);
   assert.match(msg, /replace/);
   assert.doesNotMatch(msg, /^unknown:/);

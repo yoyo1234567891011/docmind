@@ -33,6 +33,7 @@ const WORD_CHARS = /^[\p{L}\p{N}'’\-]+$/u;
 
 /** Normalise pour comparer deux libellés (dédup soft). */
 export function normalizeDisplayKey(text: string): string {
+  if (typeof text !== "string") return "";
   return text
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -43,6 +44,7 @@ export function normalizeDisplayKey(text: string): string {
 }
 
 function normalizeSpaces(raw: string): string {
+  if (typeof raw !== "string") return "";
   return raw.replace(/\s+/g, " ").trim();
 }
 
@@ -502,6 +504,7 @@ const VERIFIER_RISQUE_PREFIX =
   /^\s*v[ée]rifier\s+et\s+traiter\s+le\s+risque\s*:\s*/i;
 
 function stripActionPrefix(raw: string): string {
+  if (typeof raw !== "string") return "";
   return raw
     .replace(ANTICIPER_PREFIX, "")
     .replace(VERIFIER_RISQUE_PREFIX, "")
@@ -639,6 +642,7 @@ export function cleanActionForDisplay(
 /** Liste d’actions prête pour l’UI / le stockage post-enrich. */
 export function cleanActionsForDisplay(items: string[]): string[] {
   const cleaned = items
+    .filter((item): item is string => typeof item === "string")
     .map((item) => cleanActionForDisplay(item))
     .filter((item): item is string => Boolean(item));
   return dedupeStringList(cleaned).slice(0, 8);

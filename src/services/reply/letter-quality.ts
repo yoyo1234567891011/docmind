@@ -65,6 +65,7 @@ export function isBankNonFeeLine(text: string): boolean {
 }
 
 function cleanRawLine(raw: string): string {
+  if (typeof raw !== "string") return "";
   return raw
     .replace(/\|/g, " ")
     .replace(/[•·]/g, " ")
