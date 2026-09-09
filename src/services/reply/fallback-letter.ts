@@ -101,6 +101,33 @@ export function buildFallbackLetter(
     sheet,
   );
   const orgLabel = orgs[0] || "votre établissement";
+  const labeledAmounts = (analysis.amounts ?? [])
+    .filter((a) => /\d/.test(a))
+    .slice(0, 4);
+  const fiscalAmountLines =
+    family === "administratif" || family === "recouvrement"
+      ? labeledAmounts.map((a) => `- ${a}`)
+      : [];
+  const contestAmountLines =
+    feeLines.length > 0
+      ? feeLines
+      : fiscalAmountLines.length > 0
+        ? fiscalAmountLines
+        : [];
+  const cleanAction = (analysis.actions ?? [])
+    .map((a) =>
+      a
+        .replace(/^v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:\s*/i, "")
+        .replace(/^anticiper\s+l['']échéance\s*:\s*/i, "")
+        .trim(),
+    )
+    .find(
+      (a) =>
+        a.length > 12 &&
+        !/changement\s+d['']adresse|d[ée]lai\s+moyen|traitement\s+courrier/i.test(
+          a,
+        ),
+    );
 
   const templates: Record<
     LetterType,
@@ -149,8 +176,12 @@ export function buildFallbackLetter(
           ? feeLines.length > 0
             ? "Contestation de frais bancaires"
             : "Demande de détail des frais bancaires"
-          : "Contestation",
-        feeLines.length > 0 ? "contestation" : "autre",
+          : family === "administratif"
+            ? "Contestation / demande de délai — avis fiscal"
+            : family === "recouvrement"
+              ? "Contestation de la créance réclamée"
+              : "Contestation",
+        "contestation",
         family,
       ),
       reason: reason || "Contestation fondée sur les éléments du document.",
@@ -161,15 +192,17 @@ export function buildFallbackLetter(
           ? feeLines.length > 0
             ? `Je conteste formellement les frais et commissions débités sur mon compte, figurant sur le relevé de ${orgLabel} en date du ${dateDoc}.`
             : `Je vous contacte au sujet du relevé de compte de ${orgLabel} en date du ${dateDoc}. Je souhaite obtenir le détail motivé de l'ensemble des frais, commissions et pénalités appliqués sur cette période.`
-          : `Je conteste formellement les éléments figurant dans votre document en date du ${dateDoc}.`,
+          : family === "administratif"
+            ? `Je conteste ou sollicite un délai concernant l'avis fiscal de ${orgLabel} en date du ${dateDoc}.`
+            : family === "recouvrement"
+              ? `Je conteste formellement tout ou partie de la créance réclamée par ${orgLabel} dans votre mise en demeure du ${dateDoc}.`
+              : `Je conteste formellement les éléments figurant dans votre document en date du ${dateDoc}.`,
         "",
-        feeLines.length > 0
-          ? `Je conteste notamment les éléments suivants :\n${feeLines.join("\n")}`
+        contestAmountLines.length > 0
+          ? `Je conteste notamment les éléments suivants :\n${contestAmountLines.join("\n")}`
           : family === "banque"
             ? "À ce jour, je ne dispose pas d'un décompte clair et distinct de chaque frais facturé. Je vous demande donc un relevé détaillé avant toute régularisation."
-            : analysis.important_points[0]
-              ? `Point contesté : ${analysis.important_points[0]}`
-              : "Je conteste les montants et opérations identifiés dans le document joint.",
+            : "Je conteste les montants et opérations identifiés dans le document joint.",
         "",
         "Je vous demande de réexaminer ce dossier, de justifier par écrit chaque montant contesté et de procéder aux corrections nécessaires.",
         closing(),
@@ -185,12 +218,14 @@ export function buildFallbackLetter(
         "",
         `Suite à votre courrier reçu en date du ${dateDoc}, je vous prie de trouver ci-dessous ma réponse.`,
         "",
-        analysis.actions[0]
-          ? `Concernant votre demande : ${analysis.actions[0]}`
-          : "Je vous confirme avoir pris connaissance des éléments transmis et reste à votre disposition pour tout complément.",
+        cleanAction
+          ? `Concernant votre demande : ${cleanAction}`
+          : contestAmountLines.length > 0
+            ? `Je vous confirme avoir pris connaissance des montants suivants :\n${contestAmountLines.join("\n")}`
+            : "Je vous confirme avoir pris connaissance des éléments transmis et reste à votre disposition pour tout complément.",
         "",
         safeDeadlines[0]
-          ? `Je reste attentif à l'échéance du ${safeDeadlines[0]} et vous transmets les pièces demandées dans les meilleurs délais.`
+          ? `Je prends note de l'échéance indiquée (« ${safeDeadlines[0]} ») et vous répondrai dans ce délai.`
           : "Je reste à votre disposition pour tout complément d'information sous trente jours.",
         closing(),
       ].join("\n"),

@@ -2,7 +2,6 @@
  * Garde-fous qualité prod — résumé, actions, échéances, preuves score.
  * Déterministe, sans appel LLM supplémentaire.
  */
-import { buildLocalFallbackSummary } from "@/ai/agents/core-bundle-outcome";
 import {
   cleanActionsForDisplay,
   cleanSummaryForDisplay,
@@ -10,6 +9,7 @@ import {
 import {
   resolveWatchDocFamily,
   isVacuousGenericWatchTitle,
+  rankFindingsForWatch,
   type WatchDocFamily,
 } from "@/ai/post-processing/watch-ranking";
 import { isRecipientObligation } from "@/services/reply/letter-intents";
@@ -23,7 +23,7 @@ export const SUMMARY_PLACEHOLDER_RE =
   /aucun r[ée]sum[ée]|relancer si besoin|analyse de secours|indisponible|non disponible/i;
 
 export const ACTION_NOISE_RE =
-  /signaler\s+(?:sans\s+d[eé]lai\s+)?(?:tout\s+)?changement|changement\s+d['']adresse|traiter\s+les\s+r[ée]clamations|dans\s+un\s+d[ée]lai\s+raisonnable|conserver\s+une\s+copie|espace\s+client|journal\s+technique|obligation\s+du\s+(?:client|titulaire|destinataire)|vous\s+devez\s+(?:nous\s+)?informer|mettre\s+[àa]\s+jour\s+vos\s+coordonn|anticiper\s+l['']échéance\s*:\s*(?:signaler|traiter|conserver)/i;
+  /signaler\s+(?:sans\s+d[eé]lai\s+)?(?:tout\s+)?changement|changement\s+d['']adresse|traiter\s+les\s+r[ée]clamations|dans\s+un\s+d[ée]lai\s+raisonnable|conserver\s+une\s+copie|espace\s+client|journal\s+technique|obligation\s+du\s+(?:client|titulaire|destinataire)|vous\s+devez\s+(?:nous\s+)?informer|mettre\s+[àa]\s+jour\s+vos\s+coordonn|anticiper\s+l['']échéance\s*:\s*(?:signaler|traiter|conserver)|d[ée]lai\s+moyen\s+de\s+traitement|traitement\s+(?:du\s+)?courrier|accus[ée]\s+de\s+r[ée]ception|10\s+jours\s+ouvr[ée]s|jours\s+ouvr[ée]s\s+lorsque\s+la\s+r[ée]glementation|v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:/i;
 
 /** Patterns interdits dans le JSON final persisté / affiché (tests d’intégration). */
 export const PROD_QUALITY_FORBIDDEN_PATTERNS = [
@@ -34,6 +34,9 @@ export const PROD_QUALITY_FORBIDDEN_PATTERNS = [
   /date\s+à\s+laquelle\s+une\s+obligation/i,
   /signal\s+d[ée]tect[ée]\s+(?:sur\s+le\s+critère|score)/i,
   /traiter\s+les\s+r[ée]clamations/i,
+  /d[ée]lai\s+moyen\s+de\s+traitement/i,
+  /traitement\s+(?:du\s+)?courrier/i,
+  /v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:/i,
 ] as const;
 
 const BANK_PRIORITY_AMOUNT_RE =
@@ -178,7 +181,18 @@ export function sanitizeProductionDeadlines(deadlines: string[]): string[] {
     if (isRecipientObligation(value)) continue;
     if (isFakeScheduleDeadline(value)) continue;
     if (isDictionaryDefinitionSnippet(value)) continue;
-    if (ACTION_NOISE_RE.test(value)) continue;
+    if (isAnalysisActionNoise(value)) continue;
+    // Accusé / traitement générique service (hors date de paiement utile)
+    if (
+      /accus[ée]\s+de\s+r[ée]ception|d[ée]lai\s+moyen|jours\s+ouvr[ée]s/i.test(
+        value,
+      ) &&
+      !/payer|paiement|r[ée]gler|contest|opposition|pr[ée]l[eè]v|au\s+plus\s+tard\s+le\s+\d/i.test(
+        value,
+      )
+    ) {
+      continue;
+    }
     const key = value.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -318,7 +332,22 @@ export function assertProdQualityCleanPayload(parts: {
   }
 }
 
-/** Résumé FR déterministe (2–4 phrases) si le LLM ou le scrub a vidé le champ. */
+function pickLabeledAmount(
+  amounts: string[],
+  pattern: RegExp,
+): string | null {
+  const hit = amounts.find((a) => pattern.test(a));
+  return hit ? hit.replace(/\s+/g, " ").trim() : null;
+}
+
+function formatAmountClause(amounts: string[]): string | null {
+  if (amounts.length === 0) return null;
+  if (amounts.length === 1) return amounts[0]!;
+  if (amounts.length === 2) return `${amounts[0]} et ${amounts[1]}`;
+  return `${amounts.slice(0, -1).join(", ")} et ${amounts[amounts.length - 1]}`;
+}
+
+/** Résumé FR déterministe (2–4 phrases naturelles) si le LLM ou le scrub a vidé le champ. */
 export function buildDeterministicDisplaySummary(
   analysis: DocumentAnalysis,
   classification?: DocumentClassification,
@@ -332,99 +361,189 @@ export function buildDeterministicDisplaySummary(
   });
   const org = analysis.organizations?.find((o) => o.trim().length > 0);
   const amounts = prioritizeProductionAmounts(
-    analysis.amounts ?? [],
+    [
+      ...(analysis.amounts ?? []),
+      ...(analysis.risk_findings ?? [])
+        .filter((f) => f.status !== "rejected")
+        .map((f) => f.description),
+    ],
     family,
-  ).slice(0, 2);
-  const risks = (analysis.risks ?? []).filter(
-    (r) => r.trim().length > 8 && !isAnalysisActionNoise(r),
-  );
-  const criteria = (analysis.risk_criteria ?? []).filter(
-    (c) => c.detected && c.score > 0,
-  );
+  ).slice(0, 3);
   const deadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
   const findings = (analysis.risk_findings ?? [])
     .filter((f) => f.status !== "rejected")
     .map((f) => f.description)
     .filter((d) => d.trim().length > 8 && !isProdDisplayNoise(d));
 
-  const alert =
-    findings[0] ||
-    risks[0] ||
-    criteria[0]?.label ||
-    deadlines[0];
+  const amountClause = formatAmountClause(amounts.slice(0, 2));
+  const deadlineHint =
+    deadlines.find((d) =>
+      /au\s+plus\s+tard|date\s+limite|payer|paiement|sous\s+\d+\s*jours|pr[ée]l[eè]v/i.test(
+        d,
+      ),
+    ) || deadlines[0];
+  const alertFinding =
+    findings.find((f) =>
+      /majoration|recouvrement|huissier|ficp|commission|frais\s+de\s+relance|clause\s+r[ée]solutoire|p[ée]nalit/i.test(
+        f,
+      ),
+    ) || findings[0];
 
   const sentences: string[] = [];
 
-  const familyLead: Record<WatchDocFamily, string> = {
-    banque: org
-      ? `Relevé bancaire émis par ${org}.`
-      : `Relevé bancaire de type « ${categoryLabel} ».`,
-    administratif: org
-      ? `Avis fiscal / administratif émis par ${org}.`
-      : `Document fiscal ou administratif (« ${categoryLabel} »).`,
-    recouvrement: org
-      ? `Mise en demeure / recouvrement de ${org}.`
-      : `Mise en demeure ou courrier de recouvrement.`,
-    bail: org
-      ? `Bail / location — ${org}.`
-      : `Bail de location (« ${categoryLabel} »).`,
-    pret: org
-      ? `Offre ou contrat de prêt — ${org}.`
-      : `Document de prêt / crédit.`,
-    assurance: org
-      ? `Contrat d'assurance / mutuelle — ${org}.`
-      : `Document d'assurance.`,
-    abonnement: org
-      ? `Abonnement / contrat — ${org}.`
-      : `Abonnement ou conditions contractuelles.`,
-    facture: org
-      ? `Facture émise par ${org}.`
-      : `Facture (« ${categoryLabel} »).`,
-    default: org
-      ? `Document ${categoryLabel} émis par ${org}.`
-      : `Document de type « ${categoryLabel} ».`,
-  };
-  sentences.push(familyLead[family] ?? familyLead.default);
-
-  if (amounts.length > 0) {
-    const prefix =
-      family === "banque"
-        ? "Frais / montants à surveiller"
-        : family === "administratif" || family === "recouvrement"
-          ? "Montants clés"
-          : family === "bail"
-            ? "Loyers / montants"
-            : "Montants repérés";
-    sentences.push(`${prefix} : ${amounts.join(", ")}.`);
-  }
-
-  if (alert) {
-    const clean = alert.replace(/\s+/g, " ").trim().slice(0, 140);
-    sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
-  } else {
-    const local = buildLocalFallbackSummary({
-      categoryLabel,
-      fileName: analysis.title,
-      amounts,
-      deadlines,
-      risks:
-        risks.length > 0
-          ? risks
-          : criteria.map((c) => c.label).slice(0, 3),
-      importantPoints: analysis.important_points,
-    });
-    if (local && !SUMMARY_PLACEHOLDER_RE.test(local)) {
-      sentences.push(local);
+  switch (family) {
+    case "administratif": {
+      const principal = pickLabeledAmount(amounts, /principal/i);
+      const total = pickLabeledAmount(
+        amounts,
+        /total\s+[àa]\s+r[ée]gler|montant\s+[àa]\s+(?:payer|pr[ée]lever)/i,
+      );
+      const majoration = pickLabeledAmount(amounts, /majoration|relance/i);
+      sentences.push(
+        org
+          ? `Cet avis d'impôt / fiscal est émis par ${org}.`
+          : `Il s'agit d'un avis fiscal ou administratif (« ${categoryLabel} »).`,
+      );
+      if (principal || total) {
+        const parts = [principal, total, majoration].filter(Boolean);
+        sentences.push(
+          `Montants à retenir : ${parts.join(", ")}.`,
+        );
+      } else if (amountClause) {
+        sentences.push(`Montants clés : ${amountClause}.`);
+      }
+      if (deadlineHint) {
+        sentences.push(
+          `Échéance à respecter : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
+        );
+      } else if (alertFinding) {
+        sentences.push(
+          `${alertFinding.replace(/\s+/g, " ").trim().slice(0, 120)}.`.replace(
+            /\.\.$/,
+            ".",
+          ),
+        );
+      } else {
+        sentences.push(
+          "En l'absence de règlement, un recouvrement ou des poursuites peuvent être engagés.",
+        );
+      }
+      break;
+    }
+    case "banque": {
+      sentences.push(
+        org
+          ? `Ce relevé bancaire est émis par ${org}.`
+          : "Il s'agit d'un relevé ou document bancaire.",
+      );
+      if (amountClause) {
+        sentences.push(
+          `Frais et commissions à surveiller : ${amountClause}.`,
+        );
+      }
+      if (alertFinding) {
+        const clean = alertFinding.replace(/\s+/g, " ").trim().slice(0, 120);
+        sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+      } else if (deadlineHint) {
+        sentences.push(
+          `Point d'attention : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
+        );
+      }
+      break;
+    }
+    case "recouvrement": {
+      sentences.push(
+        org
+          ? `Cette mise en demeure / relance est adressée par ${org}.`
+          : "Il s'agit d'une mise en demeure ou d'un courrier de recouvrement.",
+      );
+      if (amountClause) {
+        sentences.push(`Créance réclamée : ${amountClause}.`);
+      }
+      if (deadlineHint) {
+        sentences.push(
+          `Délai d'action : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
+        );
+      } else if (alertFinding) {
+        const clean = alertFinding.replace(/\s+/g, " ").trim().slice(0, 120);
+        sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+      }
+      break;
+    }
+    case "bail": {
+      sentences.push(
+        org
+          ? `Ce bail / contrat de location implique ${org}.`
+          : `Il s'agit d'un bail de location (« ${categoryLabel} »).`,
+      );
+      if (amountClause) {
+        sentences.push(`Loyers et montants : ${amountClause}.`);
+      }
+      if (alertFinding) {
+        const clean = alertFinding.replace(/\s+/g, " ").trim().slice(0, 120);
+        sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+      } else if (deadlineHint) {
+        sentences.push(
+          `Échéance notable : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
+        );
+      }
+      break;
+    }
+    default: {
+      sentences.push(
+        org
+          ? `Document « ${categoryLabel} » émis par ${org}.`
+          : `Document de type « ${categoryLabel} ».`,
+      );
+      if (amountClause) {
+        sentences.push(`Montants repérés : ${amountClause}.`);
+      }
+      if (alertFinding) {
+        const clean = alertFinding.replace(/\s+/g, " ").trim().slice(0, 120);
+        sentences.push(clean.endsWith(".") ? clean : `${clean}.`);
+      } else if (deadlineHint) {
+        sentences.push(
+          `Échéance notable : ${deadlineHint.replace(/\s+/g, " ").slice(0, 110)}.`,
+        );
+      }
+      break;
     }
   }
 
-  return sentences.join(" ").slice(0, 420);
+  let summary = sentences
+    .map((s) => s.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 420);
+
+  // Garantir une ponctuation de phrase.
+  if (summary && !/[.!?…]/.test(summary)) {
+    summary = `${summary.replace(/[.;:\s]+$/, "")}.`;
+  }
+  return summary;
+}
+
+function isTelegraphicSummary(summary: string): boolean {
+  const t = summary.replace(/\s+/g, " ").trim();
+  if (!t) return true;
+  // Pas de ponctuation de phrase → télégraphique
+  if (!/[.!?…]/.test(t) && t.length < 180) return true;
+  // « Document Impôts 1 073 € Principal… » sans verbe utile
+  if (
+    /^document\s+\S+/i.test(t) &&
+    !/\b(est|sont|porte|concerne|indique|émet|réclame|fixe)\b/i.test(t) &&
+    /\d/.test(t)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function isFamilySummaryLowQuality(
   summary: string,
   family: WatchDocFamily,
 ): boolean {
+  if (isTelegraphicSummary(summary)) return true;
   if (family === "banque") {
     const hasFeeSignal =
       /frais|commission|tenue|rejet|mouvement|agios|int[ée]r[êe]ts?\s+d[ée]bite/i.test(
@@ -442,11 +561,16 @@ function isFamilySummaryLowQuality(
     return hasNoiseAmount || /2\s*148|2\s*086/i.test(summary);
   }
   if (family === "administratif") {
-    // Résumé faible si solde/salaire en tête sans principal/taxe/délai
     if (
       /solde|salaire/i.test(summary) &&
-      !/principal|taxe|pr[ée]lever|majoration|dgfip|finances/i.test(summary)
+      !/principal|taxe|pr[ée]lever|majoration|dgfip|finances|total/i.test(
+        summary,
+      )
     ) {
+      return true;
+    }
+    // Montants collés sans phrase
+    if (/imp[ôo]ts?\s+\d/i.test(summary) && !/[.!?…]/.test(summary)) {
       return true;
     }
   }
@@ -492,6 +616,57 @@ export function resolveDisplaySummary(
   }
 
   return buildDeterministicDisplaySummary(analysis, classification);
+}
+
+/** Réactive délais/sanctions/etc. quand un finding solide existe mais le score LLM est à 0. */
+export function syncCriteriaScoresFromFindings(
+  criteria: RiskCriterionResult[],
+  findings: DocumentAnalysis["risk_findings"],
+): RiskCriterionResult[] {
+  const byId = new Map(
+    (findings ?? [])
+      .filter((f) => f.status !== "rejected" && f.criterion_id)
+      .map((f) => [f.criterion_id!, f]),
+  );
+
+  return criteria.map((criterion) => {
+    const finding = byId.get(criterion.id);
+    if (!finding) return criterion;
+
+    const proof =
+      finding.excerpt?.trim() ||
+      finding.description?.trim() ||
+      "";
+    if (!proof || proof.length < 8) return criterion;
+
+    // Ne pas réactiver sur glossaire / bruit.
+    if (
+      isProdDisplayNoise(proof) ||
+      isDictionaryDefinitionSnippet(proof) ||
+      isVacuousGenericWatchTitle(finding.description)
+    ) {
+      return criterion;
+    }
+
+    if (criterion.detected && criterion.score > 0) {
+      const reasons = [...new Set([...(criterion.reasons ?? []), proof])].slice(
+        0,
+        3,
+      );
+      return { ...criterion, reasons };
+    }
+
+    const minScore = Math.max(
+      4,
+      Math.round(criterion.max_score * 0.7),
+    );
+    return {
+      ...criterion,
+      detected: true,
+      score: minScore,
+      reasons: [proof.slice(0, 160)],
+    };
+  });
 }
 
 export function shouldShowWatchEmptyState(analysis: DocumentAnalysis): boolean {
@@ -582,13 +757,7 @@ export function finalizeAnalysisForProd(
     title: analysis.title,
   });
 
-  const amounts = prioritizeProductionAmounts(analysis.amounts ?? [], family);
-  const deadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
-  const actions = cleanActionsForDisplay(
-    (analysis.actions ?? []).filter((action) => !isAnalysisActionNoise(action)),
-  ).slice(0, 6);
-
-  const risk_findings = (analysis.risk_findings ?? [])
+  const risk_findings_raw = (analysis.risk_findings ?? [])
     .map((finding) => {
       const blob = [
         finding.description,
@@ -617,10 +786,67 @@ export function finalizeAnalysisForProd(
           criterion_id: "obligations_importantes" as const,
         };
       }
-      return finding;
+      // Copy « ce que ça change » hors contexte (matériel sur avis fiscal, etc.)
+      let implication = finding.implication;
+      if (
+        implication &&
+        /mat[ée]riel|abonnement|r[ée]siliation\s+anticip/i.test(implication) &&
+        (family === "administratif" ||
+          family === "recouvrement" ||
+          family === "banque")
+      ) {
+        implication = familyImplicationFallback(
+          finding.criterion_id,
+          family,
+          finding.description,
+        );
+      }
+      return implication === finding.implication
+        ? finding
+        : { ...finding, implication, impact: implication };
     })
-    .filter((finding) => finding.status !== "rejected")
-    .slice(0, 6);
+    .filter((finding) => finding.status !== "rejected");
+
+  // Sync score avant le slice (sinon délais/sanctions utiles peuvent être coupés).
+  let risk_criteria = filterCriteriaProofs(
+    analysis.risk_criteria ?? [],
+    family,
+  );
+  risk_criteria = syncCriteriaScoresFromFindings(
+    risk_criteria,
+    risk_findings_raw,
+  );
+
+  const risk_findings = rankFindingsForWatch(
+    risk_findings_raw,
+    {
+      category: classification?.category,
+      documentType: analysis.document_type,
+      title: analysis.title,
+    },
+    6,
+  );
+
+  const amounts = prioritizeProductionAmounts(
+    [
+      ...(analysis.amounts ?? []),
+      ...risk_findings
+        .map((f) => f.description)
+        .filter((d) => /\d/.test(d) && /€|euro|%|\/mois/i.test(d)),
+    ],
+    family,
+  );
+  const deadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
+  const actions = cleanActionsForDisplay(
+    (analysis.actions ?? [])
+      .map((action) =>
+        action
+          .replace(/^v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:\s*/i, "")
+          .replace(/^anticiper\s+l['']échéance\s*:\s*/i, "")
+          .trim(),
+      )
+      .filter((action) => !isAnalysisActionNoise(action)),
+  ).slice(0, 6);
 
   const feeAmounts = amounts.filter((a) => BANK_PRIORITY_AMOUNT_RE.test(a));
   const important_points = (analysis.important_points ?? [])
@@ -640,10 +866,6 @@ export function finalizeAnalysisForProd(
     .filter((r) => r.length >= 8 && !isProdDisplayNoise(r))
     .slice(0, 6);
 
-  const risk_criteria = filterCriteriaProofs(
-    analysis.risk_criteria ?? [],
-    family,
-  );
   const risk_score = Math.min(
     100,
     Math.max(
@@ -672,6 +894,41 @@ export function finalizeAnalysisForProd(
     ...draft,
     summary,
   };
+}
+
+function familyImplicationFallback(
+  criterionId: string | undefined,
+  family: WatchDocFamily,
+  description: string,
+): string {
+  if (family === "administratif") {
+    if (criterionId === "penalites" || /majoration/i.test(description)) {
+      return "La créance fiscale augmente rapidement en cas de retard.";
+    }
+    if (criterionId === "delais") {
+      return "Dépasser la date limite expose à majoration et recouvrement.";
+    }
+    if (criterionId === "sanctions") {
+      return "Sans règlement, l'administration peut engager un recouvrement forcé.";
+    }
+    if (criterionId === "frais_caches") {
+      return "Des frais de relance s'ajoutent au principal déjà dû.";
+    }
+    return "L'inaction peut aggraver la dette fiscale et les poursuites.";
+  }
+  if (family === "banque") {
+    if (criterionId === "frais_caches") {
+      return "Ces frais réduisent le solde disponible de façon récurrente.";
+    }
+    if (criterionId === "sanctions") {
+      return "Un incident bancaire peut entraîner fichage ou restrictions.";
+    }
+    return "Il faut vérifier le fondement de chaque débit avant d'accepter.";
+  }
+  if (family === "recouvrement") {
+    return "Sans réponse dans le délai, le dossier peut passer à l'huissier.";
+  }
+  return "Agir avant l'échéance pour limiter le risque financier.";
 }
 
 function rebuildRiskExplanation(

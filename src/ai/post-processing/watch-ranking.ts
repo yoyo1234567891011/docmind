@@ -192,7 +192,7 @@ export const LOCAL_INJECT_CRITERIA_BY_FAMILY: Record<
 };
 
 const GENERIC_TITLE_RE =
-  /obligation\s+de\s+payer|obligation\s+(?:de\s+)?r[ée]gulariser|obligation\s+importante\s+impos|menace\s+de\s+poursuites|recouvrement\s+forc[ée]|d[ée]lai\s+tr[èe]s\s+court\s*:\s*\d+\s*jours|d[ée]lai\s+court\s+pour\s+agir|^d[ée]lai\s*\/\s*pr[ée]avis\b|^d[ée]lai\s+ou\s+[ée]ch[ée]ance|^d[ée]lai\s*[:\-–]?\s*\d+\s*jours?\s*$|^d[ée]lai\s+de\s+\d+\s*jours?\s*$|^point\s+de\s+vigilance|^frais\s+annexes\s*:|date\s+limite\s+pour\s+r[ée]silier|r[ée]silier\s*\/\s*modifier|modifier\s*(?:\/\s*)?r[ée]silier/i;
+  /obligation\s+de\s+payer|obligation\s+(?:de\s+)?r[ée]gulariser|obligation\s+importante\s+impos|menace\s+de\s+poursuites|^recouvrement\s+forc[ée]\s*$|d[ée]lai\s+tr[èe]s\s+court\s*:\s*\d+\s*jours|d[ée]lai\s+court\s+pour\s+agir|^d[ée]lai\s*\/\s*pr[ée]avis\b|^d[ée]lai\s+ou\s+[ée]ch[ée]ance|^d[ée]lai\s*[:\-–]?\s*\d+\s*jours?\s*$|^d[ée]lai\s+de\s+\d+\s*jours?\s*$|^point\s+de\s+vigilance|^frais\s+annexes\s*:|date\s+limite\s+pour\s+r[ée]silier|r[ée]silier\s*\/\s*modifier|modifier\s*(?:\/\s*)?r[ée]silier/i;
 
 /** Sur relevé bancaire : libellés abonnement/contrat hors sujet. */
 const BANQUE_OFFTOPIC_TITLE_RE =
@@ -200,7 +200,7 @@ const BANQUE_OFFTOPIC_TITLE_RE =
 
 /** Signaux concrets : chiffre, frais nommé, délai utile (préavis, prélèvement…). */
 const SPECIFIC_SIGNAL_RE =
-  /engagement|franchise|carence|tacite|reconduction|r[ée]siliation\s+anticip|frais\s+de\s+r[ée]siliation|mat[ée]riel|non[\s-]retour|tenue\s+de\s+compte|commission\s+d['']intervention|int[ée]r[êe]ts?\s+d[ée]biteurs|frais\s+de\s+rejet|d[ée]couvert|ficp|suspension|p[ée]nalit[ée].{0,20}retard|frais\s+de\s+recouvrement|total\s+r[ée]clam|huissier|contester\s+sous|pr[ée]avis|loyer|charges\s+locatives|d[ée]p[ôo]t\s+de\s+garantie|clause\s+r[ée]solutoire|honoraires?|taeg|mensualit[ée]|capital\s+emprunt|r[ée]tractation|irl\b|r[ée]vision\s+du\s+loyer|pr[ée]l[eè]v|taxe\s+fonci|remboursement\s+anticip|total\s+ttc|[ée]ch[ée]ance|\d[\d\s.,]*\s*€|€\s*\d|\d+\s*%|\d+\s*mois/i;
+  /engagement|franchise|carence|tacite|reconduction|r[ée]siliation\s+anticip|frais\s+de\s+r[ée]siliation|mat[ée]riel|non[\s-]retour|tenue\s+de\s+compte|commission\s+d['']intervention|int[ée]r[êe]ts?\s+d[ée]biteurs|frais\s+de\s+rejet|d[ée]couvert|ficp|suspension|p[ée]nalit[ée].{0,20}retard|frais\s+de\s+recouvrement|total\s+r[ée]clam|huissier|contester\s+sous|pr[ée]avis|loyer|charges\s+locatives|d[ée]p[ôo]t\s+de\s+garantie|clause\s+r[ée]solutoire|honoraires?|taeg|mensualit[ée]|capital\s+emprunt|r[ée]tractation|irl\b|r[ée]vision\s+du\s+loyer|pr[ée]l[eè]v|taxe\s+fonci|remboursement\s+anticip|total\s+ttc|[ée]ch[ée]ance|recouvrement\s+forc|poursuites?\s+(?:pourront|engag)|date\s+limite\s+de\s+paiement|\d[\d\s.,]*\s*€|€\s*\d|\d+\s*%|\d+\s*mois/i;
 
 /** Titre vague type « Date limite pour résilier / modifier » sans montant ni délai utile. */
 const VACUOUS_RESILIATION_TITLE_RE =

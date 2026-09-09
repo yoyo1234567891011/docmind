@@ -5,6 +5,7 @@
 import { randomUUID } from "crypto";
 
 import { listDeadlinesForDoc } from "@/services/memory/deadline-store";
+import { areCategoriesRelationCompatible } from "@/services/memory/candidate-selector";
 import {
   normalizeEntityKey,
   parseAmountEur,
@@ -417,7 +418,11 @@ export async function detectP3Relations(input: {
     );
   }
 
-  // linked_deadline
+  // linked_deadline — freiner les liens cross-types faibles
+  if (
+    source.category === candidate.category ||
+    areCategoriesRelationCompatible(source.category, candidate.category)
+  ) {
   const [dA, dB] = await Promise.all([
     listDeadlinesForDoc(userId, source.documentId),
     listDeadlinesForDoc(userId, candidate.documentId),
@@ -484,6 +489,7 @@ export async function detectP3Relations(input: {
         toNode: { kind: "deadline", id: bestDeadline.right.id },
       }),
     );
+  }
   }
 
   return out.filter((r) => r.evidence.length >= 1);

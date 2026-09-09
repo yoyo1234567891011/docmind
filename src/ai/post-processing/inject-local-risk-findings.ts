@@ -115,6 +115,83 @@ const LOCAL_FINDING_META: Partial<Record<RiskCriterionId, LocalFindingMeta>> = {
   },
 };
 
+function localFindingMeta(
+  id: RiskCriterionId,
+  family: WatchDocFamily,
+): LocalFindingMeta | null {
+  const base = LOCAL_FINDING_META[id];
+  if (!base) return null;
+  if (family === "administratif") {
+    if (id === "penalites") {
+      return {
+        ...base,
+        implication: "La créance fiscale augmente rapidement en cas de retard.",
+        consequence: "Majoration et total à régler plus élevés.",
+        mitigation: "Payer ou contester avant la date limite indiquée.",
+      };
+    }
+    if (id === "delais") {
+      return {
+        ...base,
+        implication: "Dépasser la date limite expose à majoration et recouvrement.",
+        consequence: "Perte de la possibilité de régulariser sans majoration.",
+        mitigation: "Noter la date limite et répondre par écrit avec preuve d'envoi.",
+      };
+    }
+    if (id === "sanctions") {
+      return {
+        ...base,
+        implication: "Sans règlement, un recouvrement forcé peut être engagé.",
+        consequence: "Poursuites, frais de poursuite et contrainte de paiement.",
+        mitigation: "Régulariser ou contester motivement avant l'échéance.",
+      };
+    }
+    if (id === "frais_caches") {
+      return {
+        ...base,
+        implication: "Des frais de relance s'ajoutent au principal déjà dû.",
+        consequence: "Surcoût même si le principal est juste.",
+        mitigation: "Vérifier le fondement de chaque frais de relance.",
+      };
+    }
+    if (id === "obligations_importantes") {
+      return {
+        ...base,
+        implication: "Le principal et le total dus doivent être traités avant l'échéance.",
+        consequence: "Majoration, relances et éventuel recouvrement.",
+        mitigation: "Contrôler principal, majoration et total puis payer ou contester.",
+      };
+    }
+  }
+  if (family === "banque") {
+    if (id === "frais_caches") {
+      return {
+        ...base,
+        implication: "Ces frais réduisent le solde disponible de façon récurrente.",
+        consequence: "Budget amputé sans contrepartie claire.",
+        mitigation: "Demander le détail tarifaire et contester les frais non dus.",
+      };
+    }
+    if (id === "penalites") {
+      return {
+        ...base,
+        implication: "Intérêts débiteurs ou pénalités alourdissent le découvert.",
+        consequence: "Coût du découvert qui s'auto-alimente.",
+        mitigation: "Vérifier le taux et régulariser le solde si une date est fixée.",
+      };
+    }
+  }
+  if (family === "recouvrement" && id === "penalites") {
+    return {
+      ...base,
+      implication: "Pénalités et frais de recouvrement s'ajoutent au principal.",
+      consequence: "Total réclamé plus élevé sans nouvelle créance de fond.",
+      mitigation: "Exiger un décompte et contester les accessoires non dus.",
+    };
+  }
+  return base;
+}
+
 function firstEuroAmount(text: string): string | null {
   const m = text.match(
     /(\d+(?:[\s\u00a0\u202f]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?\b)/i,
@@ -946,7 +1023,7 @@ function findImpotsLabeledFacts(documentText: string): ImpotsLabeledFact[] {
 
   const paymentDeadline = documentText.match(
     new RegExp(
-      `(?:date\\s+limite\\s+(?:de\\s+)?paiement|payer\\s+(?:avant|au\\s+plus\\s+tard)\\s+le|paiement\\s+avant\\s+le)\\s*[:\\-–]?\\s*${FR_DATE_RE.source}`,
+      `(?:date\\s+limite\\s+(?:de\\s+)?paiement|payer\\s+(?:avant|au\\s+plus\\s+tard)\\s+le|paiement\\s+avant\\s+le|r[èe]glement\\s+doit\\s+intervenir|au\\s+plus\\s+tard\\s+le)\\s*[:\\-–]?\\s*(?:\\*{0,2})?${FR_DATE_RE.source}`,
       "i",
     ),
   );
@@ -981,6 +1058,18 @@ function findImpotsLabeledFacts(documentText: string): ImpotsLabeledFact[] {
       criterionId: "penalites",
       description: `Majoration / pénalités : ${pct} %`,
       excerpt: snippetAround(documentText, idx, majoration[0]!.length),
+    });
+  }
+
+  const forcedRecovery = documentText.match(
+    /recouvrement\s+forc[ée]|poursuites?\s+(?:seront|pourront|engag)|proc[ée]dure\s+de\s+recouvrement/i,
+  );
+  if (forcedRecovery) {
+    const idx = forcedRecovery.index ?? 0;
+    facts.push({
+      criterionId: "sanctions",
+      description: "Recouvrement forcé / poursuites possibles",
+      excerpt: snippetAround(documentText, idx, forcedRecovery[0]!.length),
     });
   }
 
@@ -1019,7 +1108,9 @@ function pickBestExcerpt(
   if (reasons.length === 0) return "";
   const preferred =
     id === "sanctions"
-      ? reasons.find((r) => /huissier|poursuite|saisie|ex[ée]cution/i.test(r))
+      ? reasons.find((r) =>
+          /huissier|poursuite|saisie|ex[ée]cution|recouvrement\s+forc/i.test(r),
+        )
       : id === "frais_caches"
         ? (family === "bail"
             ? reasons.find((r) => /loyer/i.test(r) && !IRRELEVANT_MONEY_CONTEXT.test(r)) ||
@@ -1107,7 +1198,7 @@ function makeLocalFinding(
   family: WatchDocFamily,
   description?: string,
 ): RiskFinding | null {
-  const meta = LOCAL_FINDING_META[id];
+  const meta = localFindingMeta(id, family);
   if (!meta) return null;
   const label = description ?? describeLocalFinding(id, excerpt, family);
   if (isVacuousGenericWatchTitle(label)) return null;

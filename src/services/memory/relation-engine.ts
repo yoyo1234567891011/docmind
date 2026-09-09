@@ -145,31 +145,14 @@ export async function detectRelationsForPair(input: {
   );
 
   // --- duplicate_of ---
-  // Hash exact = même fichier (OK cross-catégorie). SimHash : même famille seulement
-  // pour éviter fiscal ↔ MED ↔ banque en « doublon » sur boilerplate partagé.
+  // Même hash = même fichier re-analysé : ne pas surfacé comme « doublon 100 % ».
+  // SimHash : familles compatibles seulement.
   if (
     source.contentHash &&
     candidate.contentHash &&
     source.contentHash === candidate.contentHash
   ) {
-    out.push(
-      makeRelation({
-        userId,
-        type: "duplicate_of",
-        fromDocId: source.documentId,
-        toDocId: candidate.documentId,
-        score: 1,
-        method: "hash",
-        evidence: [
-          evidence(
-            "content_hash",
-            source.contentHash.slice(0, 16),
-            candidate.contentHash.slice(0, 16),
-            "Hash SHA-256 identique",
-          ),
-        ],
-      }),
-    );
+    // Ignoré volontairement (re-upload / re-analyse du même PDF).
   } else if (
     categoriesCompatible &&
     source.simhash &&

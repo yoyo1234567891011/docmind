@@ -36,12 +36,15 @@ function baseAnalysis(
       "| Échéance n°1 | 100 € |",
       "Échéance : date à laquelle une obligation de paiement devient exigible.",
       "Traiter les réclamations dans un délai raisonnable, sous 30 jours.",
+      "Délai moyen de traitement courrier : 10 jours ouvrés",
+      "Un accusé de réception est adressé sous 10 jours ouvrés lorsque la réglementation l'exige.",
     ],
     important_points: [],
     risks: [],
     actions: [
       "Anticiper l'échéance : Signaler sans délai tout changement d'adresse",
       "Traiter les réclamations dans un délai raisonnable",
+      "Vérifier l'échéance: Délai impératif",
     ],
     risk_score: 40,
     risk_level: "modere",
@@ -170,6 +173,30 @@ function runFamily(opts: {
   );
 
   assert.ok(out.summary.trim().length >= 24, `${opts.name} résumé vide`);
+  assert.ok(
+    /[.!?…]/.test(out.summary),
+    `${opts.name} résumé sans ponctuation: ${out.summary}`,
+  );
+  assert.ok(
+    out.summary.length >= 40 && out.summary.length <= 420,
+    `${opts.name} résumé longueur: ${out.summary.length}`,
+  );
+  assert.ok(
+    !out.deadlines.some((d) =>
+      /d[ée]lai\s+moyen\s+de\s+traitement|traitement\s+(?:du\s+)?courrier/i.test(
+        d,
+      ),
+    ),
+    `${opts.name} délai moyen encore présent`,
+  );
+  assert.ok(
+    !out.actions.some((a) => /changement\s+d['']adresse/i.test(a)),
+    `${opts.name} changement d'adresse dans actions`,
+  );
+  assert.ok(
+    !out.actions.some((a) => /v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:/i.test(a)),
+    `${opts.name} Vérifier l'échéance: dans actions`,
+  );
   assertNoForbidden(payloadBlob(out), opts.name);
   assertProdQualityCleanPayload({
     summary: out.summary,
@@ -195,11 +222,48 @@ function runFamily(opts: {
       `fiscal sans principal: ${findingBlob}`,
     );
     assert.ok(
+      /total|majoration|1\s*205|relance/i.test(
+        `${out.summary}\n${findingBlob}\n${out.amounts.join("\n")}`,
+      ),
+      `fiscal sans total/majoration visible: ${out.summary}`,
+    );
+    assert.ok(
       !out.risk_findings.some(
         (f) =>
           f.criterion_id === "frais_caches" && /principal/i.test(f.description),
       ),
       "fiscal principal sous frais_caches",
+    );
+    // Score : délais / sanctions non nuls si présents dans le texte
+    const delais = out.risk_criteria.find((c) => c.id === "delais");
+    const sanctions = out.risk_criteria.find((c) => c.id === "sanctions");
+    assert.ok(
+      (delais?.score ?? 0) > 0 ||
+        out.risk_findings.some((f) => f.criterion_id === "delais"),
+      "fiscal délais sous-scoré",
+    );
+    assert.ok(
+      (sanctions?.score ?? 0) > 0 ||
+        out.risk_findings.some((f) => f.criterion_id === "sanctions") ||
+        /recouvrement/i.test(findingBlob),
+      "fiscal sanctions sous-scoré",
+    );
+    assert.ok(
+      !/mat[ée]riel/i.test(
+        out.risk_findings.map((f) => f.implication).join(" "),
+      ),
+      "fiscal implication hors contexte (matériel)",
+    );
+  }
+
+  if (opts.name === "banque") {
+    assert.ok(
+      /frais|commission|tenue|rejet|int[ée]r[êe]t|ficp/i.test(out.summary),
+      `banque résumé non orienté frais: ${out.summary}`,
+    );
+    assert.ok(
+      !/changement\s+d['']adresse/i.test(out.actions.join("\n")),
+      "banque actions changement adresse",
     );
   }
 
@@ -209,8 +273,8 @@ function runFamily(opts: {
     );
     for (const f of feeFindings) {
       assert.ok(
-        !opts.forbidFeeLabel.test(`${f.description} ${f.excerpt}`),
-        `${opts.name} principal sous frais_caches: ${f.description}`,
+        !opts.forbidFeeLabel.test(f.description),
+        `${opts.name} libellé indésirable sous frais_caches: ${f.description}`,
       );
     }
   }
@@ -226,6 +290,10 @@ function runFamily(opts: {
     !/\[Destinataire\]/i.test(letter.body),
     `${opts.name} letter [Destinataire]`,
   );
+  assert.ok(
+    !/v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:/i.test(letter.body),
+    `${opts.name} letter Vérifier l'échéance:`,
+  );
   if (opts.expectedOrg) {
     assert.ok(
       opts.expectedOrg.test(letter.body) || orgs.length === 0,
@@ -234,13 +302,14 @@ function runFamily(opts: {
   }
 
   console.log(`OK ${opts.name}`);
-  console.log(`  avant→après résumé: « ${out.summary.slice(0, 140)}… »`);
+  console.log(`  résumé: « ${out.summary.slice(0, 160)} »`);
   console.log(
     `  findings: ${out.risk_findings
       .slice(0, 3)
       .map((f) => f.description)
       .join(" | ")}`,
   );
+  console.log(`  amounts hero: ${out.amounts.slice(0, 3).join(" · ") || "(vide)"}`);
 }
 
 function main() {
@@ -272,7 +341,7 @@ function main() {
     label: "Mise en demeure",
     expectedOrg: /recouvrement/i,
     expectFinding: /total\s+r[ée]clam|principal|frais\s+de\s+recouvrement|p[ée]nalit/i,
-    forbidFeeLabel: /principal\s*\/|total\s+r[ée]clam[ée]/i,
+    forbidFeeLabel: /principal\s*\/|total\s+r[ée]clam[ée]\s*:/i,
     family: "recouvrement",
   });
 

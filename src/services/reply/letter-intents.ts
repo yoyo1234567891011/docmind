@@ -20,19 +20,26 @@ export interface LetterFamilyRule {
 
 /** Politique intention courrier par famille documentaire (alignée watch-ranking). */
 export const LETTER_FAMILY_RULES: Record<WatchDocFamily, LetterFamilyRule> = {
+  administratif: {
+    allowed: ["contestation", "reponse_administrative", "autre"],
+    forbidden: ["resiliation", "remboursement"],
+    defaultType: "contestation",
+    defaultReason:
+      "Avis fiscal / administratif : contestation ou demande de délai sur la créance.",
+  },
   banque: {
     allowed: ["contestation", "autre", "remboursement"],
     forbidden: ["resiliation"],
-    defaultType: "autre",
+    defaultType: "contestation",
     defaultReason:
-      "Relevé ou document bancaire : demande d’information ou de précision (pas de résiliation de relevé).",
+      "Relevé bancaire : contestation de frais ou demande de détail tarifaire.",
   },
   recouvrement: {
     allowed: ["contestation", "reponse_administrative", "remboursement"],
     forbidden: ["resiliation"],
-    defaultType: "reponse_administrative",
+    defaultType: "contestation",
     defaultReason:
-      "Courrier de recouvrement : réponse formelle, contestation ou demande de décompte.",
+      "Mise en demeure : contestation du total réclamé ou demande de décompte.",
   },
   facture: {
     allowed: ["contestation", "remboursement", "resiliation"],
@@ -67,13 +74,6 @@ export const LETTER_FAMILY_RULES: Record<WatchDocFamily, LetterFamilyRule> = {
     defaultReason:
       "Prêt / crédit : demande d’information (TAEG, échéancier) ou contestation ciblée.",
   },
-  administratif: {
-    allowed: ["reponse_administrative", "contestation", "autre"],
-    forbidden: ["resiliation", "remboursement"],
-    defaultType: "reponse_administrative",
-    defaultReason:
-      "Courrier administratif : réponse avec pièces, demande de délai ou contestation.",
-  },
   default: {
     allowed: ["autre", "contestation", "reponse_administrative"],
     forbidden: ["resiliation"],
@@ -95,7 +95,19 @@ export function isRecipientObligation(text: string): boolean {
 }
 
 export function filterDeadlinesForLetter(deadlines: string[]): string[] {
-  return deadlines.filter((d) => d.trim() && !isRecipientObligation(d));
+  return deadlines.filter((d) => {
+    const t = d.trim();
+    if (!t) return false;
+    if (isRecipientObligation(t)) return false;
+    if (
+      /d[ée]lai\s+moyen|traitement\s+(?:du\s+)?courrier|accus[ée]\s+de\s+r[ée]ception|10\s+jours\s+ouvr[ée]s|changement\s+d['']adresse|v[ée]rifier\s+l[''][ée]ch[ée]ance/i.test(
+        t,
+      )
+    ) {
+      return false;
+    }
+    return true;
+  });
 }
 
 /** Objet court : évite titres techniques de PDF. */
@@ -204,7 +216,12 @@ export function rankLetterIntents(
     );
 
   const hasContestSignal =
-    /contest|d[ée]saccord|erreur\s+de\s+facturation|montant\s+erron[ée]|je\s+conteste|litige|frais\s+(?:bancaires|de\s+tenue)|commission|agios|d[ée]couvert/i.test(
+    /contest|d[ée]saccord|erreur\s+de\s+facturation|montant\s+erron[ée]|je\s+conteste|litige|frais\s+(?:bancaires|de\s+tenue)|commission|agios|d[ée]couvert|principal\s+d[ûu]|total\s+[àa]\s+r[ée]gler|majoration|reste\s+[àa]\s+payer|avis\s+d['']imposition|total\s+r[ée]clam/i.test(
+      corpus,
+    );
+
+  const hasCreanceSignal =
+    /principal\s+d[ûu]|total\s+[àa]\s+r[ée]gler|majoration|montant\s+[àa]\s+(?:payer|pr[ée]lever)|reste\s+[àa]\s+payer|total\s+r[ée]clam|frais\s+de\s+relance/i.test(
       corpus,
     );
 
@@ -471,26 +488,27 @@ export function rankLetterIntents(
       break;
 
     case "administratif":
+      if (hasCreanceSignal || hasContestSignal) {
+        pushCandidate(
+          candidates,
+          {
+            letterType: "contestation",
+            reason:
+              "Contestation ou demande de délai sur le principal, la majoration ou le total dû.",
+            confidence: 0.9,
+            score: 95,
+          },
+          family,
+        );
+      }
       if (hasAdminSignal) {
         pushCandidate(
           candidates,
           {
             letterType: "reponse_administrative",
             reason: "Réponse administrative avec pièces ou demande de délai.",
-            confidence: 0.88,
-            score: 90,
-          },
-          family,
-        );
-      }
-      if (hasContestSignal) {
-        pushCandidate(
-          candidates,
-          {
-            letterType: "contestation",
-            reason: "Contestation d’un montant ou d’une décision administrative.",
-            confidence: 0.82,
-            score: 80,
+            confidence: 0.8,
+            score: 75,
           },
           family,
         );
