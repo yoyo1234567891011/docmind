@@ -1,11 +1,12 @@
-/**
- * Garde-fous qualité prod — résumé, actions, échéances, preuves score.
- * Déterministe, sans appel LLM supplémentaire.
- */
 import {
   cleanActionsForDisplay,
   cleanSummaryForDisplay,
 } from "@/ai/post-processing/display-cleanup";
+import {
+  familyImplicationFallback,
+  isOffContextFindingCopy,
+  resolveFindingCopy,
+} from "@/ai/post-processing/finding-copy-by-family";
 import {
   resolveWatchDocFamily,
   isVacuousGenericWatchTitle,
@@ -203,7 +204,7 @@ export function sanitizeProductionDeadlines(deadlines: string[]): string[] {
     seen.add(key);
     out.push(value);
   }
-  return out.slice(0, 8);
+  return out.slice(0, 3);
 }
 
 function shouldZeroGlossaryCriterion(
@@ -904,24 +905,54 @@ export function finalizeAnalysisForProd(
           criterion_id: "obligations_importantes" as const,
         };
       }
-      // Copy « ce que ça change » hors contexte (matériel sur avis fiscal, etc.)
+      // Copy « ce que ça change » hors contexte (huissier sur CAF, matériel sur fiscal…).
       let implication = finding.implication;
+      let why = finding.why;
+      let consequence = finding.consequence;
+      let mitigation = finding.mitigation;
+      const copyBlob = [why, implication, consequence, mitigation]
+        .filter(Boolean)
+        .join(" ");
       if (
-        implication &&
-        /mat[ée]riel|abonnement|r[ée]siliation\s+anticip/i.test(implication) &&
-        (family === "administratif" ||
-          family === "recouvrement" ||
-          family === "banque")
+        copyBlob &&
+        (isOffContextFindingCopy(family, copyBlob) ||
+          (/mat[ée]riel|abonnement|r[ée]siliation\s+anticip/i.test(copyBlob) &&
+            (family === "administratif" ||
+              family === "recouvrement" ||
+              family === "banque" ||
+              family === "social" ||
+              family === "pret")))
       ) {
-        implication = familyImplicationFallback(
-          finding.criterion_id,
-          family,
-          finding.description,
-        );
+        const fresh = resolveFindingCopy(finding.criterion_id, family);
+        if (fresh) {
+          why = fresh.why;
+          implication = fresh.implication;
+          consequence = fresh.consequence;
+          mitigation = fresh.mitigation;
+        } else {
+          implication = familyImplicationFallback(
+            finding.criterion_id,
+            family,
+            finding.description,
+          );
+        }
       }
-      return implication === finding.implication
-        ? finding
-        : { ...finding, implication, impact: implication };
+      const patched =
+        why !== finding.why ||
+        implication !== finding.implication ||
+        consequence !== finding.consequence ||
+        mitigation !== finding.mitigation;
+      return patched
+        ? {
+            ...finding,
+            why,
+            implication,
+            consequence,
+            mitigation,
+            impact: implication,
+            justification: why,
+          }
+        : finding;
     })
     .filter((finding) => finding.status !== "rejected");
 
@@ -933,6 +964,12 @@ export function finalizeAnalysisForProd(
   risk_criteria = syncCriteriaScoresFromFindings(
     risk_criteria,
     risk_findings_raw,
+  );
+  risk_criteria = boostDelaisScoreFromSignals(
+    risk_criteria,
+    risk_findings_raw,
+    documentText ?? "",
+    family,
   );
 
   const risk_findings = dedupeRiskFindings(
@@ -959,7 +996,12 @@ export function finalizeAnalysisForProd(
       family,
     ),
   );
-  const deadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
+  const deadlines = sanitizeProductionDeadlines([
+    ...(analysis.deadlines ?? []),
+    ...risk_findings
+      .filter((f) => f.criterion_id === "delais")
+      .map((f) => f.description),
+  ]);
   const actions = cleanActionsForDisplay(
     (analysis.actions ?? [])
       .map((action) =>
@@ -1024,39 +1066,53 @@ export function finalizeAnalysisForProd(
   };
 }
 
-function familyImplicationFallback(
-  criterionId: string | undefined,
+/** Active / renforce le critère délais si une date limite utile est présente. */
+function boostDelaisScoreFromSignals(
+  criteria: RiskCriterionResult[],
+  findings: DocumentAnalysis["risk_findings"],
+  documentText: string,
   family: WatchDocFamily,
-  description: string,
-): string {
-  if (family === "administratif") {
-    if (criterionId === "penalites" || /majoration/i.test(description)) {
-      return "La créance fiscale augmente rapidement en cas de retard.";
-    }
-    if (criterionId === "delais") {
-      return "Dépasser la date limite expose à majoration et recouvrement.";
-    }
-    if (criterionId === "sanctions") {
-      return "Sans règlement, l'administration peut engager un recouvrement forcé.";
-    }
-    if (criterionId === "frais_caches") {
-      return "Des frais de relance s'ajoutent au principal déjà dû.";
-    }
-    return "L'inaction peut aggraver la dette fiscale et les poursuites.";
-  }
-  if (family === "banque") {
-    if (criterionId === "frais_caches") {
-      return "Ces frais réduisent le solde disponible de façon récurrente.";
-    }
-    if (criterionId === "sanctions") {
-      return "Un incident bancaire peut entraîner fichage ou restrictions.";
-    }
-    return "Il faut vérifier le fondement de chaque débit avant d'accepter.";
-  }
-  if (family === "recouvrement") {
-    return "Sans réponse dans le délai, le dossier peut passer à l'huissier.";
-  }
-  return "Agir avant l'échéance pour limiter le risque financier.";
+): RiskCriterionResult[] {
+  const deadlineFinding = (findings ?? []).find(
+    (f) =>
+      f.criterion_id === "delais" &&
+      f.status !== "rejected" &&
+      !isVacuousGenericWatchTitle(f.description),
+  );
+  const textHasDeadline =
+    /au\s+plus\s+tard\s+le\s+\d|date\s+limite|avant\s+le\s+\d{1,2}[./]\d|sous\s+\d+\s+jours|d[ée]lai\s+de\s+r[ée]tractation/i.test(
+      documentText.slice(0, 2800),
+    ) ||
+    (family === "social" &&
+      /pi[èe]ces?|allocataire|maintien\s+de\s+vos\s+droits/i.test(
+        documentText.slice(0, 1500),
+      ) &&
+      /avant\s+le\s+\d|sous\s+\d+\s+jours/i.test(documentText.slice(0, 1500)));
+
+  if (!deadlineFinding && !textHasDeadline) return criteria;
+
+  return criteria.map((c) => {
+    if (c.id !== "delais") return c;
+    if (c.detected && c.score > 0) return c;
+    const proof =
+      deadlineFinding?.excerpt?.trim() ||
+      deadlineFinding?.description?.trim() ||
+      documentText
+        .slice(0, 1500)
+        .match(
+          /(?:au\s+plus\s+tard\s+le|date\s+limite[^.\n]{0,40}|avant\s+le\s+\d{1,2}[./]\d{1,2}[./]\d{2,4}|sous\s+\d+\s+jours[^\n.]{0,40})/i,
+        )?.[0] ||
+      "Date limite d'action identifiée dans le document";
+    return {
+      ...c,
+      detected: true,
+      score: Math.max(c.score, Math.round(c.max_score * 0.7)),
+      reasons: [...new Set([...(c.reasons ?? []), proof.slice(0, 160)])].slice(
+        0,
+        3,
+      ),
+    };
+  });
 }
 
 function rebuildRiskExplanation(

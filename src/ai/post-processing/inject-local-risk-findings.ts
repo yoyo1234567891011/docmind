@@ -4,6 +4,7 @@ import {
   cleanExcerptForDisplay,
   truncateAtTextBoundary,
 } from "@/ai/post-processing/display-cleanup";
+import { resolveFindingCopy } from "@/ai/post-processing/finding-copy-by-family";
 import {
   isProdDisplayNoise,
   isWeakScoreProofSnippet,
@@ -32,164 +33,36 @@ type LocalFindingMeta = {
   confidence: number;
 };
 
-const LOCAL_FINDING_META: Partial<Record<RiskCriterionId, LocalFindingMeta>> = {
-  frais_caches: {
-    why: "Le document mentionne des frais annexes, cachés ou de gestion.",
-    implication: "Le coût réel peut dépasser le prix affiché ou le principal.",
-    consequence: "Surprise financière ou contestation plus difficile après coup.",
-    mitigation: "Lister chaque frais et vérifier son fondement avant d’accepter.",
-    severity: "eleve",
-    confidence: 0.9,
-  },
-  penalites: {
-    why: "Des pénalités ou indemnités sont expressément prévues.",
-    implication: "Un manquement (retard, résiliation, matériel) augmente la dette.",
-    consequence: "Majoration rapide du montant dû.",
-    mitigation: "Contrôler le montant et contester toute pénalité non due.",
-    severity: "eleve",
-    confidence: 0.92,
-  },
-  delais: {
-    why: "Un délai, une échéance ou une date limite est fixé dans le document.",
-    implication: "Le destinataire doit agir avant cette échéance.",
-    consequence: "Perte de droits (résiliation, contestation) ou passage à l’exécution.",
-    mitigation: "Noter la date limite et répondre par écrit avec preuve d’envoi.",
-    severity: "eleve",
-    confidence: 0.9,
-  },
-  sanctions: {
-    why: "Le document annonce des poursuites, un huissier ou un recouvrement forcé.",
-    implication: "Sans réaction, la situation peut basculer vers l’exécution judiciaire.",
-    consequence: "Frais d’huissier, saisie ou contentieux plus coûteux.",
-    mitigation: "Traiter la mise en demeure sans délai et solliciter un conseil si besoin.",
-    severity: "critique",
-    confidence: 0.92,
-  },
-  obligations_importantes: {
-    why: "Le destinataire est sommé d’agir (payer, contester, régulariser).",
-    implication: "L’inaction peut être interprétée comme une acceptation.",
-    consequence: "Perte de moyens de défense ou aggravation de la créance.",
-    mitigation: "Identifier l’obligation exacte et y répondre dans le délai indiqué.",
-    severity: "eleve",
-    confidence: 0.88,
-  },
-  engagement: {
-    why: "Une durée d’engagement minimale est prévue.",
-    implication: "Résilier avant terme peut coûter cher ou être impossible.",
-    consequence: "Frais de résiliation anticipée ou maintien forcé du contrat.",
-    mitigation: "Vérifier la durée restante et le coût d’une sortie anticipée.",
-    severity: "eleve",
-    confidence: 0.9,
-  },
-  resiliation: {
-    why: "Des conditions de résiliation (préavis, frais, date limite) sont prévues.",
-    implication: "Manquer la fenêtre de résiliation prolonge l’engagement.",
-    consequence: "Reconduction ou frais de sortie.",
-    mitigation: "Repérer le préavis et la date limite de dénonciation.",
-    severity: "eleve",
-    confidence: 0.9,
-  },
-  renouvellement_tacite: {
-    why: "Le contrat prévoit une reconduction ou un renouvellement automatique.",
-    implication: "Sans dénonciation dans les délais, l’engagement continue.",
-    consequence: "Nouvelle période facturée sans action explicite.",
-    mitigation: "Calendrier de dénonciation et envoi d’une résiliation datée.",
-    severity: "eleve",
-    confidence: 0.92,
-  },
-  augmentation_tarif: {
-    why: "Le document prévoit une révision, indexation ou hausse de tarif/loyer.",
-    implication: "Le montant peut augmenter sans nouvel accord explicite.",
-    consequence: "Budget plus élevé après révision (ex. IRL).",
-    mitigation: "Vérifier l’indice, la périodicité et le plafond de révision.",
-    severity: "modere",
-    confidence: 0.88,
-  },
-  clauses_abusives: {
-    why: "Une clause déséquilibrée ou particulièrement sévère est présente (ex. résolutoire).",
-    implication: "Un manquement peut entraîner une sanction rapide.",
-    consequence: "Résiliation de plein droit, expulsion ou perte de droits.",
-    mitigation: "Faire vérifier la clause et les délais de mise en demeure.",
-    severity: "eleve",
-    confidence: 0.9,
-  },
+const LOCAL_SEVERITY: Partial<
+  Record<RiskCriterionId, { severity: RiskSeverity; confidence: number }>
+> = {
+  frais_caches: { severity: "eleve", confidence: 0.9 },
+  penalites: { severity: "eleve", confidence: 0.92 },
+  delais: { severity: "eleve", confidence: 0.9 },
+  sanctions: { severity: "critique", confidence: 0.92 },
+  obligations_importantes: { severity: "eleve", confidence: 0.88 },
+  engagement: { severity: "eleve", confidence: 0.9 },
+  resiliation: { severity: "eleve", confidence: 0.9 },
+  renouvellement_tacite: { severity: "eleve", confidence: 0.92 },
+  augmentation_tarif: { severity: "modere", confidence: 0.88 },
+  clauses_abusives: { severity: "eleve", confidence: 0.9 },
 };
 
 function localFindingMeta(
   id: RiskCriterionId,
   family: WatchDocFamily,
 ): LocalFindingMeta | null {
-  const base = LOCAL_FINDING_META[id];
-  if (!base) return null;
-  if (family === "administratif") {
-    if (id === "penalites") {
-      return {
-        ...base,
-        implication: "La créance fiscale augmente rapidement en cas de retard.",
-        consequence: "Majoration et total à régler plus élevés.",
-        mitigation: "Payer ou contester avant la date limite indiquée.",
-      };
-    }
-    if (id === "delais") {
-      return {
-        ...base,
-        implication: "Dépasser la date limite expose à majoration et recouvrement.",
-        consequence: "Perte de la possibilité de régulariser sans majoration.",
-        mitigation: "Noter la date limite et répondre par écrit avec preuve d'envoi.",
-      };
-    }
-    if (id === "sanctions") {
-      return {
-        ...base,
-        implication: "Sans règlement, un recouvrement forcé peut être engagé.",
-        consequence: "Poursuites, frais de poursuite et contrainte de paiement.",
-        mitigation: "Régulariser ou contester motivement avant l'échéance.",
-      };
-    }
-    if (id === "frais_caches") {
-      return {
-        ...base,
-        implication: "Des frais de relance s'ajoutent au principal déjà dû.",
-        consequence: "Surcoût même si le principal est juste.",
-        mitigation: "Vérifier le fondement de chaque frais de relance.",
-      };
-    }
-    if (id === "obligations_importantes") {
-      return {
-        ...base,
-        implication: "Le principal et le total dus doivent être traités avant l'échéance.",
-        consequence: "Majoration, relances et éventuel recouvrement.",
-        mitigation: "Contrôler principal, majoration et total puis payer ou contester.",
-      };
-    }
-  }
-  if (family === "banque") {
-    if (id === "frais_caches") {
-      return {
-        ...base,
-        implication: "Ces frais réduisent le solde disponible de façon récurrente.",
-        consequence: "Budget amputé sans contrepartie claire.",
-        mitigation: "Demander le détail tarifaire et contester les frais non dus.",
-      };
-    }
-    if (id === "penalites") {
-      return {
-        ...base,
-        implication: "Intérêts débiteurs ou pénalités alourdissent le découvert.",
-        consequence: "Coût du découvert qui s'auto-alimente.",
-        mitigation: "Vérifier le taux et régulariser le solde si une date est fixée.",
-      };
-    }
-  }
-  if (family === "recouvrement" && id === "penalites") {
-    return {
-      ...base,
-      implication: "Pénalités et frais de recouvrement s'ajoutent au principal.",
-      consequence: "Total réclamé plus élevé sans nouvelle créance de fond.",
-      mitigation: "Exiger un décompte et contester les accessoires non dus.",
-    };
-  }
-  return base;
+  const copy = resolveFindingCopy(id, family);
+  const sev = LOCAL_SEVERITY[id];
+  if (!copy || !sev) return null;
+  return {
+    why: copy.why,
+    implication: copy.implication,
+    consequence: copy.consequence,
+    mitigation: copy.mitigation,
+    severity: sev.severity,
+    confidence: sev.confidence,
+  };
 }
 
 function firstEuroAmount(text: string): string | null {

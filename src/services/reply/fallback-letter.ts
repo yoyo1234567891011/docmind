@@ -43,7 +43,7 @@ function firstOrg(
   return person ?? "";
 }
 
-/** Article + destinataire : « la Direction… », « la Banque… ». */
+/** Article + destinataire : « la Direction… », « la Banque… », « du Crédit… ». */
 export function formatAttentionRecipient(recipient: string): string {
   const r = recipient.replace(/\s+/g, " ").trim();
   if (!r || /^\[/.test(r)) return "";
@@ -58,7 +58,11 @@ export function formatAttentionRecipient(recipient: string): string {
   ) {
     return `À l'attention de la ${stripped},`;
   }
-  if (/^(service|organisme|etablissement|établissement|tribunal|centre)/i.test(stripped)) {
+  if (
+    /^(service|organisme|etablissement|établissement|tribunal|centre|cr[ée]dit)\b/i.test(
+      stripped,
+    )
+  ) {
     return `À l'attention du ${stripped},`;
   }
   return `À l'attention de ${stripped},`;
@@ -89,8 +93,11 @@ function extractDocReference(documentText: string, analysis: DocumentAnalysis): 
     blob.match(
       /\b((?:IMP|REL|BQE|BAIL|FAC|PRT|CAF|MUT|ASS|NET|MOB|EDF)[-–]?\d{4,})\b/i,
     ) ||
-    blob.match(/\br[eé]f[eé]rence\s*[:\-]?\s*([A-Z]{2,5}[-–]?\d{4,})/i) ||
-    blob.match(/\bn[°o]\s*offre\s*[:\-]?\s*([A-Z]{2,5}[-–]?\d{4,})/i);
+    blob.match(
+      /n[°o]\s*allocataire[^:\n]{0,20}:\s*([A-Z]{2,5}[-–]?\d{4,})/i,
+    ) ||
+    blob.match(/\bn[°o]\s*offre\s*[:\-]?\s*([A-Z]{2,5}[-–]?\d{4,})/i) ||
+    blob.match(/\br[eé]f[eé]rence\s*[:\-]?\s*([A-Z]{2,5}[-–]?\d{4,})/i);
   return preferred?.[1]?.replace(/–/g, "-").toUpperCase() ?? "";
 }
 
@@ -107,6 +114,8 @@ function cleanFactsList(lines: string[]): string[] {
     if (!t || t.length < 4) continue;
     if (/^\[|destinataire\]/i.test(t)) continue;
     if (/^\d+(?:[,.]\d+)?\s*€\s*:\s*\d+/i.test(t)) continue;
+    // Refuser un montant nu sans libellé (« 483 € »)
+    if (/^\d[\d\s.,]*\s*€\s*$/i.test(t)) continue;
     const key = t.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -147,8 +156,7 @@ function familyAmountLines(
       );
     }
     if (family === "social") {
-      return /aide|indu|trop|allocation|mensuel|pi[èe]ce|483|447/i.test(a) ||
-        /€/.test(a);
+      return /aide|indu|trop|allocation|mensuel/i.test(a);
     }
     if (family === "recouvrement") {
       return /total|principal|impay|frais|p[ée]nalit|recouvrement/i.test(a);
@@ -157,10 +165,17 @@ function familyAmountLines(
       return /loyer|charges|d[ée]p[ôo]t|honoraires|relance/i.test(a);
     }
     if (family === "pret") {
-      return /taeg|mensualit|frais|capital|p[ée]nalit/i.test(a);
+      return /taeg|mensualit|frais\s+de\s+dossier|capital|p[ée]nalit|assurance\s+emprunteur/i.test(
+        a,
+      );
     }
     if (family === "assurance") {
       return /cotisation|franchise|prime/i.test(a);
+    }
+    if (family === "facture") {
+      return /total\s+ttc|net\s+[àa]\s+payer|montant|option|frais|p[ée]nalit/i.test(
+        a,
+      );
     }
     return /€|%|euro/i.test(a);
   });
@@ -170,27 +185,66 @@ function familyAmountLines(
       (f) =>
         f.label.startsWith("Montant :") ||
         f.label.startsWith("Frais :") ||
-        /principal|total|majoration|loyer|commission|relance/i.test(f.label),
+        /principal|total|majoration|loyer|commission|relance|aide|indu|ttc|capital|taeg/i.test(
+          f.label,
+        ),
     )
     .map((f) => f.label.replace(/^(?:Montant|Frais)\s*:\s*/i, ""));
 
-  // Extraire majoration % depuis le texte si absente du pool.
+  // Extraire majoration % / aide / total TTC depuis le texte si absents du pool.
   const extra: string[] = [];
   if (
     family === "administratif" &&
     !fromAmounts.some((a) => /majoration/i.test(a))
   ) {
-    const maj = documentText.match(
-      /majoration[^.\n]{0,40}?(\d+\s*%)/i,
-    );
+    const maj = documentText.match(/majoration[^.\n]{0,40}?(\d+\s*%)/i);
     if (maj) {
       extra.push(`Majoration pour retard : ${maj[1]!.replace(/\s+/g, " ")}`);
     }
   }
+  if (family === "social") {
+    if (!fromAmounts.some((a) => /aide\s+mensuelle/i.test(a))) {
+      const aide = documentText.match(
+        /aide\s+mensuelle[^\n€]{0,60}?(\d[\d\s\u00a0\u202f.,]*)\s*€/i,
+      );
+      if (aide) {
+        extra.push(
+          `Aide mensuelle : ${aide[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`,
+        );
+      }
+    }
+    if (!fromAmounts.some((a) => /indu/i.test(a))) {
+      const indu = documentText.match(
+        /indu[^\n€]{0,60}?(\d[\d\s\u00a0\u202f.,]*)\s*€/i,
+      );
+      if (indu) {
+        extra.push(
+          `Indu éventuel : ${indu[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`,
+        );
+      }
+    }
+    const limit = documentText.match(
+      /avant\s+le\s+(\d{1,2}[./]\d{1,2}[./]\d{2,4})/i,
+    );
+    if (limit) {
+      extra.push(`Date limite de transmission des pièces : ${limit[1]}`);
+    }
+  }
+  if (
+    family === "facture" &&
+    !fromAmounts.some((a) => /total\s+ttc|net\s+[àa]\s+payer/i.test(a))
+  ) {
+    const ttc = documentText.match(
+      /total\s+ttc[^\n€]{0,40}?(\d[\d\s.,]*)\s*€/i,
+    );
+    if (ttc) {
+      extra.push(
+        `Total TTC : ${ttc[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`,
+      );
+    }
+  }
 
-  return cleanFactsList([...fromAmounts, ...fromFacts, ...extra]).filter(
-    (line) => !/date\s+limite|au\s+plus\s+tard/i.test(line),
-  );
+  return cleanFactsList([...fromAmounts, ...fromFacts, ...extra]);
 }
 
 function usefulDeadline(deadlines: string[]): string | null {
@@ -320,8 +374,8 @@ function buildFamilyLetter(input: {
     return {
       subject: shortenLetterSubject(
         ref
-          ? `Réponse / transmission de pièces — dossier CAF ${ref}`
-          : "Réponse / transmission de pièces — dossier CAF",
+          ? `Transmission de pièces / maintien des droits — dossier CAF ${ref}`
+          : "Transmission de pièces / maintien des droits — dossier CAF",
         "reponse_administrative",
         family,
       ),
@@ -331,14 +385,16 @@ function buildFamilyLetter(input: {
       body: [
         head,
         "",
-        `Suite à votre notification de ${orgLabel} en date du ${dateDoc}${refBit}, je vous adresse la présente réponse concernant mes droits et les pièces demandées.`,
+        `Suite à votre notification de ${orgLabel} en date du ${dateDoc}${refBit}, je vous adresse la présente afin de transmettre les pièces demandées et de solliciter le maintien de mes droits.`,
         "",
         factsBlock ??
-          "Je vous prie de préciser les pièces attendues et le délai applicable pour le maintien de mes droits.",
+          "Je vous prie de préciser les pièces attendues, le montant de l'aide concernée et tout indu éventuel.",
         "",
-        "Je vous demande de confirmer le maintien de mes droits (aide au logement ou prestations concernées) et de m'indiquer toute suite donnée concernant un éventuel indu ou trop-perçu.",
+        "Je vous confirme que je procède / procéderai à la transmission des justificatifs demandés. Je vous demande de confirmer le maintien de mon aide au logement (ou prestations concernées) et de m'indiquer par écrit toute suite donnée concernant un éventuel indu ou trop-perçu.",
         "",
-        deadlineBlock,
+        deadline
+          ? `Je prends note de la date limite indiquée : ${deadline}.`
+          : "Je vous demande une réponse écrite sous trente jours.",
         closing(),
       ]
         .filter((l) => l !== null)
@@ -500,7 +556,7 @@ function buildFamilyLetter(input: {
         "",
         letterType === "contestation"
           ? "Je conteste les frais ou clauses concernés et demande un réexamen motivé avant toute acceptation définitive."
-          : "Je vous prie de me communiquer le TAEG, le tableau d'amortissement, les modalités de rétractation et le détail des frais de dossier ou pénalités de remboursement anticipé.",
+          : "Je vous prie de me communiquer le TAEG, le tableau d'amortissement, les modalités de rétractation et le détail des frais de dossier ou pénalités de remboursement anticipé. La présente ne porte pas sur un relevé de compte.",
         "",
         deadlineBlock,
         closing(),

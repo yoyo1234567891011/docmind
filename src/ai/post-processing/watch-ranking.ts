@@ -532,6 +532,17 @@ function administratifTitlePriority(description: string): number {
   return 50;
 }
 
+/** CAF / social : pièces et délais avant suspension / indu. */
+function socialTitlePriority(description: string): number {
+  const t = description.toLowerCase();
+  if (/pi[èe]ce|produire|maintien|obligation\s+de\s+produire/.test(t)) return 0;
+  if (/d[ée]lai|avant\s+le|transmission/.test(t)) return 1;
+  if (/aide\s+mensuelle|aide\s+au\s+logement/.test(t)) return 2;
+  if (/suspension/.test(t)) return 3;
+  if (/indu|trop[\s-]per/.test(t)) return 4;
+  return 50;
+}
+
 function recouvrementTitlePriority(description: string): number {
   const t = description.toLowerCase();
   if (/total\s+r[ée]clam|somme\s+totale|montant\s+total/.test(t)) {
@@ -680,6 +691,9 @@ export function watchRankScore(
     if (isNationalTaxNoiseTitle(finding.description)) {
       adminBoost += 150;
     }
+  }
+  if (family === "social") {
+    adminBoost = socialTitlePriority(finding.description);
   }
 
   let recouvrementBoost = 0;

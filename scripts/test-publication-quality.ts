@@ -112,7 +112,7 @@ const CASES: Case[] = [
     letterBodyOk: /pr[êe]t|cr[ée]dit|taeg|capital|mensualit/i,
     letterType: "autre",
     forbidFindings: /commission\s+d['']intervention|tenue\s+de\s+compte/i,
-    forbidLetter: /relev[ée]\s+bancaire|\bbail\b|\bloyer\b|\bcaf\b|charges\s+locatives/i,
+    forbidLetter: /relev[ée]\s+bancaire|\bbail\b|\bloyer\b|\bcaf\b|charges\s+locatives|frais\s+d[ée]bit[ée]s\s+sur\s+mon\s+compte/i,
   },
   {
     name: "caf",
@@ -122,11 +122,11 @@ const CASES: Case[] = [
     labelOk: /caf/i,
     orgOk: /caisse|allocations|caf/i,
     findingOk: /aide|indu|pi[èe]ce|suspension|trop/i,
-    letterSubjectOk: /caf|pi[èe]ces|droits/i,
-    letterBodyOk: /caf|allocations|pi[èe]ces|droits|aide/i,
+    letterSubjectOk: /pi[èe]ces|droits|caf/i,
+    letterBodyOk: /pi[èe]ces|aide|indu|caf|allocations/i,
     letterType: "reponse_administrative",
     forbidFindings: /^engagement\b|engagement\s+de\s+\d/i,
-    forbidLetter: /bail|loyer|charges\s+locatives|cong[ée]|dgfip|relev[ée]\s+bancaire/i,
+    forbidLetter: /bail|loyer|charges\s+locatives|cong[ée]|dgfip|relev[ée]\s+bancaire|huissier/i,
   },
   {
     name: "med",
@@ -299,6 +299,48 @@ function runCase(c: Case) {
     out.risk_findings.length >= 1 && out.risk_findings.length <= 6,
     `${c.name} watch count=${out.risk_findings.length}`,
   );
+  assert.ok(
+    out.deadlines.length <= 3,
+    `${c.name} trop d'échéances: ${out.deadlines.length}`,
+  );
+
+  if (c.name === "caf") {
+    const copyBlob = out.risk_findings
+      .map(
+        (f) =>
+          `${f.description}\n${f.why}\n${f.implication}\n${f.consequence}\n${f.mitigation}`,
+      )
+      .join("\n");
+    assert.ok(
+      !/huissier|saisie|mise\s+en\s+demeure|mat[ée]riel|r[ée]siliation\s+anticip/i.test(
+        copyBlob,
+      ),
+      `CAF copy hors contexte: ${copyBlob.slice(0, 400)}`,
+    );
+    assert.ok(
+      out.risk_findings.some((f) => /aide\s+mensuelle\s*:\s*483/i.test(f.description)) ||
+        out.amounts.some((a) => /aide\s+mensuelle\s*:\s*483/i.test(a)),
+      `CAF aide non labellisée: ${findingBlob}`,
+    );
+    const delais = out.risk_criteria.find((x) => x.id === "delais");
+    assert.ok(
+      (delais?.score ?? 0) > 0 ||
+        out.risk_findings.some((f) => f.criterion_id === "delais"),
+      "CAF délais sous-scoré",
+    );
+  }
+
+  if (c.name === "pret") {
+    const copyBlob = out.risk_findings
+      .map((f) => `${f.implication}\n${f.consequence}\n${f.why}`)
+      .join("\n");
+    assert.ok(
+      !/d[ée]couvert|commission\s+d['']intervention|relev[ée]\s+bancaire/i.test(
+        copyBlob,
+      ),
+      `prêt copy hors contexte: ${copyBlob.slice(0, 300)}`,
+    );
+  }
 
   const letter = buildFallbackLetter(
     c.letterType ?? "contestation",
@@ -327,6 +369,32 @@ function runCase(c: Case) {
     assert.ok(
       !c.forbidLetter.test(letter.body),
       `${c.name} letter hors sujet: ${letter.subject}`,
+    );
+  }
+  if (c.name === "caf") {
+    assert.ok(
+      /À l'attention de la Caisse/i.test(letter.body),
+      `CAF article: ${letter.body.slice(0, 200)}`,
+    );
+    assert.ok(
+      /aide\s+mensuelle|483/i.test(letter.body) && /indu|447/i.test(letter.body),
+      `CAF letter montants: ${letter.body.slice(0, 500)}`,
+    );
+    assert.ok(
+      /transmission\s+des?\s+(?:pi[èe]ces|justificatifs)|pi[èe]ces?\s+demand/i.test(
+        letter.body,
+      ),
+      "CAF letter sans transmission de pièces",
+    );
+  }
+  if (c.name === "pret") {
+    assert.ok(
+      /À l'attention du Cr[ée]dit/i.test(letter.body),
+      `prêt article: ${letter.body.slice(0, 200)}`,
+    );
+    assert.ok(
+      /capital|taeg|mensualit/i.test(letter.body),
+      "prêt letter sans faits labellisés",
     );
   }
 

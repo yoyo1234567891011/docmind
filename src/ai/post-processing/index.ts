@@ -49,3 +49,8 @@ export {
   jaccardSimilarity,
   normalizeFindingText,
 } from "@/ai/post-processing/dedupe-findings";
+export {
+  familyImplicationFallback,
+  isOffContextFindingCopy,
+  resolveFindingCopy,
+} from "@/ai/post-processing/finding-copy-by-family";
