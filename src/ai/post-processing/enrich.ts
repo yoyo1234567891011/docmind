@@ -67,7 +67,7 @@ function scrubFindingForDisplay(f: {
 
   return {
     ...f,
-    description: scrubDisplayProse(f.description),
+    description: scrubDisplayProse(f.description ?? ""),
     why: f.why ? scrubDisplayProse(f.why) : f.why,
     implication: f.implication
       ? scrubDisplayProse(f.implication)
@@ -101,12 +101,16 @@ function scrubAnalysisProseAmounts<T extends {
 }>(analysis: T): T {
   return {
     ...analysis,
-    summary: scrubDisplayProse(analysis.summary),
-    important_points: analysis.important_points.map((p) =>
-      scrubDisplayProse(p),
+    summary: scrubDisplayProse(analysis.summary ?? ""),
+    important_points: (analysis.important_points ?? []).map((p) =>
+      scrubDisplayProse(typeof p === "string" ? p : ""),
     ),
-    risks: analysis.risks?.map((r) => scrubDisplayProse(r)),
-    actions: analysis.actions?.map((a) => scrubDisplayProse(a)),
+    risks: analysis.risks?.map((r) =>
+      scrubDisplayProse(typeof r === "string" ? r : ""),
+    ),
+    actions: analysis.actions?.map((a) =>
+      scrubDisplayProse(typeof a === "string" ? a : ""),
+    ),
     risk_explanation: analysis.risk_explanation
       ? scrubDisplayProse(analysis.risk_explanation)
       : analysis.risk_explanation,
@@ -121,8 +125,8 @@ export function scrubAnalysisForDisplay(
   const scrubbed = scrubAnalysisProseAmounts(analysis);
   const summary =
     cleanSummaryForDisplay(scrubbed.summary) ||
-    scrubbed.summary.trim() ||
-    analysis.summary;
+    (typeof scrubbed.summary === "string" ? scrubbed.summary.trim() : "") ||
+    (typeof analysis.summary === "string" ? analysis.summary : "");
 
   return {
     ...scrubbed,

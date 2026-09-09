@@ -98,11 +98,14 @@ const TECHNICAL_TITLE_RE =
 
 /** Obligations du client/bénéficiaire — ne pas les traiter comme échéance contractuelle. */
 export function isRecipientObligation(text: string): boolean {
+  if (typeof text !== "string") return false;
   return RECIPIENT_OBLIGATION_RE.test(text.trim());
 }
 
 export function filterDeadlinesForLetter(deadlines: string[]): string[] {
+  if (!Array.isArray(deadlines)) return [];
   return deadlines.filter((d) => {
+    if (typeof d !== "string") return false;
     const t = d.trim();
     if (!t) return false;
     if (isRecipientObligation(t)) return false;
@@ -123,7 +126,7 @@ export function shortenLetterSubject(
   letterType: LetterType,
   family: WatchDocFamily,
 ): string {
-  let subject = raw
+  let subject = (typeof raw === "string" ? raw : "")
     .replace(/\s+/g, " ")
     .replace(/p[ée]riode\s+du\s+[\d/.\s]+\s+au\s+[\d/.\s]+/gi, "")
     .replace(/relev[ée]\s+de\s+compte\s*[-–—]?\s*/gi, "")

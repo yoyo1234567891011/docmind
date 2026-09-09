@@ -874,7 +874,10 @@ export async function failAnalysisJob(
   metrics?: AnalysisJobMetrics,
 ): Promise<void> {
   const now = new Date().toISOString();
-  const msg = sanitizeAnalysisFailureMessage(errorMessage).slice(0, 500);
+  // Conserver runtime_error + stack (sinon PATH_RE → « at y ([path] »)
+  const msg = /^runtime_error:/i.test(errorMessage.trim())
+    ? errorMessage.trim().slice(0, 500)
+    : sanitizeAnalysisFailureMessage(errorMessage).slice(0, 500);
   if (usePersistentStorage()) {
     await query(
       `update public.app_analysis_jobs

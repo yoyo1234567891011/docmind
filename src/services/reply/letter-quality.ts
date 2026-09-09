@@ -45,6 +45,7 @@ export interface LetterFact {
 
 /** Bruit mémoire / boilerplate — exclu du corps et des preuves. */
 export function isLetterNoiseFact(text: string): boolean {
+  if (typeof text !== "string") return true;
   const t = text.trim();
   if (!t || t.length < 3) return true;
   if (isRecipientObligation(t)) return true;
@@ -81,6 +82,7 @@ function uniqueStrings(items: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const item of items) {
+    if (typeof item !== "string") continue;
     const key = item.trim().toLowerCase();
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -223,7 +225,7 @@ export function collectAllowedLetterFacts(input: {
 
   const orgs = uniqueStrings([
     ...(sheet?.organizations ?? []),
-    ...analysis.organizations,
+    ...(analysis.organizations ?? []),
   ]);
   for (const org of orgs.slice(0, 2)) {
     if (!isLetterNoiseFact(org)) {
@@ -233,7 +235,7 @@ export function collectAllowedLetterFacts(input: {
 
   const people = uniqueStrings([
     ...(sheet?.people ?? []),
-    ...analysis.people,
+    ...(analysis.people ?? []),
   ]);
   for (const person of people.slice(0, 2)) {
     if (!isLetterNoiseFact(person)) {
@@ -253,7 +255,7 @@ export function collectAllowedLetterFacts(input: {
   } else {
     const amounts = filterGenericAmounts([
       ...(sheet?.amounts ?? []),
-      ...analysis.amounts,
+      ...(analysis.amounts ?? []),
     ]);
     for (const amount of amounts.slice(0, 6)) {
       facts.push({ label: `Montant : ${amount}`, needle: amount });
@@ -266,7 +268,9 @@ export function collectAllowedLetterFacts(input: {
 
   if (!skipDeadlines) {
     const deadlines = filterDeadlinesForLetter(
-      sheet?.deadlines?.length ? sheet.deadlines : analysis.deadlines,
+      sheet?.deadlines?.length
+        ? sheet.deadlines
+        : (analysis.deadlines ?? []),
     );
     for (const deadline of deadlines.slice(0, 2)) {
       if (!isLetterNoiseFact(deadline)) {
@@ -293,7 +297,7 @@ export function collectAllowedLetterFacts(input: {
   if (
     letterType === "contestation" &&
     family === "recouvrement" &&
-    analysis.amounts[0]
+    analysis.amounts?.[0]
   ) {
     const claimed = analysis.amounts[0];
     if (!facts.some((f) => f.needle.includes(claimed))) {
@@ -352,6 +356,7 @@ export function validateLetterBody(body: string): {
 }
 
 function normalizeForMatch(value: string): string {
+  if (typeof value !== "string") return "";
   return value
     .toLowerCase()
     .replace(/\s+/g, " ")
@@ -394,11 +399,11 @@ export function sanitizeRecipient(
   documentText: string,
   analysisCorpus: string,
 ): string {
-  const source = `${documentText}\n${analysisCorpus}`.toLowerCase();
-  let recipient = raw.trim();
+  const source = `${documentText ?? ""}\n${analysisCorpus ?? ""}`.toLowerCase();
+  let recipient = (typeof raw === "string" ? raw : "").trim();
 
   if (!recipient) {
-    return organizations[0] ?? "";
+    return organizations?.[0] ?? "";
   }
 
   const street = recipient.match(STREET_RE)?.[0];

@@ -29,8 +29,12 @@ function firstOrg(
   documentText = "",
 ): string {
   const fromLists =
-    sheet?.organizations?.find((o) => o.trim().length > 2) ||
-    analysis.organizations.find((o) => o.trim().length > 2) ||
+    sheet?.organizations?.find(
+      (o) => typeof o === "string" && o.trim().length > 2,
+    ) ||
+    analysis.organizations?.find(
+      (o) => typeof o === "string" && o.trim().length > 2,
+    ) ||
     "";
   if (fromLists) return fromLists;
 
@@ -39,7 +43,9 @@ function firstOrg(
   )?.[1];
   if (bailleur) return bailleur.replace(/\*\*/g, "").trim();
 
-  const person = analysis.people.find((p) => p.trim().length > 2);
+  const person = analysis.people?.find(
+    (p) => typeof p === "string" && p.trim().length > 2,
+  );
   return person ?? "";
 }
 
@@ -631,12 +637,15 @@ export function buildFallbackLetter(
   sheet?: DocumentSheet | null,
 ): ReadyReply {
   const family = resolveLetterDocFamily(documentText, analysis, classification);
-  const orgs = [...(sheet?.organizations ?? []), ...analysis.organizations];
+  const orgs = [
+    ...(sheet?.organizations ?? []),
+    ...(analysis.organizations ?? []),
+  ].filter((o): o is string => typeof o === "string");
   const recipient = sanitizeRecipient(
     firstOrg(analysis, sheet, documentText),
     orgs,
     documentText,
-    analysis.title,
+    analysis.title ?? "",
   );
   const dateFromText =
     documentText.match(
@@ -647,11 +656,13 @@ export function buildFallbackLetter(
     )?.[1];
   const dateDoc =
     analysis.date?.trim() ||
-    analysis.dates?.[0]?.trim() ||
+    analysis.dates?.find((d) => typeof d === "string" && d.trim())?.trim() ||
     dateFromText ||
     "[date du document]";
   const safeDeadlines = filterDeadlinesForLetter(
-    sheet?.deadlines?.length ? sheet.deadlines : analysis.deadlines,
+    sheet?.deadlines?.length
+      ? sheet.deadlines
+      : (analysis.deadlines ?? []),
   );
   const allowedFacts = collectAllowedLetterFacts({
     documentText,
@@ -675,7 +686,8 @@ export function buildFallbackLetter(
     !/^(la|le|les)\s/i.test(orgLabel)
   ) {
     orgLabel = `la ${orgLabel}`;
-  }  const ref = extractDocReference(documentText, analysis);
+  }
+  const ref = extractDocReference(documentText, analysis);
   const deadline = usefulDeadline(safeDeadlines);
 
   // Intention : ne pas laisser « autre » molle si la famille impose contestation.
@@ -712,7 +724,7 @@ export function buildFallbackLetter(
     reason,
   });
 
-  const body = picked.body
+  const body = (picked.body ?? "")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/V[ée]rifier l[''][ée]ch[ée]ance\s*:/gi, "")
     .trim();

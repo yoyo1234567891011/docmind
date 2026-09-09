@@ -124,6 +124,7 @@ export function isProdDisplayNoise(text: string): boolean {
 }
 
 export function isDictionaryDefinitionSnippet(text: string): boolean {
+  if (typeof text !== "string") return false;
   const t = text.trim();
   if (!t) return false;
   if (DICTIONARY_DEFINITION_RE.test(t)) return true;
@@ -137,6 +138,7 @@ export function isDictionaryDefinitionSnippet(text: string): boolean {
 }
 
 export function isFakeScheduleDeadline(text: string): boolean {
+  if (typeof text !== "string") return false;
   const t = text.trim();
   if (!t) return false;
   if (FAKE_SCHEDULE_RE.test(t)) return true;
@@ -148,6 +150,7 @@ export function isWeakScoreProofSnippet(
   text: string,
   family: ReturnType<typeof resolveWatchDocFamily>,
 ): boolean {
+  if (typeof text !== "string") return true;
   const t = text.trim();
   if (!t || t.length < 12) return true;
   if (isDictionaryDefinitionSnippet(t)) return true;
@@ -288,7 +291,8 @@ export function filterCriteriaProofs(
 ): RiskCriterionResult[] {
   return criteria.map((criterion) => {
     const reasons = (criterion.reasons ?? []).filter(
-      (reason) => !isWeakScoreProofSnippet(reason, family),
+      (reason): reason is string =>
+        typeof reason === "string" && !isWeakScoreProofSnippet(reason, family),
     );
     if (shouldZeroGlossaryCriterion(criterion, family, reasons)) {
       return {

@@ -54,10 +54,12 @@ function analysisCorpus(analysis: DocumentAnalysis): string {
   return [
     analysis.title,
     analysis.summary,
-    ...analysis.important_points,
-    ...analysis.amounts,
-    ...analysis.organizations,
-  ].join("\n");
+    ...(analysis.important_points ?? []),
+    ...(analysis.amounts ?? []),
+    ...(analysis.organizations ?? []),
+  ]
+    .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+    .join("\n");
 }
 
 function finalizeLetter(input: {
@@ -72,7 +74,7 @@ function finalizeLetter(input: {
 }): ReadyReply {
   const orgs = [
     ...(input.sheet?.organizations ?? []),
-    ...input.analysis.organizations,
+    ...(input.analysis.organizations ?? []),
   ];
   const corpus = analysisCorpus(input.analysis);
 

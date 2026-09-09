@@ -379,6 +379,7 @@ const LABEL_RULES: LabelRule[] = [
 ];
 
 function normalizeAmount(value: string): string {
+  if (typeof value !== "string") return "";
   return value
     .replace(/\s+/g, " ")
     .replace(/\bEUR\b/gi, "€")
@@ -751,6 +752,7 @@ export function scrubAbsurdAmountsInText(text: string): string {
 }
 
 function polishScrubbedProse(text: string): string {
+  if (typeof text !== "string") return "";
   return text
     .replace(/\s{2,}/g, " ")
     .replace(/\s+([.,;:!?])/g, "$1")
@@ -761,7 +763,7 @@ function polishScrubbedProse(text: string): string {
 
 /** Retire les fragments de phrase restants après suppression des montants bruit. */
 function scrubNoiseProseFragments(text: string): string {
-  let out = text;
+  let out = typeof text === "string" ? text : "";
 
   out = out.replace(
     /\s*(?:,\s*)?(?:et\s+)?(?:sa\s+)?garantie\s+financi[eè]re[^.!?;]{0,160}/gi,
@@ -813,6 +815,7 @@ function scrubNoiseProseFragments(text: string): string {
  * Prose affichable (résumé, extraits) : montants absurdes + fragments pro/stats.
  */
 export function scrubDisplayProse(text: string): string {
-  if (!text?.trim()) return text;
+  if (typeof text !== "string") return "";
+  if (!text.trim()) return text;
   return scrubNoiseProseFragments(scrubAbsurdAmountsInText(text));
 }
