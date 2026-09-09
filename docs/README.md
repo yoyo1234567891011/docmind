@@ -30,6 +30,7 @@ Ensuite selon besoin : [Mémoire](./03-memoire.md), [Stripe](./04-stripe.md), [A
 | [11 — Migration](./11-migration.md) | FS → Postgres + S3 |
 | [12 — Tests](./12-tests.md) | E2E, chaos, scripts `test:*`, evaluate |
 | [13 — Benchmark](./13-benchmark.md) | DocMind vs ChatGPT / Claude / Gemini / Mistral |
+| [14 — Drain file d’analyse](./14-analysis-jobs-drain.md) | Cron, `jobs:drain`, reclaim, crash, fréquence beta |
 
 Compléments : [`knowledge/README.md`](../knowledge/README.md), [`corpus/README.md`](../corpus/README.md), [`supabase/README.md`](../supabase/README.md), [`e2e/README.md`](../e2e/README.md), [`chaos/README.md`](../chaos/README.md), [`scripts/benchmark/README.md`](../scripts/benchmark/README.md).
 

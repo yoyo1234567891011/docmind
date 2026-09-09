@@ -5,6 +5,7 @@ export {
   documentAnalysisLockKey,
   getDocumentAnalysisInFlight,
   listDocumentAnalysisInFlight,
+  runDocumentAnalysisDistributed,
   withDocumentAnalysisSingleFlight,
 } from "@/ai/pipelines/document-analysis-lock";
 export { generateReadyReply } from "@/ai/pipelines/reply";

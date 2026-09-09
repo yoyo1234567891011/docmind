@@ -6,6 +6,7 @@
 import assert from "assert";
 import { rm } from "fs/promises";
 
+import { computePerfStats } from "./lib/perf-stats";
 import { userDataDir } from "../src/config/paths";
 import { listRelationAlerts } from "../src/services/alerts/from-relations";
 import {
@@ -464,19 +465,28 @@ Montant TTC : 19,99 EUR mensuel
 
   const precision = tp + fp > 0 ? tp / (tp + fp) : 1;
   const recall = tp + fn > 0 ? tp / (tp + fn) : 1;
-  const maxSelector = Math.max(...selectorTimes, 0);
-  const avgPair =
-    enginePairApprox.length > 0
-      ? enginePairApprox.reduce((a, b) => a + b, 0) / enginePairApprox.length
-      : 0;
-  const maxPair = Math.max(...enginePairApprox, 0);
+  const selectorStats = computePerfStats(selectorTimes);
+  const pairStats = computePerfStats(enginePairApprox);
 
-  assert.ok(maxSelector < 200, `CandidateSelector raisonnable (max=${maxSelector})`);
+  // Budgets percentiles (reproductibles) — le max seul est trop bruité (OneDrive/CPU).
+  // Médiane basse = santé algo ; p95 = plafond machine acceptable.
+  assert.ok(selectorStats.n >= 5, `selector samples n≥5 (got ${selectorStats.n})`);
   assert.ok(
-    selectorTimes.reduce((a, b) => a + b, 0) / Math.max(selectorTimes.length, 1) < 50,
-    "CandidateSelector moyenne < 50ms",
+    selectorStats.median < 40,
+    `CandidateSelector median < 40ms (stats=${JSON.stringify(selectorStats)})`,
   );
-  assert.ok(maxPair < 100, `RelationEngine < 100ms/paire (max=${maxPair})`);
+  assert.ok(
+    selectorStats.p95 < 120,
+    `CandidateSelector p95 < 120ms (stats=${JSON.stringify(selectorStats)})`,
+  );
+  assert.ok(
+    pairStats.median < 80,
+    `RelationEngine median < 80ms/paire (stats=${JSON.stringify(pairStats)})`,
+  );
+  assert.ok(
+    pairStats.p95 < 180,
+    `RelationEngine p95 < 180ms/paire (stats=${JSON.stringify(pairStats)})`,
+  );
   assert.ok(precision >= 0.8, `précision ≥ 0.8 (got ${precision})`);
   assert.ok(recall >= 0.8, `rappel ≥ 0.8 (got ${recall})`);
 
@@ -490,9 +500,8 @@ Montant TTC : 19,99 EUR mensuel
         tp,
         fp,
         fn,
-        maxCandidateSelectorMs: maxSelector,
-        avgRelationEngineMsPerPair: Number(avgPair.toFixed(2)),
-        maxRelationEngineMsPerPair: Number(maxPair.toFixed(2)),
+        candidateSelector: selectorStats,
+        relationEnginePerPair: pairStats,
         alertKinds: [...alertKinds],
         alertCount: alerts.length,
         clusterId: clusterA,

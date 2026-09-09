@@ -1,21 +1,24 @@
 import { asStringArray } from "@/ai/validation/json";
+import { cleanActionsForDisplay } from "@/ai/post-processing/display-cleanup";
 import { buildActionsAgentPrompt } from "./prompts/actions";
 import { generateAgentJson, parseAgentJson } from "./llm";
 import type { AnalysisAgent, AgentResult } from "./types";
 import { pushAgentStep, sliceList } from "./utils";
 
 function actionsFromDeadlines(deadlines: string[]): string[] {
-  return deadlines.slice(0, 4).map((deadline) => {
-    const clean = deadline.trim();
-    if (
-      /^v[ée]rifier|^anticiper|^adresser|^contester|^n[ée]gocier|^demander/i.test(
-        clean,
-      )
-    ) {
-      return clean;
-    }
-    return `Anticiper l'échéance : ${clean}`;
-  });
+  return cleanActionsForDisplay(
+    deadlines.slice(0, 4).map((deadline) => {
+      const clean = deadline.trim();
+      if (
+        /^v[ée]rifier|^anticiper|^adresser|^contester|^n[ée]gocier|^demander/i.test(
+          clean,
+        )
+      ) {
+        return clean;
+      }
+      return `Anticiper l'échéance : ${clean}`;
+    }),
+  );
 }
 
 /** Agent 6 — Génération des actions recommandées. */
@@ -56,7 +59,9 @@ export const actionsAgent: AnalysisAgent = {
 
       if (generation) {
         const parsed = parseAgentJson<{ actions?: unknown }>(generation.text);
-        actions = sliceList(asStringArray(parsed?.actions), 6);
+        actions = cleanActionsForDisplay(
+          sliceList(asStringArray(parsed?.actions), 6),
+        );
         if (actions.length === 0) {
           actions = actionsFromDeadlines(facts.deadlines);
           note = "Actions LLM vides — repli échéances.";

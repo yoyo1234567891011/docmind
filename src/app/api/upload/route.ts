@@ -4,7 +4,7 @@ import { assertValidPdfUpload } from "@/lib/document-validation";
 import { AppError } from "@/lib/errors";
 import { checkRateLimitAsync, pruneRateLimitBuckets } from "@/lib/rate-limit";
 import { uploadPdfDocument } from "@/services/documents";
-import { consumeQuota } from "@/services/quotas/enforce";
+import { consumeQuota, refundQuota } from "@/services/quotas/enforce";
 
 export const runtime = "nodejs";
 
@@ -12,6 +12,9 @@ export const runtime = "nodejs";
  * POST /api/upload
  * Accepts multipart/form-data with field "file" (PDF),
  * stores the file, extracts text, and returns both.
+ *
+ * Quota : réservé avant persist ; remboursé si S3/PG/extraction échoue
+ * (consommation définitive uniquement en cas de succès).
  */
 export async function POST(request: Request) {
   try {
@@ -41,9 +44,18 @@ export async function POST(request: Request) {
 
     await assertValidPdfUpload(file);
     await consumeQuota(user.id, "upload");
-    const result = await uploadPdfDocument(user.id, file);
-
-    return apiSuccess(result, 201);
+    try {
+      const result = await uploadPdfDocument(user.id, file);
+      return apiSuccess(result, 201);
+    } catch (error) {
+      await refundQuota(user.id, "upload").catch((refundError) => {
+        console.error(
+          `[upload] refundQuota failed userId=${user.id}`,
+          refundError,
+        );
+      });
+      throw error;
+    }
   } catch (error) {
     return apiFromUnknownError(error);
   }

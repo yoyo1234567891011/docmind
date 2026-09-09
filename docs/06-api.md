@@ -25,6 +25,9 @@ Runtime Node pour les handlers I/O (PDF, PG, S3, Ollama).
 | DELETE | `/api/history/[id]` | Suppression |
 | GET | `/api/documents/[documentId]/file` | Stream PDF (owner) |
 | GET/PATCH | `/api/documents/[documentId]/relations` | Relations mémoire UI |
+| GET | `/api/analysis-jobs/[jobId]` | Statut job + position file (pas d’ETA) |
+| GET | `/api/analysis-jobs/by-history/[historyId]` | Reprise polling après refresh |
+| POST | `/api/cron/drain-analysis-jobs` | Watchdog drain (`Bearer $CRON_SECRET`) — [14](./14-analysis-jobs-drain.md) |
 
 ### Exemple analyse (full)
 

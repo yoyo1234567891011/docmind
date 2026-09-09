@@ -177,7 +177,7 @@ export function PdfDropzone({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "group relative overflow-hidden rounded-2xl border border-dashed px-6 py-12 text-center transition-all duration-300 ease-out",
+          "group relative overflow-hidden rounded-2xl border border-dashed px-4 py-10 text-center transition-all duration-300 ease-out md:px-6 md:py-12",
           "bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] backdrop-blur-sm",
           isUploading ? "cursor-wait" : disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
           isDragging
@@ -249,9 +249,9 @@ export function PdfDropzone({
       ) : null}
 
       {selectedFile ? (
-        <div className="animate-fade-up surface-panel mt-4 flex items-center justify-between gap-4 rounded-xl px-4 py-3">
+        <div className="animate-fade-up surface-panel mt-4 flex flex-col gap-3 rounded-xl px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-4">
           <div className="flex min-w-0 items-center gap-3 text-left">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
               <FileIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
@@ -271,6 +271,7 @@ export function PdfDropzone({
           <Button
             type="button"
             variant="ghost"
+            className="w-full shrink-0 sm:w-auto"
             onClick={(event) => {
               event.stopPropagation();
               clearSelection();

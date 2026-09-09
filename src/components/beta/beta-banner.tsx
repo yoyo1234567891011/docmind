@@ -40,7 +40,7 @@ export function BetaBanner() {
         </p>
         <div className="flex gap-3">
           <Link href="/feedback" className="text-[var(--accent)] hover:underline">
-            Feedback
+            Avis
           </Link>
           <Link
             href="/signalement"

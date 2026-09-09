@@ -21,6 +21,7 @@ export {
 export {
   processEmailOutbox,
   listPendingOutbox,
+  removeOutboxForHistory,
 } from "@/services/notifications/outbox";
 export { createEmailChannel } from "@/services/notifications/channels/email";
 

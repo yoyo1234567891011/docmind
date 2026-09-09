@@ -47,9 +47,10 @@ Détails : [Variables ENV](./08-variables-env.md).
 6. `ADMIN_EMAILS` + compte admin.  
 7. Health : `GET /api/health` (Ollama) ; details avec `HEALTH_DETAILS_TOKEN`.  
 8. Monitoring : seuils + `MONITORING_WEBHOOK_URL` optionnel.  
-9. Backups FS **et** dumps PG / versioning S3 (voir [Sauvegardes](./10-sauvegardes-restore.md)).  
-10. Smoke manuel : signup → upload → analyze → checkout test → export RGPD.  
-11. `npm run e2e` / `chaos` sur staging.  
+9. **Drain file d’analyse** : `CRON_SECRET` + cron **≤ 2 min** (`POST /api/cron/drain-analysis-jobs` ou `npm run jobs:drain`) — obligatoire hors trafic UI ([14 — Drain](./14-analysis-jobs-drain.md)).  
+10. Backups **production** = PG + PDF S3 (`npm run backup:run` en persistent). Le backup FS n’est pas un backup prod (voir [Sauvegardes](./10-sauvegardes-restore.md)).  
+11. Smoke manuel : signup → upload → analyze → checkout test → export RGPD.  
+12. `npm run e2e` / `chaos` sur staging.  
 
 ## Reverse-proxy
 

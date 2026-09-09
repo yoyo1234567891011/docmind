@@ -19,7 +19,7 @@ export default function PrivacyPage() {
           ← Accueil
         </Link>
       </p>
-      <h1 className="font-display text-4xl tracking-tight">
+      <h1 className="font-display text-3xl tracking-tight md:text-4xl">
         Confidentialité & RGPD
       </h1>
       <p className="text-sm text-[var(--muted)]">

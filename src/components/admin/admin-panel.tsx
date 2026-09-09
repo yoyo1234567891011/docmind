@@ -56,6 +56,7 @@ import type {
   AdminRuntimeConfig,
   HistoryListItem,
 } from "@/types";
+import { ERROR_REPORT_KIND_LABELS } from "@/types/beta";
 import { cn } from "@/lib/utils";
 
 type TabId =
@@ -66,6 +67,8 @@ type TabId =
   | "performance"
   | "monitoring"
   | "product"
+  | "feedback"
+  | "reports"
   | "errors"
   | "reanalyze"
   | "compare";
@@ -78,6 +81,8 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "performance", label: "Performances" },
   { id: "monitoring", label: "Monitoring" },
   { id: "product", label: "Produit" },
+  { id: "feedback", label: "Avis" },
+  { id: "reports", label: "Signalements" },
   { id: "errors", label: "Erreurs" },
   { id: "reanalyze", label: "Re-analyse" },
   { id: "compare", label: "Comparer" },
@@ -95,6 +100,20 @@ const TASK_LABELS: Record<string, string> = {
   analyze: "Analyse",
   reply: "Réponse",
   searchIntent: "Recherche NL",
+};
+
+const FEEDBACK_CATEGORY_LABELS: Record<string, string> = {
+  bug: "Bug",
+  ux: "UX",
+  feature: "Fonctionnalité",
+  performance: "Performance",
+  other: "Autre",
+};
+
+const ERROR_REPORT_SEVERITY_LABELS: Record<string, string> = {
+  low: "Faible",
+  medium: "Moyenne",
+  high: "Élevée",
 };
 
 export function AdminPanel() {
@@ -389,7 +408,7 @@ export function AdminPanel() {
                 production. Le modèle actif est{" "}
                 <code className="text-xs">{data.llmRuntime.model}</code>.
               </p>
-              <dl className="grid gap-2 text-sm sm:grid-cols-2">
+              <dl className="grid gap-2 text-sm md:grid-cols-2">
                 <div>
                   <dt className="text-[var(--muted)]">Provider</dt>
                   <dd>{data.llmRuntime.provider}</dd>
@@ -426,7 +445,7 @@ export function AdminPanel() {
                   jour les modèles runtime sans redéployer.
                 </p>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 md:grid-cols-2">
                 {data.modelProfiles.profiles.map((profile) => {
                   const selected =
                     (configDraft.profileId || data.modelProfiles?.runtime) ===
@@ -512,7 +531,7 @@ export function AdminPanel() {
             />
           </label>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             {(
               Object.keys(configDraft.tasks) as Array<
                 keyof typeof configDraft.tasks
@@ -781,7 +800,7 @@ export function AdminPanel() {
           </div>
           {monitoring ? (
             <>
-              <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
                 <Stat
                   label="Analyses"
                   value={String(monitoring.snapshot.analysis.count)}
@@ -853,7 +872,7 @@ export function AdminPanel() {
 
       {tab === "performance" && data ? (
         <section className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Stat
               label="Appels"
               value={String(data.performance.totalCalls)}
@@ -928,7 +947,7 @@ export function AdminPanel() {
                 Fenêtre {data.productAnalytics.windowDays} jours ·{" "}
                 {data.productAnalytics.totalEvents} événements
               </p>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Stat
                   label="Temps analyse (moy.)"
                   value={`${data.productAnalytics.analysisTotal.avgMs} ms`}
@@ -994,7 +1013,7 @@ export function AdminPanel() {
                     {data.productAnalytics.topDocumentTypes.map((row) => (
                       <li
                         key={row.label}
-                        className="flex justify-between rounded-lg border border-[var(--border)] px-3 py-2"
+                        className="flex flex-wrap justify-between gap-2 rounded-lg border border-[var(--border)] px-3 py-2"
                       >
                         <span>{row.label}</span>
                         <span className="text-[var(--muted)]">×{row.count}</span>
@@ -1024,6 +1043,118 @@ export function AdminPanel() {
                   </ul>
                 )}
               </div>
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {tab === "feedback" && data ? (
+        <section className="space-y-3">
+          {!data.feedback || data.feedback.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">
+              Aucun avis pour le moment.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-[var(--muted)]">
+                {data.feedback.length} retour
+                {data.feedback.length > 1 ? "s" : ""} récent
+                {data.feedback.length > 1 ? "s" : ""}
+              </p>
+              {data.feedback.map((item) => (
+                <article
+                  key={item.id}
+                  className="rounded-xl border border-[var(--border)] p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="font-medium">
+                        {FEEDBACK_CATEGORY_LABELS[item.category] ?? item.category}
+                        {item.rating != null ? (
+                          <span className="ml-2 text-sm font-normal text-[var(--muted)]">
+                            · {item.rating}/5
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {new Date(item.at).toLocaleString("fr-FR")}
+                        {item.page ? ` · ${item.page}` : ""}
+                        {item.deployEnv ? ` · ${item.deployEnv}` : ""}
+                      </p>
+                    </div>
+                    {item.email ? (
+                      <p className="text-xs text-[var(--muted)]">{item.email}</p>
+                    ) : null}
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap text-sm">{item.message}</p>
+                  {item.userId ? (
+                    <p className="mt-2 text-xs text-[var(--muted)]">
+                      userId: {item.userId}
+                    </p>
+                  ) : null}
+                </article>
+              ))}
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {tab === "reports" && data ? (
+        <section className="space-y-3">
+          {!data.errorReports || data.errorReports.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">
+              Aucun signalement pour le moment.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-[var(--muted)]">
+                {data.errorReports.length} signalement
+                {data.errorReports.length > 1 ? "s" : ""} récent
+                {data.errorReports.length > 1 ? "s" : ""}
+              </p>
+              {data.errorReports.map((item) => (
+                <article
+                  key={item.id}
+                  className="rounded-xl border border-[var(--border)] p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="font-medium">
+                        {ERROR_REPORT_KIND_LABELS[item.kind] ?? item.kind}
+                        <span className="ml-2 text-sm font-normal text-[var(--muted)]">
+                          ·{" "}
+                          {ERROR_REPORT_SEVERITY_LABELS[item.severity] ??
+                            item.severity}
+                        </span>
+                      </p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {new Date(item.at).toLocaleString("fr-FR")}
+                        {item.page ? ` · ${item.page}` : ""}
+                        {item.deployEnv ? ` · ${item.deployEnv}` : ""}
+                      </p>
+                    </div>
+                    {item.email ? (
+                      <p className="text-xs text-[var(--muted)]">{item.email}</p>
+                    ) : null}
+                  </div>
+                  <p className="mt-3 whitespace-pre-wrap text-sm">{item.message}</p>
+                  {item.errorCode ? (
+                    <p className="mt-2 text-xs text-[var(--muted)]">
+                      code: {item.errorCode}
+                    </p>
+                  ) : null}
+                  {item.errorDetail ? (
+                    <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--muted)]">
+                      {item.errorDetail}
+                    </p>
+                  ) : null}
+                  {item.userId ? (
+                    <p className="mt-2 text-xs text-[var(--muted)]">
+                      userId: {item.userId}
+                    </p>
+                  ) : null}
+                </article>
+              ))}
             </>
           )}
         </section>
@@ -1095,7 +1226,7 @@ export function AdminPanel() {
           <p className="text-sm text-[var(--muted)]">
             Diff texte des prompts, ou exécution des deux versions sur un échantillon.
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1 text-sm">
               <span className="text-[var(--muted)]">Version A</span>
               <select
@@ -1180,7 +1311,7 @@ function CompareResultView({ result }: { result: Record<string, unknown> }) {
     <div className="space-y-4 rounded-xl border border-[var(--border)] p-4">
       <p className="text-sm text-[var(--muted)]">Mode : {mode}</p>
       {mode === "run" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <div>
             <p className="mb-1 text-xs text-[var(--muted)]">
               Sortie A ({String(result.durationAMs)} ms)

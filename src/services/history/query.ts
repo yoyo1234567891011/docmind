@@ -34,6 +34,7 @@ export function toHistoryListItem(record: HistoryRecord): HistoryListItem {
     replyRequired,
     needsAction: actionCount > 0 || replyRequired || highRisk,
     folderId: record.folderId ?? null,
+    analysisPhase: record.analysisPhase,
   };
 }
 

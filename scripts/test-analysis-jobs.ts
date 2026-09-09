@@ -140,9 +140,9 @@ async function main() {
 
   await reset();
   {
-    assert.equal(ANALYSIS_P2_MAX_CONCURRENCY, 3);
+    assert.equal(ANALYSIS_P2_MAX_CONCURRENCY, 1);
     const jobs = [];
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       jobs.push(
         await enqueueAnalysisJob({
           userId: "u1",
@@ -153,29 +153,27 @@ async function main() {
       );
     }
     const claimed = [];
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       claimed.push(await claimNextAnalysisJob(`w${i}`));
     }
     const active = claimed.filter(Boolean);
-    assert.equal(active.length, 3, "plafond 3 P2 simultanés");
-    assert.equal(claimed[3], null, "4e job reste en file");
+    assert.equal(active.length, 1, "plafond 1 P2 simultané (Groq TPM)");
+    assert.equal(claimed[1], null, "2e job reste en file");
     await completeAnalysisJob(active[0]!.id);
     const next = await claimNextAnalysisJob("w-next");
     assert.ok(next);
-    assert.equal(next!.id, jobs[3]!.id);
-    console.log("OK 6) concurrence max 3, 4e en file");
+    assert.equal(next!.id, jobs[1]!.id);
+    console.log("OK 6) concurrence max 1, 2e en file");
   }
 
   await reset();
   {
-    assert.equal(await getEffectiveP2Concurrency(), 3);
+    assert.equal(await getEffectiveP2Concurrency(), 1);
     await noteP2RateLimitHit();
     assert.equal(await getEffectiveP2Concurrency(), 1);
     await noteP2Success();
-    assert.equal(await getEffectiveP2Concurrency(), 2);
-    await noteP2Success();
-    assert.equal(await getEffectiveP2Concurrency(), 3);
-    console.log("OK 6a) throttle 429 → 1 puis ramp 2 → 3");
+    assert.equal(await getEffectiveP2Concurrency(), 1);
+    console.log("OK 6a) throttle 429 → 1 (plafond Groq)");
   }
 
   await reset();

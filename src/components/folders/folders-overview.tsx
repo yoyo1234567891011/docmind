@@ -142,7 +142,7 @@ export function FoldersOverview() {
       {isLoading ? (
         <HistoryListSkeleton />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <Link
             href={`/dossiers/${UNFILED_FOLDER_ID}`}
             className="surface-panel animate-fade-up group rounded-2xl p-5 text-left transition-colors hover:border-[var(--accent)]"

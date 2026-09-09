@@ -11,6 +11,26 @@ function fmtNum(n: number): string {
   return new Intl.NumberFormat("fr-FR").format(n);
 }
 
+/** Compte à rebours lisible jusqu’à une date ISO. */
+function fmtCountdownTo(iso: string, nowMs = Date.now()): string {
+  const ms = Math.max(0, new Date(iso).getTime() - nowMs);
+  const totalMin = Math.floor(ms / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h <= 0) return `${m} min`;
+  return `${h} h ${m.toString().padStart(2, "0")} min`;
+}
+
+function fmtResetLocal(iso: string): string {
+  return new Date(iso).toLocaleString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function Stat({
   label,
   value,
@@ -124,7 +144,7 @@ export function AdminOverviewPanel() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-48" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-24 w-full" />
           ))}
@@ -172,7 +192,7 @@ export function AdminOverviewPanel() {
         <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
           IA & configuration
         </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Stat
             label="Provider"
             value={PROVIDER_LABELS[data.llm.provider] ?? data.llm.provider}
@@ -198,7 +218,7 @@ export function AdminOverviewPanel() {
         <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
           Tokens Groq (aujourd&apos;hui)
         </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {data.tokens.limitPerDay > 0 ? (
             <Gauge
               label="Consommation journalière"
@@ -228,6 +248,19 @@ export function AdminOverviewPanel() {
             tone={tokenTone}
             hint="Avant d'atteindre la limite Groq free (200k tokens/jour)"
           />
+          <Stat
+            label="Réinitialisation tokens"
+            value={
+              data.tokens.limitPerDay > 0
+                ? `dans ${fmtCountdownTo(data.tokens.resetsAt)}`
+                : "—"
+            }
+            hint={
+              data.tokens.limitPerDay > 0
+                ? `Quota journalier Groq → ${fmtResetLocal(data.tokens.resetsAt)} (minuit ${data.tokens.resetTimezone})`
+                : "Pas de quota journalier (mode local)"
+            }
+          />
         </div>
       </section>
 
@@ -235,7 +268,7 @@ export function AdminOverviewPanel() {
         <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
           Utilisateurs
         </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Stat
             label="Comptes ayant utilisé DocMind"
             value={String(data.users.totalEver)}
@@ -267,7 +300,7 @@ export function AdminOverviewPanel() {
         <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
           Analyses & file d&apos;attente
         </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Stat label="Total analyses" value={String(data.analyses.total)} />
           <Stat
             label="Complétées"

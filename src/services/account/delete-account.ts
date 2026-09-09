@@ -5,6 +5,7 @@ import { usePersistentStorage } from "@/config/persistence";
 import { userDataDir, userUploadsDir } from "@/config/paths";
 import { query } from "@/lib/db/pool";
 import { AppError } from "@/lib/errors";
+import { purgeUserRedisKeys } from "@/lib/redis-user-purge";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { deletePdfObject } from "@/lib/storage/s3";
 import { anonymizeAnalyticsForUser } from "@/services/analytics/store";
@@ -14,6 +15,16 @@ import { anonymizeFeedbackForUser } from "@/services/beta/feedback-store";
 import { getUserSubscription } from "@/services/billing/store";
 import { anonymizeMonitoringForUser } from "@/services/monitoring/store";
 
+/**
+ * Politique RGPD (Art. 17) — suppression compte :
+ *
+ * SUPPRIMÉ : history, usage, subscriptions, blobs, files, documents+PDF S3,
+ *            cleanup jobs S3, cache analyse, mémoire (via files/blobs/dirs),
+ *            clés Redis user-scoped (RL, cache, flight).
+ * ANONYMISÉ : analytics, feedback, error-reports, app-events, monitoring (FS ops).
+ * CONSERVÉ (base légitime / pas d’user_id) : stripe_webhook_events (idempotence
+ *            Stripe, TTL ops recommandé côté ops — pas de PII utilisateur).
+ */
 async function wipePersistentUserData(userId: string): Promise<{
   dataRemoved: boolean;
   uploadsRemoved: boolean;
@@ -24,6 +35,7 @@ async function wipePersistentUserData(userId: string): Promise<{
     `delete from public.app_subscriptions where user_id = $1`,
     `delete from public.app_user_blobs where user_id = $1`,
     `delete from public.app_user_files where user_id = $1`,
+    `delete from public.app_storage_cleanup_jobs where user_id = $1`,
   ];
   for (const sql of tables) {
     await query(sql, [userId]);
@@ -38,6 +50,7 @@ async function wipePersistentUserData(userId: string): Promise<{
   }
   await query(`delete from public.app_documents where user_id = $1`, [userId]);
   await clearUserAnalysisCache(userId);
+  await purgeUserRedisKeys(userId);
 
   return { dataRemoved: true, uploadsRemoved: true };
 }
@@ -124,6 +137,7 @@ export async function wipeUserLocalData(userId: string): Promise<{
       uploadsRemoved = false;
     }
     await clearUserAnalysisCache(userId).catch(() => undefined);
+    await purgeUserRedisKeys(userId).catch(() => undefined);
   }
 
   try {

@@ -1,6 +1,17 @@
 import { expect, type Page } from "@playwright/test";
 
 import { hasSupabaseEnv, playwrightCredentials } from "./env";
+import { csrfHeaders, evalHeaders } from "./api";
+
+/** Marque le guide comme vu (sinon /dashboard redirige vers /guide). */
+export async function ensureGuideSeen(page: Page): Promise<void> {
+  const headers = {
+    ...(await csrfHeaders(page)),
+    ...evalHeaders(),
+  };
+  const res = await page.request.post("/api/me/guide", { headers });
+  expect(res.ok(), await res.text()).toBeTruthy();
+}
 
 /** Ouvre l’app (local-dev sans Supabase, ou session déjà authentifiée). */
 export async function openAppHome(page: Page): Promise<void> {
@@ -17,6 +28,7 @@ export async function openAppHome(page: Page): Promise<void> {
     await page.goto("/analyser");
   }
   await expect(page).not.toHaveURL(/\/auth\/login/);
+  await ensureGuideSeen(page);
 }
 
 export async function loginViaUi(

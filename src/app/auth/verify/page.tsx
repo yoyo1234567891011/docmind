@@ -16,6 +16,12 @@ export default function VerifyPage() {
         Cliquez sur le lien reçu par email. Une fois confirmé, vous pourrez vous
         connecter à DocMind.
       </p>
+      <p className="mt-3 text-sm text-[var(--muted)]">
+        Si le lien ouvre <strong>127.0.0.1</strong> et que la page est
+        inaccessible : utilisez le navigateur de <strong>cet ordinateur</strong>{" "}
+        (là où tourne DocMind), pas le téléphone. Vérifiez aussi que{" "}
+        <code className="text-xs">npm run dev</code> est lancé.
+      </p>
     </AuthShell>
   );
 }

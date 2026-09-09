@@ -8,7 +8,7 @@ Objectif : passer de `data/` + `uploads/` locaux à **Postgres + S3** (+ Redis) 
 2. Migrations SQL appliquées (`supabase/migrations`, notamment `20260801000005_*` et suivantes).  
 3. Bucket S3 configuré (`S3_*`).  
 4. Redis prêt (`REDIS_URL`) pour le runtime prod.  
-5. Snapshot backup FS : `npm run backup:run` **avant** toute migration.
+5. Snapshot backup : `npm run backup:run` **avant** toute migration (PG+S3 si persistent ; FS = dev uniquement).
 
 ## Étapes
 
@@ -71,7 +71,7 @@ Conserver une archive froide de `data/` + `uploads/` hors machine.
 | Variable | Rôle |
 |----------|------|
 | `DOCMIND_STORAGE` | `fs` \| `persistent` |
-| `DOCMIND_FS_FALLBACK` | Miss PG → lecture FS + promote (défaut on si persistent) |
+| `DOCMIND_FS_FALLBACK` | Miss PG → lecture FS + promote (opt-in local; interdit en déployé) |
 | `DOCMIND_FS_DUAL_WRITE` | Écrit PG **et** FS (rollback) |
 
 Code : `src/config/persistence.ts`, `src/lib/user-files.ts`.
@@ -89,7 +89,7 @@ Voir [Mémoire](./03-memoire.md).
 ## Rollback
 
 1. Remettre `DOCMIND_STORAGE=fs` (si dual-write / FS encore à jour).  
-2. Ou restore backup FS : [Sauvegardes](./10-sauvegardes-restore.md).  
+2. Ou restore backup persistent sur staging : [Sauvegardes](./10-sauvegardes-restore.md).  
 3. Investiguer logs PG/S3 avant nouvelle tentative.
 
 ## Pièges

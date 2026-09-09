@@ -31,6 +31,7 @@ export async function csrfHeaders(page: Page): Promise<Record<string, string>> {
 }
 
 export function evalHeaders(): Record<string, string> {
+  if (process.env.DOCMIND_E2E === "1") return {};
   const key = evalApiKey();
   return key ? { "x-eval-api-key": key } : {};
 }
@@ -106,9 +107,12 @@ export async function analyzeDocument(
 ): Promise<{
   resultSource?: string;
   historyId?: string;
+  jobId?: string;
+  jobStatus?: string;
   classification?: { category?: string };
   analysis?: { document_type?: string; summary?: string };
   durationMs?: number;
+  phase?: string;
 }> {
   const headers = {
     "Content-Type": "application/json",
@@ -124,21 +128,35 @@ export async function analyzeDocument(
       mode: input.mode ?? "full",
       skipReadyReply: true,
     },
-    timeout: 300_000,
+    // gpt-oss:120b local peut dépasser 5 min sur analyse complète
+    timeout: 900_000,
   });
-  expect(res.ok(), await res.text()).toBeTruthy();
-  const json = (await res.json()) as {
+  const raw = await res.text();
+  expect(res.ok(), raw).toBeTruthy();
+  const json = JSON.parse(raw) as {
     success: boolean;
     data?: {
       resultSource?: string;
       historyId?: string;
+      jobId?: string;
+      jobStatus?: string;
+      phase?: string;
       classification?: { category?: string };
       analysis?: { document_type?: string; summary?: string };
       durationMs?: number;
     };
-    error?: { message?: string };
+    error?: { message?: string; code?: string };
   };
-  expect(json.success, json.error?.message).toBe(true);
+  if (!json.success) {
+    const code = json.error?.code || "UNKNOWN";
+    const msg = json.error?.message || raw.slice(0, 400);
+    throw new Error(
+      `Analyse échouée (${code}): ${msg}. ` +
+        `E2E_TARGET=${process.env.E2E_TARGET || "local"} · ` +
+        `LLM_PROVIDER=${process.env.LLM_PROVIDER || "?"} · ` +
+        `modèle=${process.env.LLM_MODEL || process.env.OLLAMA_MODEL || "?"}.`,
+    );
+  }
   return json.data!;
 }
 
@@ -146,5 +164,7 @@ export async function healthOllamaOk(page: Page): Promise<boolean> {
   const res = await page.request.get("/api/health");
   if (!res.ok()) return false;
   const json = (await res.json()) as { status?: string; ok?: boolean };
-  return json.status === "ok" || json.ok === true;
+  // /api/health : status "ok" uniquement si le LLM (Ollama/cloud) répond.
+  // "degraded" = app up mais analyse indisponible → skip E2E analyse.
+  return json.status === "ok" && json.ok === true;
 }

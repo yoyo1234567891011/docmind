@@ -249,7 +249,20 @@ export function DocumentRelationsPanel({
   };
 
   const phase = data?.relationsPhase ?? initialPhase ?? "pending";
-  const relations = data?.relations ?? [];
+  const relationsRaw = data?.relations ?? [];
+  // Une carte par couple (type + document lié) — évite 2× « doublon ».
+  const relations = (() => {
+    const seen = new Set<string>();
+    const out: RelationListItem[] = [];
+    for (const r of relationsRaw) {
+      const peerId = r.peer?.documentId || r.toDocId || r.fromDocId || r.id;
+      const key = `${r.type}::${peerId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(r);
+    }
+    return out;
+  })();
   const showSkeleton = loading || phase === "pending";
   const showEmpty =
     !showSkeleton &&

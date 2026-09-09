@@ -213,6 +213,10 @@ function modelLevel(
     wallMs: q.wallMs,
     usersCompleted: Math.round(users * (1 - q.failureRate)),
     usersFailed: Math.round(users * q.failureRate),
+    jobsSuccess: Math.round(users * (1 - q.failureRate)),
+    jobsFailed: Math.round(users * q.failureRate),
+    jobsTimeout: q.timeoutCount,
+    metricsMeasured: false,
     failureRate: q.failureRate,
     timeoutCount: q.timeoutCount,
     timeoutRate: q.timeoutRate,
@@ -221,6 +225,21 @@ function modelLevel(
     p50QueueWaitMs: q.p50QueueWaitMs,
     p95QueueWaitMs: q.p95QueueWaitMs,
     p99QueueWaitMs: q.p99QueueWaitMs,
+    p50LockWaitMs: 0,
+    p95LockWaitMs: 0,
+    p99LockWaitMs: 0,
+    p50GenerateMs: q.p50P2Ms,
+    p95GenerateMs: q.p95P2Ms,
+    p99GenerateMs: q.p99P2Ms,
+    p50JobHistoryMs: calibration.historyMs,
+    p95JobHistoryMs: calibration.historyMs,
+    p99JobHistoryMs: calibration.historyMs,
+    p50MemoryMs: 0,
+    p95MemoryMs: 0,
+    p99MemoryMs: 0,
+    p50JobTotalMs: q.p50TotalMs,
+    p95JobTotalMs: q.p95TotalMs,
+    p99JobTotalMs: q.p99TotalMs,
     avgQueueLength: q.avgQueueLength,
     maxQueueLength: q.maxQueueLength,
     avgP1Ms: q.avgP1Ms,
@@ -324,13 +343,13 @@ async function main() {
   const levels: LevelMetrics[] = [];
   const client = new LoadHttpClient(
     options.baseUrl,
-    options.auth === "supabase" ? "eval" : options.auth,
+    options.auth,
     options.evalApiKey,
   );
 
   if (options.auth === "supabase") {
-    console.warn(
-      "[warn] --auth supabase : signup mesurable ; parcours API live via EVAL_API_KEY/none.",
+    console.log(
+      "[info] --auth supabase : signup + Bearer JWT par VU (quotas isolés).",
     );
   }
 
@@ -502,15 +521,29 @@ async function main() {
   console.log(`JSON : ${jsonPath}`);
   console.log(`\nConclusion: ${report.conclusion}`);
 
-  // Console summary table
-  console.log("\nUsers | P50 | P95 | P99 | Timeout | QueueP50 | Redis | PG | S3");
+  console.log("\nUsers | OK | Fail | TO | QueueP50/P95/P99 | LockP50/P95/P99 | GenP50/P95/P99 | JobTotP50/P95/P99 | UserTotP50/P95/P99 | Metrics?");
   for (const l of levels) {
     console.log(
       `${String(l.concurrentUsers).padStart(5)} | ` +
-        `${fmtShort(l.p50TotalMs)} | ${fmtShort(l.p95TotalMs)} | ${fmtShort(l.p99TotalMs)} | ` +
-        `${(l.timeoutRate * 100).toFixed(0).padStart(3)}% | ${fmtShort(l.p50QueueWaitMs)} | ` +
-        `${fmtInfra(l.infra.redis)} | ${fmtInfra(l.infra.postgres)} | ${fmtInfra(l.infra.s3)}`,
+        `${String(l.jobsSuccess).padStart(2)} | ${String(l.jobsFailed).padStart(4)} | ${String(l.jobsTimeout).padStart(2)} | ` +
+        `${fmtShort(l.p50QueueWaitMs)}/${fmtShort(l.p95QueueWaitMs)}/${fmtShort(l.p99QueueWaitMs)} | ` +
+        `${fmtShort(l.p50LockWaitMs)}/${fmtShort(l.p95LockWaitMs)}/${fmtShort(l.p99LockWaitMs)} | ` +
+        `${fmtShort(l.p50GenerateMs)}/${fmtShort(l.p95GenerateMs)}/${fmtShort(l.p99GenerateMs)} | ` +
+        `${fmtShort(l.p50JobTotalMs || l.p50TotalMs)}/${fmtShort(l.p95JobTotalMs || l.p95TotalMs)}/${fmtShort(l.p99JobTotalMs || l.p99TotalMs)} | ` +
+        `${fmtShort(l.p50TotalMs)}/${fmtShort(l.p95TotalMs)}/${fmtShort(l.p99TotalMs)} | ${l.metricsMeasured ? "YES" : "NO"}`,
     );
+  }
+  const incomplete = levels.filter((l) => !l.metricsMeasured);
+  if (incomplete.length) {
+    console.warn(
+      `\nWARN: métriques incomplètes (queue/generate) pour N=${incomplete.map((l) => l.concurrentUsers).join(",")}. Ne pas traiter comme PASS définitif.`,
+    );
+    if (options.mode === "live") {
+      console.error(
+        "FAIL live: métriques critiques non mesurées — exit 2.",
+      );
+      process.exitCode = 2;
+    }
   }
 }
 

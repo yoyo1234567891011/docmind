@@ -1,8 +1,14 @@
 import { randomUUID } from "crypto";
 
+import { usePersistentStorage } from "@/config/persistence";
 import { FEEDBACK_FILE } from "@/config/paths";
 import { getAppVersion, getDeployEnv } from "@/config/runtime";
 import { sanitizeUserText } from "@/lib/sanitize";
+import {
+  pgAnonymizeFeedbackForUser,
+  pgInsertFeedback,
+  pgListFeedback,
+} from "@/services/persistence/feedback-pg";
 import {
   appendJsonArrayEntry,
   readJsonArrayFile,
@@ -54,27 +60,43 @@ export async function createFeedback(
     deployEnv: getDeployEnv(),
   };
 
-  await appendJsonArrayEntry(FEEDBACK_FILE, entry);
-  await appendAppEvent({
-    level: "info",
-    source: "feedback",
-    message: `Nouveau feedback (${entry.category})`,
-    userId: entry.userId,
-    meta: { feedbackId: entry.id, rating: entry.rating ?? null },
-  });
+  if (usePersistentStorage()) {
+    await pgInsertFeedback(entry);
+  } else {
+    await appendJsonArrayEntry(FEEDBACK_FILE, entry);
+  }
+  try {
+    await appendAppEvent({
+      level: "info",
+      source: "feedback",
+      message: `Nouveau feedback (${entry.category})`,
+      userId: entry.userId,
+      meta: { feedbackId: entry.id, rating: entry.rating ?? null },
+    });
+  } catch {
+    // Le feedback est déjà persisté ; le journal applicatif ne doit pas bloquer l'envoi.
+  }
 
   return entry;
 }
 
 export async function listFeedback(limit = 100): Promise<FeedbackEntry[]> {
+  const capped = Math.min(Math.max(limit, 1), 500);
+  if (usePersistentStorage()) {
+    return pgListFeedback(capped);
+  }
   const entries = await readJsonArrayFile<FeedbackEntry>(FEEDBACK_FILE);
-  return entries.slice(0, Math.min(Math.max(limit, 1), 500));
+  return entries.slice(0, capped);
 }
 
 /** RGPD Art. 17 — retire userId/email des feedbacks. */
 export async function anonymizeFeedbackForUser(
   userId: string,
 ): Promise<{ updated: number }> {
+  if (usePersistentStorage()) {
+    const updated = await pgAnonymizeFeedbackForUser(userId);
+    return { updated };
+  }
   const entries = await readJsonArrayFile<FeedbackEntry>(FEEDBACK_FILE);
   let updated = 0;
   for (const entry of entries) {

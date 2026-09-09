@@ -56,7 +56,7 @@ export function UserMenu() {
 
   if (!ready) {
     return (
-      <div className="h-9 w-20 animate-pulse rounded-lg bg-[var(--surface)]" />
+      <div className="hidden h-9 w-9 animate-pulse rounded-lg bg-[var(--surface)] xl:block xl:w-20" />
     );
   }
 
@@ -66,7 +66,7 @@ export function UserMenu() {
 
   if (!email) {
     return (
-      <div className="flex items-center gap-1.5">
+      <div className="hidden items-center gap-1.5 xl:flex">
         <Link
           href="/auth/login"
           className="inline-flex h-9 items-center rounded-lg px-3 text-sm text-[var(--muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--foreground)]"

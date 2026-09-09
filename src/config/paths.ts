@@ -2,7 +2,17 @@ import path from "path";
 
 import { AppError } from "@/lib/errors";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+function resolveDataRoot(): string {
+  const override = process.env.DOCMIND_DATA_DIR?.trim();
+  if (override) {
+    return path.isAbsolute(override)
+      ? override
+      : path.join(process.cwd(), override);
+  }
+  return path.join(process.cwd(), "data");
+}
+
+const DATA_DIR = resolveDataRoot();
 const USERS_DIR = path.join(DATA_DIR, "users");
 
 /** @deprecated Global path — use userHistoryDir(userId) */
@@ -30,6 +40,11 @@ export const APP_EVENTS_FILE = path.join(SYSTEM_DIR, "app-events.json");
 export const PRODUCT_ANALYTICS_FILE = path.join(
   SYSTEM_DIR,
   "product-analytics.json",
+);
+/** File de nettoyage orphelins S3 (mode FS / fallback). */
+export const STORAGE_CLEANUP_JOBS_FILE = path.join(
+  SYSTEM_DIR,
+  "storage-cleanup-jobs.json",
 );
 
 /** Sauvegardes locales (data + uploads). */

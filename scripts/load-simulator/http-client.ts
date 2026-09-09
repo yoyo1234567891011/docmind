@@ -93,6 +93,8 @@ export class LoadHttpClient {
     pages?: string[];
   }): Promise<{
     historyId?: string;
+    jobId?: string;
+    jobStatus?: string;
     phase?: string;
     durationMs: number;
     documentType?: string;
@@ -113,6 +115,8 @@ export class LoadHttpClient {
     });
     const payload = (await res.json()) as ApiEnvelope<{
       historyId?: string;
+      jobId?: string;
+      jobStatus?: string;
       phase?: string;
       durationMs?: number;
       resultSource?: string;
@@ -125,12 +129,111 @@ export class LoadHttpClient {
     }
     return {
       historyId: payload.data.historyId,
+      jobId: payload.data.jobId,
+      jobStatus: payload.data.jobStatus,
       phase: payload.data.phase,
       durationMs: payload.data.durationMs ?? Date.now() - started,
       documentType: payload.data.analysis?.document_type,
       resultSource:
         payload.data.resultSource ??
         payload.data.analysis?.resultSource,
+    };
+  }
+
+  async waitAnalysisJobComplete(input: {
+    jobId: string;
+    timeoutMs: number;
+    pollIntervalMs: number;
+  }): Promise<{
+    durationMs: number;
+    timeout: boolean;
+    status?: string;
+    queuePosition?: number | null;
+    metrics?: {
+      queueWaitMs?: number;
+      lockWaitMs?: number;
+      generateMs?: number;
+      historyMs?: number;
+      memoryMs?: number | null;
+      totalMs?: number;
+    };
+  }> {
+    const started = Date.now();
+    let lastStatus: string | undefined;
+    let lastQueuePosition: number | null | undefined;
+    let lastMetrics:
+      | {
+          queueWaitMs?: number;
+          lockWaitMs?: number;
+          generateMs?: number;
+          historyMs?: number;
+          memoryMs?: number | null;
+          totalMs?: number;
+        }
+      | undefined;
+    let lastCronKick = 0;
+    while (Date.now() - started < input.timeoutMs) {
+      // Watchdog HTTP optionnel — si after() est mort, le cron drain avance la file.
+      const cronSecret = process.env.CRON_SECRET?.trim();
+      if (cronSecret && Date.now() - lastCronKick > 8_000) {
+        lastCronKick = Date.now();
+        void fetch(`${this.baseUrl}/api/cron/drain-analysis-jobs`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${cronSecret}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ maxJobs: 2 }),
+        }).catch(() => undefined);
+      }
+
+      const res = await fetch(
+        `${this.baseUrl}/api/analysis-jobs/${encodeURIComponent(input.jobId)}`,
+        { headers: this.headers(false), cache: "no-store" },
+      );
+      const payload = (await res.json()) as ApiEnvelope<{
+        status?: string;
+        queuePosition?: number | null;
+        metrics?: {
+          queueWaitMs?: number;
+          lockWaitMs?: number;
+          generateMs?: number;
+          historyMs?: number;
+          memoryMs?: number | null;
+          totalMs?: number;
+        };
+      }>;
+      if (res.ok && payload.success && payload.data?.status) {
+        lastStatus = payload.data.status;
+        lastQueuePosition = payload.data.queuePosition;
+        lastMetrics = payload.data.metrics;
+      }
+      if (res.ok && payload.success && payload.data?.status === "completed") {
+        return {
+          durationMs: Date.now() - started,
+          timeout: false,
+          status: "completed",
+          queuePosition: payload.data.queuePosition,
+          metrics: payload.data.metrics,
+        };
+      }
+      if (res.ok && payload.success && payload.data?.status === "failed") {
+        return {
+          durationMs: Date.now() - started,
+          timeout: false,
+          status: "failed",
+          queuePosition: payload.data.queuePosition,
+          metrics: payload.data.metrics,
+        };
+      }
+      await sleep(input.pollIntervalMs);
+    }
+    return {
+      durationMs: Date.now() - started,
+      timeout: true,
+      status: lastStatus ?? "unknown",
+      queuePosition: lastQueuePosition ?? null,
+      metrics: lastMetrics,
     };
   }
 

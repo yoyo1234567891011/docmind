@@ -25,7 +25,19 @@ const TEST_FP: CacheFingerprint = {
   pipelineVersion: ANALYSIS_PIPELINE_VERSION,
 };
 
+function forceFsIsolation() {
+  // Après chargement éventuel de .env.local — obligatoire pour un test déterministe.
+  process.env.DOCMIND_STORAGE = "fs";
+  process.env.DOCMIND_FS_FALLBACK = "0";
+  process.env.DOCMIND_FS_DUAL_WRITE = "0";
+  process.env.OPT_ANALYSIS_CACHE = "1";
+  delete process.env.REDIS_URL;
+  delete process.env.KV_URL;
+  delete process.env.KV_REST_API_URL;
+}
+
 async function main() {
+  forceFsIsolation();
   resetUserWorkspaceCache();
 
   const userA = "user-a-iso-test";

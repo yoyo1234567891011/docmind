@@ -55,7 +55,7 @@ export async function runVirtualUser(input: {
       if (!input.options.supabaseUrl || !input.options.supabaseAnonKey) {
         throw new Error("Supabase URL/anon key manquants");
       }
-      const email = `loadtest+${Date.now()}-${input.index}@docmind.local`;
+      const email = `loadtest+${Date.now()}-${input.index}@gmail.com`;
       const password = `LoadTest!${randomUUID().slice(0, 8)}aA1`;
       const session = await signupSupabaseUser({
         supabaseUrl: input.options.supabaseUrl,
@@ -127,15 +127,20 @@ export async function runVirtualUser(input: {
       break;
     }
 
-    // 3. Analyze P1
+    // 3. Analyze P1 — nonce unique pour éviter le cache analyse (mesure generate réelle)
+    const loadNonce = `load-${input.index}-${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const textForAnalyze = `${upload.text}\n\n[docmind-load-nonce:${loadNonce}]`;
+    const pagesForAnalyze = upload.pages?.length
+      ? [...upload.pages.slice(0, -1), `${upload.pages.at(-1) ?? ""}\n[docmind-load-nonce:${loadNonce}]`]
+      : undefined;
     input.queue.enter();
     const queueEnterAt = Date.now();
     try {
       const p1 = await client.analyzeProgressive({
         documentId: upload.documentId,
-        text: upload.text,
+        text: textForAnalyze,
         fileName: upload.fileName,
-        pages: upload.pages,
+        pages: pagesForAnalyze,
       });
       steps.push({
         step: "analyze_p1",
@@ -143,29 +148,70 @@ export async function runVirtualUser(input: {
         durationMs: p1.durationMs,
         meta: {
           historyId: p1.historyId ?? null,
+          jobId: p1.jobId ?? null,
+          jobStatus: p1.jobStatus ?? null,
           documentType: p1.documentType ?? null,
           resultSource: p1.resultSource ?? null,
         },
       });
 
-      // 4. Wait P2
-      if (p1.historyId) {
+      // 4. Wait P2 via job durable (metrics réelles) — fallback history
+      if (p1.jobId) {
+        const p2 = await client.waitAnalysisJobComplete({
+          jobId: p1.jobId,
+          timeoutMs: input.options.p2TimeoutMs,
+          pollIntervalMs: input.options.pollIntervalMs,
+        });
+        const m = p2.metrics;
+        steps.push({
+          step: "analyze_p2",
+          ok: !p2.timeout && p2.status === "completed",
+          durationMs: p2.durationMs,
+          timeout: p2.timeout,
+          queueWaitMs: m?.queueWaitMs,
+          error: p2.timeout
+            ? "Timeout attente job (poll)"
+            : p2.status === "failed"
+              ? "Job failed"
+              : undefined,
+          meta: {
+            historyId: p1.historyId ?? null,
+            jobId: p1.jobId ?? null,
+            status: p2.status ?? null,
+            queuePosition: p2.queuePosition ?? null,
+            queueWaitMs: m?.queueWaitMs ?? null,
+            lockWaitMs: m?.lockWaitMs ?? null,
+            generateMs: m?.generateMs ?? null,
+            historyMs: m?.historyMs ?? null,
+            memoryMs: m?.memoryMs ?? null,
+            totalMs: m?.totalMs ?? null,
+            queueEnterLagMs: Date.now() - queueEnterAt,
+            pollTimeout: p2.timeout,
+          },
+        });
+        // Timeout de polling client ≠ échec serveur si le job est encore actif
+        if (p2.status === "failed") ok = false;
+        else if (p2.timeout && p2.status !== "completed") {
+          // Job encore pending/processing : marqué timeout client, pas forcément FAIL produit
+          ok = false;
+        } else if (!p2.timeout && p2.status !== "completed") ok = false;
+      } else if (p1.historyId) {
         const p2 = await client.waitHistoryComplete({
           historyId: p1.historyId,
           timeoutMs: input.options.p2TimeoutMs,
           pollIntervalMs: input.options.pollIntervalMs,
         });
-        const queueWaitMs = Math.max(0, p2.durationMs - 1000);
         steps.push({
           step: "analyze_p2",
           ok: !p2.timeout,
           durationMs: p2.durationMs,
           timeout: p2.timeout,
-          queueWaitMs,
-          error: p2.timeout ? "Timeout attente P2 (poll)" : undefined,
+          error: p2.timeout
+            ? "Timeout attente P2 (poll history — pas de jobId)"
+            : undefined,
           meta: {
             historyId: p1.historyId,
-            queueEnterLagMs: Date.now() - queueEnterAt,
+            legacyHistoryPoll: true,
           },
         });
         if (p2.timeout) ok = false;
@@ -174,7 +220,7 @@ export async function runVirtualUser(input: {
           step: "analyze_p2",
           ok: false,
           durationMs: 0,
-          error: "Pas de historyId — P2 non planifiée",
+          error: "Pas de jobId/historyId — P2 non planifiée",
         });
         ok = false;
       }
@@ -278,6 +324,16 @@ export function aggregateLiveResults(input: {
     .flatMap((r) => r.steps)
     .filter((s) => s.step === "analyze_p2" && s.queueWaitMs != null)
     .map((s) => s.queueWaitMs as number);
+  const metaNum = (key: string) =>
+    input.results
+      .flatMap((r) => r.steps)
+      .filter((s) => s.step === "analyze_p2" && typeof s.meta?.[key] === "number")
+      .map((s) => s.meta![key] as number);
+  const lockWaits = metaNum("lockWaitMs");
+  const generates = metaNum("generateMs");
+  const jobHistories = metaNum("historyMs");
+  const memories = metaNum("memoryMs");
+  const jobTotals = metaNum("totalMs");
   const timeouts = input.results
     .flatMap((r) => r.steps)
     .filter((s) => s.timeout).length;
@@ -300,6 +356,21 @@ export function aggregateLiveResults(input: {
     if (src === "cache") cacheHits += 1;
   }
 
+  const p2Steps = input.results.flatMap((r) =>
+    r.steps.filter((s) => s.step === "analyze_p2"),
+  );
+  const jobsSuccess = p2Steps.filter(
+    (s) => s.ok && s.meta?.status === "completed",
+  ).length;
+  const jobsFailed = p2Steps.filter((s) => s.meta?.status === "failed").length;
+  const jobsTimeout = p2Steps.filter((s) => s.timeout).length;
+  const metricsMeasured =
+    queueWaits.length > 0 &&
+    generates.length > 0 &&
+    generates.every((g) => Number.isFinite(g) && g >= 0) &&
+    // generateMs=0 sur completed est suspect (sauf cache) — exiger >0 si completed
+    (jobsSuccess === 0 || generates.some((g) => g > 0));
+
   const avgQueue =
     queueWaits.length === 0
       ? 0
@@ -316,6 +387,10 @@ export function aggregateLiveResults(input: {
     wallMs: input.wallMs,
     usersCompleted: input.users - failedUsers,
     usersFailed: failedUsers,
+    jobsSuccess,
+    jobsFailed,
+    jobsTimeout,
+    metricsMeasured,
     failureRate: input.users === 0 ? 0 : failedUsers / input.users,
     timeoutCount: timeouts,
     timeoutRate:
@@ -325,6 +400,21 @@ export function aggregateLiveResults(input: {
     p50QueueWaitMs: percentile(queueWaits, 50),
     p95QueueWaitMs: percentile(queueWaits, 95),
     p99QueueWaitMs: percentile(queueWaits, 99),
+    p50LockWaitMs: percentile(lockWaits, 50),
+    p95LockWaitMs: percentile(lockWaits, 95),
+    p99LockWaitMs: percentile(lockWaits, 99),
+    p50GenerateMs: percentile(generates, 50),
+    p95GenerateMs: percentile(generates, 95),
+    p99GenerateMs: percentile(generates, 99),
+    p50JobHistoryMs: percentile(jobHistories, 50),
+    p95JobHistoryMs: percentile(jobHistories, 95),
+    p99JobHistoryMs: percentile(jobHistories, 99),
+    p50MemoryMs: percentile(memories, 50),
+    p95MemoryMs: percentile(memories, 95),
+    p99MemoryMs: percentile(memories, 99),
+    p50JobTotalMs: percentile(jobTotals, 50),
+    p95JobTotalMs: percentile(jobTotals, 95),
+    p99JobTotalMs: percentile(jobTotals, 99),
     avgQueueLength: Math.round(input.queue.avg * 10) / 10,
     maxQueueLength: input.queue.max,
     avgP1Ms: p1L.avgMs,

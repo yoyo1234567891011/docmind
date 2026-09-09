@@ -81,7 +81,7 @@ export function AlertsCenterView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="animate-fade-up text-left">
-          <h1 className="font-display text-4xl tracking-tight text-[var(--foreground)] sm:text-5xl">
+          <h1 className="font-display text-3xl tracking-tight text-[var(--foreground)] md:text-5xl">
             Alertes
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--muted)] sm:text-base">
@@ -101,7 +101,7 @@ export function AlertsCenterView() {
       </div>
 
       {summary ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <article className="surface-panel rounded-2xl px-5 py-4">
             <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
               Actives

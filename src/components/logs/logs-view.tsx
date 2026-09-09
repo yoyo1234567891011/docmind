@@ -94,7 +94,7 @@ export function LogsView() {
                 <button
                   type="button"
                   onClick={() => setExpandedId(open ? null : entry.id)}
-                  className="flex w-full flex-col gap-2 px-5 py-4 text-left transition-colors hover:bg-[var(--surface-elevated)] sm:flex-row sm:items-center sm:justify-between"
+                  className="flex w-full flex-col gap-2 px-5 py-4 text-left transition-colors hover:bg-[var(--surface-elevated)] md:flex-row md:items-center md:justify-between"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-[var(--foreground)]">

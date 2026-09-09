@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { AnalysisPhaseBadge } from "@/components/documents/analysis-phase-badge";
 import { FolderSelect } from "@/components/folders/folder-select";
 import { HistoryFilters } from "@/components/history/history-filters";
 import { Alert, Button, HistoryListSkeleton } from "@/components/ui";
@@ -127,6 +128,10 @@ export function HistoryList() {
                     <p className="truncate font-medium text-[var(--foreground)]">
                       {item.title}
                     </p>
+                    <AnalysisPhaseBadge
+                      phase={item.analysisPhase}
+                      className="text-xs"
+                    />
                     <span
                       className={cn(
                         "rounded-md px-2 py-0.5 text-xs font-medium",
@@ -144,12 +149,12 @@ export function HistoryList() {
                   </p>
                 </div>
 
-              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="flex shrink-0 flex-col gap-2 md:flex-row md:items-end">
                 <FolderSelect
                   historyId={item.id}
                   value={item.folderId}
                   size="sm"
-                  className="min-w-[160px]"
+                  className="w-full min-w-0 md:min-w-[160px] md:w-auto"
                   onMoved={(folderId) => {
                     setItems((current) =>
                       current.map((entry) =>

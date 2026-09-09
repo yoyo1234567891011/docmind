@@ -51,7 +51,7 @@ export function DocumentManager() {
       ) : null}
 
       <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_0_rgba(0,0,0,0.03)]">
-        <div className="grid min-h-[70vh] lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_340px]">
+        <div className="grid min-h-[50vh] md:min-h-[70vh] lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_340px]">
           <ManagerSidebar
             filter={mgr.sidebar}
             folders={mgr.meta.folders}

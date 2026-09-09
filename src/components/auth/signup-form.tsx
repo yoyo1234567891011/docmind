@@ -8,6 +8,10 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { docmindConfig } from "@/config/docmind";
 import { trackClientAnalytics } from "@/lib/client/analytics";
+import {
+  getAuthEmailRedirectOrigin,
+  isLocalAuthOrigin,
+} from "@/lib/auth/email-redirect";
 import { createClient } from "@/lib/supabase/client";
 
 export function SignupForm() {
@@ -38,7 +42,7 @@ export function SignupForm() {
 
     try {
       const supabase = createClient();
-      const origin = window.location.origin;
+      const origin = getAuthEmailRedirectOrigin();
       const { error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -84,6 +88,13 @@ export function SignupForm() {
           Ouvrez le message envoyé à <strong>{email}</strong> pour activer votre
           compte, puis connectez-vous.
         </p>
+        {isLocalAuthOrigin(getAuthEmailRedirectOrigin()) ? (
+          <p className="mt-3 rounded-lg bg-[var(--warning-soft)] px-3 py-2 text-sm text-[var(--warning)]">
+            En local, le lien pointe vers <strong>127.0.0.1</strong>. Ouvrez-le
+            sur <strong>cet ordinateur</strong> (pas le téléphone), avec DocMind
+            démarré (<code className="text-xs">npm run dev</code>).
+          </p>
+        ) : null}
       </AuthShell>
     );
   }

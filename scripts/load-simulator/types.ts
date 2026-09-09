@@ -89,6 +89,12 @@ export interface LevelMetrics {
   wallMs: number;
   usersCompleted: number;
   usersFailed: number;
+  /** Jobs P2 completed (métriques job). */
+  jobsSuccess: number;
+  jobsFailed: number;
+  jobsTimeout: number;
+  /** false si queue/generate absents alors que des jobs ont fini. */
+  metricsMeasured: boolean;
   failureRate: number;
   timeoutCount: number;
   timeoutRate: number;
@@ -98,6 +104,22 @@ export interface LevelMetrics {
   p50QueueWaitMs: number;
   p95QueueWaitMs: number;
   p99QueueWaitMs: number;
+  /** Lock Ollama wait (ms) — depuis job.metrics, pas une heuristique. */
+  p50LockWaitMs: number;
+  p95LockWaitMs: number;
+  p99LockWaitMs: number;
+  p50GenerateMs: number;
+  p95GenerateMs: number;
+  p99GenerateMs: number;
+  p50JobHistoryMs: number;
+  p95JobHistoryMs: number;
+  p99JobHistoryMs: number;
+  p50MemoryMs: number;
+  p95MemoryMs: number;
+  p99MemoryMs: number;
+  p50JobTotalMs: number;
+  p95JobTotalMs: number;
+  p99JobTotalMs: number;
   /** Longueur moyenne / max de la file (analyses P2 en attente + en cours) */
   avgQueueLength: number;
   maxQueueLength: number;

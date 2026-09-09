@@ -1,5 +1,9 @@
 import type { ApiResponse, UploadPdfResult } from "@/types";
 
+import {
+  abortSignalTimeout,
+  combineAbortSignals,
+} from "@/lib/client/abort-signal";
 import { csrfHeaders } from "@/lib/client/csrf";
 
 /** Timeout client — évite spinner infini si le réseau reste ouvert. */
@@ -12,9 +16,9 @@ export async function uploadPdf(
   const formData = new FormData();
   formData.append("file", file);
 
-  const timeout = AbortSignal.timeout(UPLOAD_TIMEOUT_MS);
+  const timeout = abortSignalTimeout(UPLOAD_TIMEOUT_MS);
   const signal = options?.signal
-    ? AbortSignal.any([options.signal, timeout])
+    ? combineAbortSignals(options.signal, timeout)
     : timeout;
 
   let response: Response;

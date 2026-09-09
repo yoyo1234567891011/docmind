@@ -10,6 +10,22 @@ const ESTIMATED_TOKENS_PER_ANALYSIS = 4_000;
 /** Quotas Groq free tier — openai/gpt-oss-120b. */
 const GROQ_FREE_DAILY_TOKENS = 200_000;
 
+/** Groq TPD (tokens/jour) se réinitialise à minuit UTC. */
+function nextGroqDailyTokenResetAt(now = new Date()): Date {
+  const next = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
+  return next;
+}
+
 function detectProviderLabel(): AdminPlatformOverview["llm"]["provider"] {
   const cfg = getLlmProviderConfig();
   if (cfg.kind === "ollama") return "ollama";
@@ -95,6 +111,8 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
       avgPerAnalysis,
       estimatedAnalysesRemainingToday: remaining,
       source: todayTokens.fromMetrics > 0 ? "metrics" : "estimate",
+      resetsAt: nextGroqDailyTokenResetAt().toISOString(),
+      resetTimezone: "UTC",
     },
     users: {
       totalEver: userStats.totalEver,

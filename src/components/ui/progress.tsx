@@ -92,8 +92,8 @@ export function AnalysisProgress({
         className,
       )}
     >
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
+      <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between md:gap-3">
+        <div className="min-w-0">
           <p className="text-sm font-medium text-[var(--foreground)]">
             {isAnalyzing ? "Analyse en cours…" : "Traitement en cours"}
           </p>
@@ -110,7 +110,7 @@ export function AnalysisProgress({
 
       <ProgressBar value={percent} indeterminate />
 
-      <ol className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <ol className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
         {STEPS.map((step, index) => {
           const done = index < activeIndex;
           const active = index === activeIndex;

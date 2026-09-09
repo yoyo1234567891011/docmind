@@ -399,3 +399,23 @@ body {
     animation: none !important;
   }
 }
+
+/* --- Mobile layout only (< 768px) - desktop unchanged --- */
+@media (max-width: 767.98px) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+
+  /* Avoid iOS auto-zoom on focus without changing desktop typography */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Prevent accidental page-level horizontal scroll at any width */
+html {
+  overflow-x: clip;
+}

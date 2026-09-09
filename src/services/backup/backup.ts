@@ -62,7 +62,7 @@ export async function createDailyBackup(options?: {
 }): Promise<BackupManifest> {
   if (usePersistentStorage()) {
     throw new Error(
-      "Backup FS local interdit en mode persistent — utiliser un dump Postgres + snapshot S3 versionné.",
+      "Backup FS local interdit en mode persistent — ce n’est PAS un backup production. Utiliser createPersistentBackup / npm run backup:run (dispatch PG+S3).",
     );
   }
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -150,6 +150,32 @@ export async function restoreBackup(
   id: string,
   options?: { dryRun?: boolean },
 ): Promise<{ restored: number; dryRun: boolean }> {
+  if (usePersistentStorage()) {
+    throw new Error(
+      "Restore FS interdit en mode persistent — utiliser restorePersistentBackup (PG+S3, staging).",
+    );
+  }
+
+  // Refuse de traiter un artefact persistent avec le chemin FS.
+  try {
+    const probe = JSON.parse(
+      await readFile(path.join(backupRoot(id), "manifest.json"), "utf8"),
+    ) as { kind?: string };
+    if (probe.kind === "persistent") {
+      throw new Error(
+        "Ce backup est persistent (PG+S3). Utiliser restorePersistentBackup / npm run backup:restore.",
+      );
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("persistent") ||
+        error.message.includes("restorePersistentBackup"))
+    ) {
+      throw error;
+    }
+  }
+
   const verification = await verifyBackup(id);
   if (!verification.ok) {
     throw new Error(

@@ -199,7 +199,7 @@ export function SavingsAndDigestView() {
                 {letters.map((intent) => (
                   <li
                     key={intent.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4 md:flex-row md:items-center md:justify-between"
                   >
                     <div className="text-left">
                       <p className="font-medium">{intent.title}</p>

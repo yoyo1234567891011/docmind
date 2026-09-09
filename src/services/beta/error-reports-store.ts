@@ -1,8 +1,14 @@
 import { randomUUID } from "crypto";
 
+import { usePersistentStorage } from "@/config/persistence";
 import { ERROR_REPORTS_FILE } from "@/config/paths";
 import { getAppVersion, getDeployEnv } from "@/config/runtime";
 import { sanitizeErrorMessage, sanitizeUserText } from "@/lib/sanitize";
+import {
+  pgAnonymizeErrorReportsForUser,
+  pgInsertErrorReport,
+  pgListErrorReports,
+} from "@/services/persistence/error-reports-pg";
 import {
   appendJsonArrayEntry,
   readJsonArrayFile,
@@ -62,18 +68,26 @@ export async function createErrorReport(
     deployEnv: getDeployEnv(),
   };
 
-  await appendJsonArrayEntry(ERROR_REPORTS_FILE, entry);
-  await appendAppEvent({
-    level: entry.severity === "high" ? "error" : "warn",
-    source: "error-report",
-    message: `Signalement ${entry.kind}: ${entry.message.slice(0, 120)}`,
-    userId: entry.userId,
-    meta: {
-      reportId: entry.id,
-      severity: entry.severity,
-      errorCode: entry.errorCode,
-    },
-  });
+  if (usePersistentStorage()) {
+    await pgInsertErrorReport(entry);
+  } else {
+    await appendJsonArrayEntry(ERROR_REPORTS_FILE, entry);
+  }
+  try {
+    await appendAppEvent({
+      level: entry.severity === "high" ? "error" : "warn",
+      source: "error-report",
+      message: `Signalement ${entry.kind}: ${entry.message.slice(0, 120)}`,
+      userId: entry.userId,
+      meta: {
+        reportId: entry.id,
+        severity: entry.severity,
+        errorCode: entry.errorCode,
+      },
+    });
+  } catch {
+    // Signalement déjà persisté ; le journal FS ne doit pas bloquer l'envoi.
+  }
 
   return entry;
 }
@@ -81,14 +95,22 @@ export async function createErrorReport(
 export async function listErrorReports(
   limit = 100,
 ): Promise<ErrorReportEntry[]> {
+  const capped = Math.min(Math.max(limit, 1), 500);
+  if (usePersistentStorage()) {
+    return pgListErrorReports(capped);
+  }
   const entries = await readJsonArrayFile<ErrorReportEntry>(ERROR_REPORTS_FILE);
-  return entries.slice(0, Math.min(Math.max(limit, 1), 500));
+  return entries.slice(0, capped);
 }
 
 /** RGPD Art. 17 — retire userId/email des signalements. */
 export async function anonymizeErrorReportsForUser(
   userId: string,
 ): Promise<{ updated: number }> {
+  if (usePersistentStorage()) {
+    const updated = await pgAnonymizeErrorReportsForUser(userId);
+    return { updated };
+  }
   const entries = await readJsonArrayFile<ErrorReportEntry>(ERROR_REPORTS_FILE);
   let updated = 0;
   for (const entry of entries) {

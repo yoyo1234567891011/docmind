@@ -15,6 +15,10 @@ export type AdminPlatformOverview = {
     avgPerAnalysis: number;
     estimatedAnalysesRemainingToday: number;
     source: "metrics" | "estimate";
+    /** Prochain reset du quota journalier Groq (ISO UTC). */
+    resetsAt: string;
+    /** Fuseau du compteur Groq (TPD). */
+    resetTimezone: "UTC";
   };
   users: {
     totalEver: number;

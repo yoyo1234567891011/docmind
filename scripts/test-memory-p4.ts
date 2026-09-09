@@ -6,6 +6,7 @@
 import assert from "assert";
 import { rm } from "fs/promises";
 
+import { computePerfStats } from "./lib/perf-stats";
 import { userDataDir } from "../src/config/paths";
 import { listRelationAlerts } from "../src/services/alerts/from-relations";
 import {
@@ -484,15 +485,26 @@ Compte courant
 
   const precision = tp + fp > 0 ? tp / (tp + fp) : 1;
   const recall = tp + fn > 0 ? tp / (tp + fn) : 1;
-  const maxSelector = Math.max(...selectorTimes, 0);
-  const maxPair = Math.max(...enginePairApprox, 0);
-  const avgPair =
-    enginePairApprox.length > 0
-      ? enginePairApprox.reduce((a, b) => a + b, 0) / enginePairApprox.length
-      : 0;
+  const selectorStats = computePerfStats(selectorTimes);
+  const pairStats = computePerfStats(enginePairApprox);
 
-  assert.ok(maxSelector < 50, `CandidateSelector < 50ms (max=${maxSelector})`);
-  assert.ok(maxPair < 100, `RelationEngine < 100ms/paire (max=${maxPair})`);
+  assert.ok(selectorStats.n >= 4, `selector samples n≥4 (got ${selectorStats.n})`);
+  assert.ok(
+    selectorStats.median < 40,
+    `CandidateSelector median < 40ms (stats=${JSON.stringify(selectorStats)})`,
+  );
+  assert.ok(
+    selectorStats.p95 < 120,
+    `CandidateSelector p95 < 120ms (stats=${JSON.stringify(selectorStats)})`,
+  );
+  assert.ok(
+    pairStats.median < 80,
+    `RelationEngine median < 80ms/paire (stats=${JSON.stringify(pairStats)})`,
+  );
+  assert.ok(
+    pairStats.p95 < 180,
+    `RelationEngine p95 < 180ms/paire (stats=${JSON.stringify(pairStats)})`,
+  );
   assert.ok(precision >= 0.75, `précision ≥ 0.75 (got ${precision})`);
   assert.ok(recall >= 0.75, `rappel ≥ 0.75 (got ${recall})`);
 
@@ -506,9 +518,8 @@ Compte courant
         tp,
         fp,
         fn,
-        maxCandidateSelectorMs: maxSelector,
-        avgRelationEngineMsPerPair: Number(avgPair.toFixed(2)),
-        maxRelationEngineMsPerPair: Number(maxPair.toFixed(2)),
+        candidateSelector: selectorStats,
+        relationEnginePerPair: pairStats,
         timelineEvents: timeline.events.length,
         counterparties: counterparties.map((c) => ({
           name: c.name,

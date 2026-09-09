@@ -33,5 +33,6 @@ export function mapRecordToListItem(
       previous?.needsAction ??
       Boolean(record.readyReply?.required || record.analysis.actions?.length),
     folderId: record.folderId,
+    analysisPhase: record.analysisPhase ?? previous?.analysisPhase,
   };
 }

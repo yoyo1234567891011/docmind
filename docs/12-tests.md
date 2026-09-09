@@ -60,6 +60,10 @@ Injection : `src/lib/chaos` uniquement si `DOCMIND_CHAOS=1` (bloquée en product
 | `test:anonymize` | Anonymisation corpus |
 | `test:analytics` | Analytics |
 | `test:production-ops` | Export, backup, quotas, monitoring |
+| `test:analysis-jobs` | File claim / complete / fail / quota enqueue |
+| `test:analysis-llm-contract` | Timeout/abort ≠ succès LLM |
+| `test:analysis-job-drain` | Cron auth, drain hors trafic, reclaim, concurrence |
+| `test:analysis-job-crash` (+ process / pg) | Crash worker + reclaim |
 
 Exemple :
 

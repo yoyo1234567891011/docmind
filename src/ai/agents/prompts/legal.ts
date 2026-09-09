@@ -31,8 +31,8 @@ export function buildLegalAgentPrompt(input: {
   return [
     `Agent analyse juridique FR — document type "${input.classification.label}". JSON uniquement.`,
     "Consulte les CONNAISSANCES_JURIDIQUES avant d'analyser ; conclusions uniquement avec extrait du DOCUMENT.",
-    "Produis title, summary (2 phrases enjeux), document_type.",
-    "important_points = [{statement, excerpt}] — excerpt recopié mot à mot. Sans preuve → n'inclus pas le point.",
+    "Produis title, summary (2 phrases complètes et factuelles), document_type.",
+    "important_points = [{statement, excerpt}] — statement concret (montant/délai/clause écrits) ; excerpt recopié mot à mot. Sans preuve → n'inclus pas le point. N'invente rien.",
     "Base-toi sur le document et les faits fournis. Pas de liste de risques ici.",
     `Faits déjà extraits: ${factsBrief}`,
     `Schéma: ${schema}`,

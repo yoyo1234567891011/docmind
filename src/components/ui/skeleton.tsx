@@ -21,7 +21,7 @@ export function AnalysisSkeleton() {
     <div
       className="animate-fade-in space-y-4"
       role="status"
-      aria-label="Analyse en cours"
+      aria-label="Génération IA en cours"
     >
       <div className="surface-panel rounded-2xl p-5">
         <div className="flex items-start justify-between gap-4">
@@ -32,7 +32,7 @@ export function AnalysisSkeleton() {
           <Skeleton className="h-12 w-20" />
         </div>
         <Skeleton className="mt-5 h-2 w-full rounded" />
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
           {Array.from({ length: 4 }).map((_, index) => (
             <Skeleton key={index} className="h-20 w-full rounded-xl" />
           ))}

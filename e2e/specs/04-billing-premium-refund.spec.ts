@@ -54,6 +54,31 @@ test.describe("Abonnement Premium · Remboursement", () => {
 
     if (res.ok() && json.success) {
       expect(json.data?.url).toMatch(/^https?:\/\//);
+
+      // UI Checkout hébergée — opt-in (staging réel).
+      // « Payer par carte » = méthode (unique) ; CTA = « Payer et s'abonner ».
+      if (process.env.PLAYWRIGHT_STRIPE_CHECKOUT_UI === "1" && json.data?.url) {
+        const {
+          stripePayByCardButton,
+          stripeSubmitSubscribeButton,
+        } = await import("../helpers/stripe-checkout");
+        await page.goto(json.data.url, { waitUntil: "domcontentloaded" });
+        await expect(stripePayByCardButton(page)).toHaveCount(1);
+        await stripePayByCardButton(page).click({ force: true }).catch(() => undefined);
+        for (const frame of page.frames()) {
+          const num = frame.locator('input[name="number"]');
+          if ((await num.count()) > 0) {
+            await num.first().fill("4242424242424242");
+            await frame.locator('input[name="expiry"]').first().fill("12 / 42");
+            await frame.locator('input[name="cvc"]').first().fill("123");
+            break;
+          }
+        }
+        await stripeSubmitSubscribeButton(page).click({ timeout: 60_000 });
+        await page.waitForURL(/facturation|checkout=success|success/i, {
+          timeout: 120_000,
+        });
+      }
       return;
     }
 

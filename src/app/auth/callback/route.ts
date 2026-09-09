@@ -29,7 +29,7 @@ export async function GET(request: Request) {
           source: "auth_callback",
         },
       });
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${origin}/auth/continue?next=${encodeURIComponent(next)}`);
     }
   }
 

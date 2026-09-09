@@ -19,6 +19,7 @@ import {
   readAnalyticsFile,
   summarizeProductAnalytics,
 } from "@/services/analytics";
+import { listFeedback, listErrorReports } from "@/services/beta";
 
 export const runtime = "nodejs";
 
@@ -26,13 +27,15 @@ export async function GET(request: Request) {
   try {
     await requireAdmin(request);
     await ensureAdminRuntimeLoaded();
-    const [config, prompts, metricsFile, models, analyticsFile] =
+    const [config, prompts, metricsFile, models, analyticsFile, feedback, errorReports] =
       await Promise.all([
         readAdminConfig(),
         readAdminPrompts(),
         readAdminMetrics(),
         listOllamaModels(),
         readAnalyticsFile(),
+        listFeedback(80),
+        listErrorReports(80),
       ]);
 
     return apiSuccess({
@@ -45,6 +48,8 @@ export async function GET(request: Request) {
       productAnalytics: summarizeProductAnalytics(analyticsFile.events, {
         windowDays: 30,
       }),
+      feedback,
+      errorReports,
       llmRuntime: (() => {
         const cfg = getLlmProviderConfig();
         if (cfg.kind === "openai_compatible") {

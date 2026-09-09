@@ -5,6 +5,7 @@
  *
  * Chaque check: PASS | FAIL | BLOCKED (infra absente).
  * Exit 1 si FAIL. BLOCKED est listé explicitement (pas un faux vert).
+ * Charge .env / .env.local au démarrage (sans écraser l’env process).
  */
 import assert from "node:assert/strict";
 import { execSync, spawnSync } from "node:child_process";
@@ -50,6 +51,7 @@ import { runMemoryDualWrite } from "../src/services/memory/dual-write";
 import { EMPTY_READY_REPLY } from "../src/types/reply";
 import { RISK_CRITERIA } from "../src/services/risk/criteria";
 import type { HistoryRecord } from "../src/types/history";
+import { envPresence, loadEnvFiles } from "./lib/load-env-files";
 
 type Status = "PASS" | "FAIL" | "BLOCKED";
 
@@ -73,6 +75,25 @@ function infraPersistentReady(): boolean {
     hasEnv("DATABASE_URL") &&
     hasEnv("S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY") &&
     (hasEnv("S3_ENDPOINT") || hasEnv("AWS_REGION") || hasEnv("S3_REGION"))
+  );
+}
+
+function isTlsInfraError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /self-signed certificate|certificate chain|UNABLE_TO_VERIFY|SSL|TLS/i.test(
+    message,
+  );
+}
+
+/** Force le mode FS pour les checks unitaires (évite PG accidentel après loadEnv). */
+async function withFsMode<T>(fn: () => Promise<T>): Promise<T> {
+  return withEnv(
+    {
+      DOCMIND_STORAGE: "fs",
+      DOCMIND_FS_FALLBACK: "0",
+      DOCMIND_FS_DUAL_WRITE: "0",
+    },
+    fn,
   );
 }
 
@@ -118,10 +139,10 @@ async function runCheck(
   }
 }
 
-async function withEnv(
+async function withEnv<T>(
   env: Record<string, string | undefined>,
-  fn: () => Promise<void>,
-): Promise<void> {
+  fn: () => Promise<T>,
+): Promise<T> {
   const prev: Record<string, string | undefined> = {};
   for (const [k, v] of Object.entries(env)) {
     prev[k] = process.env[k];
@@ -129,7 +150,7 @@ async function withEnv(
     else process.env[k] = v;
   }
   try {
-    await fn();
+    return await fn();
   } finally {
     for (const [k, v] of Object.entries(prev)) {
       if (v === undefined) delete process.env[k];
@@ -177,11 +198,11 @@ async function checkBuildAlreadyOk(): Promise<string> {
 }
 
 async function checkVercelEnvContract(): Promise<string> {
-  return withEnv(
+  // 1) Contrat négatif : env prod vide → erreurs attendues
+  await withEnv(
     {
       NEXT_PUBLIC_APP_ENV: "production",
       NODE_ENV: "production",
-      // volontairement vides pour lister les manques
       NEXT_PUBLIC_SUPABASE_URL: undefined,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: undefined,
       SUPABASE_SERVICE_ROLE_KEY: undefined,
@@ -194,6 +215,11 @@ async function checkVercelEnvContract(): Promise<string> {
       DATABASE_URL: undefined,
       REDIS_URL: undefined,
       S3_BUCKET: undefined,
+      S3_ACCESS_KEY_ID: undefined,
+      S3_SECRET_ACCESS_KEY: undefined,
+      DOCMIND_STORAGE: undefined,
+      DOCMIND_FS_FALLBACK: undefined,
+      BILLING_ENTITLEMENTS_FAIL_OPEN: undefined,
     },
     async () => {
       const issues = validateProductionEnv().filter((i) => i.level === "error");
@@ -202,111 +228,165 @@ async function checkVercelEnvContract(): Promise<string> {
         `attendu ≥10 erreurs env prod, got ${issues.length}`,
       );
     },
-  ).then(() => {
-    const present = [
-      "DATABASE_URL",
-      "REDIS_URL",
-      "S3_BUCKET",
-      "STRIPE_SECRET_KEY",
-      "STRIPE_WEBHOOK_SECRET",
-      "NEXT_PUBLIC_SUPABASE_URL",
-      "SUPABASE_SERVICE_ROLE_KEY",
-    ].filter((k) => hasEnv(k));
-    if (present.length === 0) {
-      return `contrat env OK (validateProductionEnv). Infra réelle absente: ${present.length}/7 clés critiques présentes.`;
-    }
-    return `contrat env OK. Clés critiques présentes: ${present.join(", ")}`;
-  });
+  );
+
+  // 2) Inventaire réel après loadEnvFiles (pas de faux 0/7)
+  const critical = [
+    "DATABASE_URL",
+    "REDIS_URL",
+    "S3_BUCKET",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+  ] as const;
+  const presence = envPresence([...critical]);
+  const present = critical.filter((k) => presence[k] === "SET");
+  const absent = critical.filter((k) => presence[k] === "ABSENT");
+
+  // 3) SKIP ne contourne pas en déployé
+  await withEnv(
+    {
+      NEXT_PUBLIC_APP_ENV: "production",
+      DOCMIND_SKIP_ENV_ASSERT: "1",
+      DOCMIND_STORAGE: "fs",
+      DOCMIND_FS_FALLBACK: "1",
+      DATABASE_URL: undefined,
+      REDIS_URL: undefined,
+    },
+    async () => {
+      const { assertProductionEnvOrThrow } = await import(
+        "../src/lib/env-validate"
+      );
+      assert.throws(
+        () => assertProductionEnvOrThrow(),
+        /Configuration invalide/,
+        "SKIP ne doit pas bypass en production",
+      );
+    },
+  );
+
+  return `contrat env OK. Critiques SET=${present.length}/7 [${present.join(", ") || "—"}] ABSENT=[${absent.join(", ") || "—"}]`;
 }
 
 async function checkRgpdWipeFs(): Promise<string> {
-  const userId = `gate-rgpd-${Date.now()}`;
-  resetUserWorkspaceCache();
-  await ensureUserWorkspace(userId);
+  return withFsMode(async () => {
+    const userId = `gate-rgpd-${Date.now()}`;
+    resetUserWorkspaceCache();
+    await ensureUserWorkspace(userId);
 
-  await trackAnalyticsEvent({
-    name: "analysis.completed",
-    userId,
-    meta: { source: "gate-rgpd" },
-  });
-  await createFeedback({
-    userId,
-    email: "gate@example.com",
-    category: "bug",
-    message: "gate rgpd feedback message long",
-  });
-  await createErrorReport({
-    userId,
-    email: "gate@example.com",
-    kind: "bug",
-    message: "gate rgpd error report message",
-  });
-  await appendMonitoringEvent({
-    name: "analysis.ok",
-    userId,
-    meta: { source: "gate-rgpd" },
-  });
+    await trackAnalyticsEvent({
+      name: "analysis.completed",
+      userId,
+      meta: { source: "gate-rgpd" },
+    });
+    await createFeedback({
+      userId,
+      email: "gate@example.com",
+      category: "bug",
+      message: "gate rgpd feedback message long",
+    });
+    await createErrorReport({
+      userId,
+      email: "gate@example.com",
+      kind: "bug",
+      message: "gate rgpd error report message",
+    });
+    await appendMonitoringEvent({
+      name: "analysis.ok",
+      userId,
+      meta: { source: "gate-rgpd" },
+    });
 
-  // mémoire : dual-write sans history → no-op ; créer un fichier mémoire faux via write
-  const memDir = path.join(userDataDir(userId), "memory", "documents");
-  await mkdir(memDir, { recursive: true });
-  await writeFile(
-    path.join(memDir, "doc-gate.json"),
-    JSON.stringify({ userId, documentId: "doc-gate" }),
-    "utf8",
-  );
-
-  const uploads = userUploadsDir(userId);
-  await mkdir(uploads, { recursive: true });
-  await writeFile(path.join(uploads, "doc-gate.pdf"), "%PDF-1.4 gate", "utf8");
-
-  await withEnv(
-    {
-      DOCMIND_STORAGE: "fs",
-      STRIPE_SECRET_KEY: undefined,
-      STRIPE_PRICE_PREMIUM: undefined,
-    },
-    async () => {
-      await wipeUserLocalData(userId);
-    },
-  );
-
-  // Workspace user
-  await assert.rejects(() => access(userDataDir(userId)));
-  await assert.rejects(() => access(userUploadsDir(userId)));
-
-  const feedback = (await listFeedback(500)).filter((e) =>
-    e.message.includes("gate rgpd feedback"),
-  );
-  const reports = (await listErrorReports(500)).filter((e) =>
-    e.message.includes("gate rgpd error"),
-  );
-  assert.ok(feedback.every((e) => e.userId === null && e.email === null));
-  assert.ok(reports.every((e) => e.userId === null && e.email === null));
-  assert.equal(
-    (await listAppEvents(500)).filter((e) => e.userId === userId).length,
-    0,
-  );
-
-  const analytics = JSON.parse(
-    await readFile(PRODUCT_ANALYTICS_FILE, "utf8"),
-  ) as { events: Array<{ userId: string | null; meta?: { source?: string } }> };
-  assert.ok(
-    analytics.events
-      .filter((e) => e.meta?.source === "gate-rgpd")
-      .every((e) => e.userId === null),
-  );
-
-  if (infraPersistentReady()) {
-    throw new Error(
-      "BLOCKED: infra persistent détectée — étendre ce check avec requêtes PG/S3/Redis (non branché dans ce run FS).",
+    const memDir = path.join(userDataDir(userId), "memory", "documents");
+    await mkdir(memDir, { recursive: true });
+    await writeFile(
+      path.join(memDir, "doc-gate.json"),
+      JSON.stringify({ userId, documentId: "doc-gate" }),
+      "utf8",
     );
-  }
 
-  return "FS wipe: user data/uploads absents ; analytics/feedback/reports/events anonymisés. PG/S3/Redis: non testés (env absente).";
+    const uploads = userUploadsDir(userId);
+    await mkdir(uploads, { recursive: true });
+    await writeFile(path.join(uploads, "doc-gate.pdf"), "%PDF-1.4 gate", "utf8");
+
+    await withEnv(
+      {
+        STRIPE_SECRET_KEY: undefined,
+        STRIPE_PRICE_PREMIUM: undefined,
+      },
+      async () => {
+        await wipeUserLocalData(userId);
+      },
+    );
+
+    await assert.rejects(() => access(userDataDir(userId)));
+    await assert.rejects(() => access(userUploadsDir(userId)));
+
+    const feedback = (await listFeedback(500)).filter((e) =>
+      e.message.includes("gate rgpd feedback"),
+    );
+    const reports = (await listErrorReports(500)).filter((e) =>
+      e.message.includes("gate rgpd error"),
+    );
+    assert.ok(feedback.every((e) => e.userId === null && e.email === null));
+    assert.ok(reports.every((e) => e.userId === null && e.email === null));
+    assert.equal(
+      (await listAppEvents(500)).filter((e) => e.userId === userId).length,
+      0,
+    );
+
+    const analytics = JSON.parse(
+      await readFile(PRODUCT_ANALYTICS_FILE, "utf8"),
+    ) as {
+      events: Array<{ userId: string | null; meta?: { source?: string } }>;
+    };
+    assert.ok(
+      analytics.events
+        .filter((e) => e.meta?.source === "gate-rgpd")
+        .every((e) => e.userId === null),
+    );
+
+    const parts = [
+      "FS wipe: user data/uploads absents",
+      "analytics/feedback/reports/events anonymisés",
+    ];
+
+    if (infraPersistentReady() && hasEnv("REDIS_URL")) {
+      try {
+        const { query } = await import("../src/lib/db/pool");
+        const counts = await query<{ c: string }>(
+          `select (
+             (select count(*) from public.app_history where user_id = $1) +
+             (select count(*) from public.app_documents where user_id = $1) +
+             (select count(*) from public.app_user_files where user_id = $1) +
+             (select count(*) from public.app_storage_cleanup_jobs where user_id = $1)
+           )::text as c`,
+          [userId],
+        );
+        assert.equal(counts.rows[0]?.c, "0", "résidus PG après wipe FS-user");
+        parts.push("PG tables user=0 (vérifié)");
+      } catch (error) {
+        if (isTlsInfraError(error)) {
+          parts.push(
+            "PG verify non exécuté (TLS self-signed — voir MIGRATE / PG_SSL_REJECT_UNAUTHORIZED=0)",
+          );
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      parts.push(
+        "PG/S3 wipe bout-en-bout: non exécuté (infra incomplete — voir MIGRATE)",
+      );
+    }
+
+    return parts.join(" ; ");
+  });
 }
 
 async function checkStripeOutOfOrder(): Promise<string> {
+  return withFsMode(async () => {
   const userId = `gate-stripe-${Date.now()}`;
   resetUserWorkspaceCache();
   await ensureUserWorkspace(userId);
@@ -314,7 +394,6 @@ async function checkStripeOutOfOrder(): Promise<string> {
 
   await withEnv(
     {
-      DOCMIND_STORAGE: "fs",
       STRIPE_SECRET_KEY: undefined,
       STRIPE_PRICE_PREMIUM: undefined,
     },
@@ -382,10 +461,12 @@ async function checkStripeOutOfOrder(): Promise<string> {
   await rm(userDataDir(userId), { recursive: true, force: true }).catch(
     () => undefined,
   );
-  return "Séquence désordonnée checkout/renew/refund/cancel/invoice/deleted → état final free/canceled";
+  return "Séquence désordonnée checkout/renew/refund/cancel/invoice/deleted → état final free/canceled (FS sim)";
+  });
 }
 
 async function checkMultiInstanceLocal(): Promise<string> {
+  return withFsMode(async () => {
   const userId = `gate-multi-${Date.now()}`;
   resetUserWorkspaceCache();
   await ensureUserWorkspace(userId);
@@ -393,7 +474,6 @@ async function checkMultiInstanceLocal(): Promise<string> {
   // Quota concurrent FS
   await withEnv(
     {
-      DOCMIND_STORAGE: "fs",
       BILLING_ENTITLEMENTS_FAIL_OPEN: "0",
       QUOTA_FREE_ANALYZE: "5",
       STRIPE_SECRET_KEY: undefined,
@@ -418,28 +498,24 @@ async function checkMultiInstanceLocal(): Promise<string> {
   );
 
   // Webhooks simultanés même user (mutex billing)
-  await withEnv({ DOCMIND_STORAGE: "fs" }, async () => {
-    const subId = "sub_multi";
-    await Promise.all([
-      applyStripeSubscription(
-        userId,
-        makeStripeSub({ id: subId, status: "active", planMeta: "premium" }),
-        { id: "evt_a", type: "customer.subscription.updated", created: 100 },
-      ),
-      applyStripeSubscription(
-        userId,
-        makeStripeSub({ id: subId, status: "canceled", planMeta: "premium" }),
-        { id: "evt_b", type: "customer.subscription.deleted", created: 200 },
-      ),
-    ]);
-    const sub = await getUserSubscription(userId);
-    // L'event le plus récent (200) doit gagner s'il est appliqué en dernier
-    // ou si 200 > lastWebhookAt après 100
-    assert.ok(
-      sub.status === "canceled" || sub.plan === "free",
-      JSON.stringify(sub),
-    );
-  });
+  const subId = "sub_multi";
+  await Promise.all([
+    applyStripeSubscription(
+      userId,
+      makeStripeSub({ id: subId, status: "active", planMeta: "premium" }),
+      { id: "evt_a", type: "customer.subscription.updated", created: 100 },
+    ),
+    applyStripeSubscription(
+      userId,
+      makeStripeSub({ id: subId, status: "canceled", planMeta: "premium" }),
+      { id: "evt_b", type: "customer.subscription.deleted", created: 200 },
+    ),
+  ]);
+  const sub = await getUserSubscription(userId);
+  assert.ok(
+    sub.status === "canceled" || sub.plan === "free",
+    JSON.stringify(sub),
+  );
 
   // Lock concurrent (process-local queue)
   let concurrent = 0;
@@ -462,12 +538,14 @@ async function checkMultiInstanceLocal(): Promise<string> {
   );
 
   if (!hasEnv("REDIS_URL")) {
-    return "Quota+webhook+lock process-local OK. BLOCKED partiel: multi-instance Redis réel absent.";
+    return "Quota+webhook+lock process-local OK. Redis URL absente — lease multi-instance non smoke.";
   }
-  return "Quota concurrent + webhooks + keyed-lock OK (Redis URL présente — lease multi-instance non smoke ici).";
+  return "Quota concurrent + webhooks + keyed-lock OK (FS). Redis URL présente — lease multi-instance: voir test:distributed-locks.";
+  });
 }
 
 async function checkCrashRecoverySim(): Promise<string> {
+  return withFsMode(async () => {
   const userId = `gate-crash-${Date.now()}`;
   resetUserWorkspaceCache();
   await ensureUserWorkspace(userId);
@@ -536,7 +614,6 @@ async function checkCrashRecoverySim(): Promise<string> {
   // dirs encore là — reprise wipe
   await withEnv(
     {
-      DOCMIND_STORAGE: "fs",
       STRIPE_SECRET_KEY: undefined,
       STRIPE_PRICE_PREMIUM: undefined,
     },
@@ -547,18 +624,115 @@ async function checkCrashRecoverySim(): Promise<string> {
   await assert.rejects(() => access(userDataDir(userId)));
 
   return "Crash sim: dual-write sans history no-op ; upload partiel détectable ; reprise wipe compte OK. Kill process OS réel non orchestré.";
+  });
 }
 
 async function checkMigrationBlockedOrRun(): Promise<string> {
-  if (!infraPersistentReady() || !hasEnv("REDIS_URL")) {
+  const missing: string[] = [];
+  if (!hasEnv("DATABASE_URL")) missing.push("DATABASE_URL");
+  if (!hasEnv("REDIS_URL")) missing.push("REDIS_URL");
+  if (!hasEnv("S3_BUCKET")) missing.push("S3_BUCKET");
+  if (!hasEnv("S3_ACCESS_KEY_ID")) missing.push("S3_ACCESS_KEY_ID");
+  if (!hasEnv("S3_SECRET_ACCESS_KEY")) missing.push("S3_SECRET_ACCESS_KEY");
+  if (
+    !hasEnv("S3_ENDPOINT") &&
+    !hasEnv("AWS_REGION") &&
+    !hasEnv("S3_REGION")
+  ) {
+    missing.push("S3_ENDPOINT|AWS_REGION|S3_REGION");
+  }
+  if (missing.length > 0) {
     throw new Error(
-      "BLOCKED: migrate FS→persistent→rollback exige DATABASE_URL + S3_* + REDIS_URL. Aucun .env local.",
+      `BLOCKED: migrate FS→persistent exige ${missing.join(", ")}. Fichiers .env chargés: voir log démarrage.`,
     );
   }
-  // Si un jour l'infra est là — enchaîner migrate:persistent + validate
-  execSync("npm run migrate:persistent", { cwd: ROOT, stdio: "pipe" });
-  execSync("npm run validate:persistent", { cwd: ROOT, stdio: "pipe" });
-  return "migrate:persistent + validate:persistent OK";
+
+  // Migration contrôlée d’UN utilisateur synthétique (pas tout data/users)
+  const userId = `gate-migrate-${Date.now()}`;
+  const userDir = path.join(ROOT, "data", "users", userId);
+  const uploadsDir = path.join(ROOT, "uploads", userId);
+  await mkdir(path.join(userDir, "history"), { recursive: true });
+  await mkdir(uploadsDir, { recursive: true });
+  await writeFile(
+    path.join(userDir, "subscription.json"),
+    JSON.stringify({
+      userId,
+      plan: "free",
+      status: "canceled",
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      updatedAt: new Date().toISOString(),
+    }),
+    "utf8",
+  );
+  const docId = "gate-doc-1";
+  const pdfBytes = Buffer.from(`%PDF-1.4\n%gate-migrate-${userId}\n`);
+  await writeFile(path.join(uploadsDir, `${docId}.pdf`), pdfBytes);
+
+  try {
+    await withEnv(
+      {
+        DOCMIND_STORAGE: "persistent",
+        DOCMIND_FS_FALLBACK: "0",
+      },
+      async () => {
+        const { putPdfObject } = await import("../src/lib/storage/s3");
+        const { query } = await import("../src/lib/db/pool");
+        const { key } = await putPdfObject(userId, docId, pdfBytes);
+        await query(
+          `insert into public.app_documents (document_id, user_id, storage_key, size_bytes)
+           values ($1, $2, $3, $4)
+           on conflict (user_id, document_id) do update set
+             storage_key = excluded.storage_key,
+             size_bytes = excluded.size_bytes`,
+          [docId, userId, key, pdfBytes.byteLength],
+        );
+        await query(
+          `insert into public.app_subscriptions
+             (user_id, data, stripe_customer_id, stripe_subscription_id, updated_at)
+           values ($1, $2::jsonb, null, null, timezone('utc', now()))
+           on conflict (user_id) do update set data = excluded.data`,
+          [userId, JSON.stringify({ userId, plan: "free", status: "canceled" })],
+        );
+
+        const docs = await query<{ c: string }>(
+          `select count(*)::text as c from public.app_documents where user_id = $1`,
+          [userId],
+        );
+        assert.equal(docs.rows[0]?.c, "1");
+
+        await wipeUserLocalData(userId);
+
+        const after = await query<{ c: string }>(
+          `select count(*)::text as c from public.app_documents where user_id = $1`,
+          [userId],
+        );
+        assert.equal(after.rows[0]?.c, "0", "doc PG résiduel après wipe");
+      },
+    );
+
+    execSync("npm run validate:persistent", {
+      cwd: ROOT,
+      stdio: "pipe",
+      env: {
+        ...process.env,
+        DOCMIND_STORAGE: "persistent",
+        DOCMIND_FS_FALLBACK: "0",
+      },
+    });
+  } catch (error) {
+    if (isTlsInfraError(error)) {
+      throw new Error(
+        "BLOCKED: PostgreSQL TLS (self-signed certificate). Ajouter PG_SSL_REJECT_UNAUTHORIZED=0 dans .env.local pour staging local Supabase, ou fournir une CA valide. (DATABASE_URL/S3/REDIS sont présents.)",
+      );
+    }
+    throw error;
+  } finally {
+    await rm(userDir, { recursive: true, force: true }).catch(() => undefined);
+    await rm(uploadsDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+
+  return "migrate contrôlé (user synthétique) PG+S3 + wipe + validate:persistent OK";
 }
 
 async function checkBackupRestorePdfs(): Promise<string> {
@@ -598,7 +772,7 @@ async function checkBackupRestorePdfs(): Promise<string> {
   );
 
   if (infraPersistentReady()) {
-    return "FS backup/restore PDF hash OK. BLOCKED partiel: backup PG/S3 non couvert par createDailyBackup.";
+    return "FS backup/restore PDF hash OK (dev). Production: createPersistentBackup / npm run backup:run en persistent.";
   }
   return `FS backup→delete→restore PDF OK (sha256=${expectedHash.slice(0, 12)}…)`;
 }
@@ -612,11 +786,11 @@ async function checkLoadModel(): Promise<string> {
     out.includes("100") && out.includes("500") && out.includes("1000"),
     "rapport load incomplet",
   );
-  return "load:test model 100/500/1000 exécuté (voir reports/)";
+  // Explicit: ce n’est PAS une preuve live Ollama/GPU
+  return "LOAD model (simulation) 100/500/1000 OK — PAS une preuve perf live (voir measure:ollama)";
 }
 
 async function checkE2E(): Promise<string> {
-  // Ollama ?
   let ollamaUp = false;
   try {
     const res = await fetch(
@@ -628,9 +802,12 @@ async function checkE2E(): Promise<string> {
     ollamaUp = false;
   }
 
+  // Force isolation FS même si .env.local a persistent (playwright.config le renforce)
   const env = {
     ...process.env,
     E2E_REQUIRE_OLLAMA: ollamaUp ? "1" : "0",
+    DOCMIND_STORAGE: "fs",
+    DOCMIND_DIST_DIR: ".next-e2e",
     CI: undefined,
   };
 
@@ -646,16 +823,16 @@ async function checkE2E(): Promise<string> {
     throw new Error(`Playwright exit ${result.status}\n${combined.slice(-2000)}`);
   }
 
-  const skippedAi =
-    combined.includes("analyse document + cache hit") &&
-    combined.includes("skipped");
-  if (!ollamaUp && !skippedAi) {
-    // may still skip with different formatting
+  const skipCount = (combined.match(/\d+ skipped/gi) || []).length;
+  if (ollamaUp && /skipped/i.test(combined) && /Ollama/i.test(combined)) {
+    throw new Error(
+      "FAIL: skips Ollama alors qu’Ollama est UP — ne pas masquer d’échecs",
+    );
   }
 
   return ollamaUp
-    ? "E2E OK avec Ollama requis (aucun skip IA attendu)"
-    : "E2E OK ; skips IA uniquement (Ollama absent) — E2E_REQUIRE_OLLAMA=0";
+    ? `E2E OK (Ollama UP, isolation FS) — skipMarkers=${skipCount}`
+    : "E2E OK ; skips IA uniquement autorisés (Ollama absent) — E2E_REQUIRE_OLLAMA=0";
 }
 
 async function checkColdStartContract(): Promise<string> {
@@ -685,7 +862,11 @@ async function writeReport(): Promise<string> {
 }
 
 async function main() {
+  const loaded = loadEnvFiles(ROOT, { override: false });
   console.log("=== DocMind production gate ===\n");
+  console.log(
+    `Env files: ${loaded.files.length ? loaded.files.join(", ") : "(aucun)"} — ${loaded.keysLoaded} clé(s) chargée(s) (sans override process).\n`,
+  );
 
   await runCheck("BUILD", "npm run build (Vercel complet)", checkBuildAlreadyOk);
   await runCheck("ENV", "Contrat variables Vercel/production", checkVercelEnvContract);
@@ -710,9 +891,11 @@ async function main() {
 
   if (fail > 0) process.exit(1);
   if (blocked > 0) {
-    console.log(
-      "\nGate INCOMPLETE: des checks BLOCKED exigent .env (DATABASE_URL, S3_*, REDIS_URL, Stripe, Supabase).",
-    );
+    const reasons = results
+      .filter((r) => r.status === "BLOCKED")
+      .map((r) => `${r.id}: ${r.detail}`)
+      .join("\n  - ");
+    console.log(`\nGate INCOMPLETE (BLOCKED):\n  - ${reasons}`);
     process.exit(2);
   }
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { memo, useEffect, useState } from "react";
 
+import { AnalysisPhaseBadge } from "@/components/documents/analysis-phase-badge";
 import { FileIcon, StarFilledIcon, StarIcon, TrashIcon } from "@/components/ui/icons";
 import { formatDateTime, getRiskLevelLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -91,13 +92,14 @@ function DocumentRowInner({
               className="h-7 w-full rounded border border-[var(--accent)] bg-[var(--background)] px-2 text-sm outline-none"
             />
           ) : (
-            <span className="flex items-center gap-1.5">
+            <span className="flex flex-wrap items-center gap-1.5">
               {item.favorite ? (
                 <StarFilledIcon className="h-3.5 w-3.5 shrink-0 text-[var(--warning)]" />
               ) : null}
               <span className="truncate text-sm font-medium text-[var(--foreground)]">
                 {item.title}
               </span>
+              <AnalysisPhaseBadge phase={item.analysisPhase} />
             </span>
           )}
           <span className="mt-0.5 block truncate text-[11px] text-[var(--muted)]">

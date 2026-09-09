@@ -53,9 +53,9 @@ export function quotaExceededMessage(
 
   if (metric === "analyze") {
     if (status.plan === "free") {
-      return `Vous avez utilisé vos ${item.limit} analyses du mois. Passez à Basique, Pro ou supérieur pour continuer.`;
+      return `Vous avez utilisé vos ${item.limit} analyses du mois (courriers inclus). Passez à Basique, Pro ou supérieur pour continuer.`;
     }
-    return `Quota ${planName} atteint pour ce mois (${item.limit} analyses). Passez à une offre supérieure ou réessayez le mois prochain.`;
+    return `Quota ${planName} atteint pour ce mois (${item.limit} analyses et courriers). Passez à une offre supérieure ou réessayez le mois prochain.`;
   }
 
   if (metric === "search") {

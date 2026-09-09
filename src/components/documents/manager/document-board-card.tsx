@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { AnalysisPhaseBadge } from "@/components/documents/analysis-phase-badge";
 import { FileIcon, StarFilledIcon, StarIcon } from "@/components/ui/icons";
 import { formatDateTime, getRiskLevelLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";

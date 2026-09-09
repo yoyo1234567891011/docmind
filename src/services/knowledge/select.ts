@@ -165,7 +165,6 @@ export async function selectKnowledgeForDocument(input: {
 
   let promptBlock = [
     "<<<CONNAISSANCES_JURIDIQUES>>>",
-    "Règles spécialisées à consulter AVANT d'analyser. Ne pas inventer hors document ; utiliser ces règles pour qualifier risques et points de contrôle.",
     ...blocks,
     "<<<FIN_CONNAISSANCES>>>",
   ].join("\n\n");

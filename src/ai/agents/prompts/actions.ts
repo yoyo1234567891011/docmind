@@ -1,5 +1,6 @@
 import type { RiskFinding } from "@/types";
 import type { ExtractedFacts } from "@/ai/agents/types";
+import { truncateAtTextBoundary } from "@/ai/post-processing/display-cleanup";
 
 export function buildActionsAgentPrompt(input: {
   facts: ExtractedFacts;
@@ -18,7 +19,7 @@ export function buildActionsAgentPrompt(input: {
       description: f.description,
       severity: f.severity,
       related_to: f.related_to,
-      excerpt: f.excerpt.slice(0, 120),
+      excerpt: truncateAtTextBoundary(f.excerpt || "", 120),
     })),
   });
 
@@ -26,11 +27,12 @@ export function buildActionsAgentPrompt(input: {
     "Agent actions recommandées. JSON uniquement.",
     "Propose 1 à 5 diligences concrètes liées aux risques ou échéances fournis.",
     "Chaque action doit mentionner clairement le risque ou l'échéance concerné.",
-    "Pas d'action générique sans lien. N'invente pas de dates absentes.",
+    "Pas d'action générique sans lien (« vérifier le document », « lire attentivement »). N'invente pas de dates, montants ou délais absents du contexte/DOCUMENT.",
+    "Chaque action doit être une phrase complète (jamais coupée en milieu de mot).",
     `Contexte: ${ctx}`,
     `Schéma: ${schema}`,
     "<<<DOCUMENT>>>",
-    input.documentText.trim().slice(0, 4000),
+    truncateAtTextBoundary(input.documentText.trim(), 4000),
     "<<<FIN>>>",
   ].join("\n");
 }

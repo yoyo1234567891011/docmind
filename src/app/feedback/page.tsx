@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { FeedbackForm } from "@/components/beta/feedback-form";
 
 export const metadata: Metadata = {
-  title: "Feedback",
+  title: "Avis",
 };
 
 export default function FeedbackPage() {

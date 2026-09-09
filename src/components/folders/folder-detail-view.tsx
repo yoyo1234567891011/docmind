@@ -176,11 +176,11 @@ export function FolderDetailView({ folderId }: FolderDetailViewProps) {
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex flex-col gap-3 md:flex-row md:items-end">
                   <FolderSelect
                     historyId={item.id}
                     value={item.folderId}
-                    className="min-w-[180px]"
+                    className="w-full min-w-0 md:min-w-[180px] md:w-auto"
                     size="sm"
                     onMoved={() => {
                       void load();

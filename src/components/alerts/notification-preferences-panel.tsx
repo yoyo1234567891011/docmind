@@ -132,7 +132,7 @@ export function NotificationPreferencesPanel() {
         <p className="text-xs font-medium uppercase tracking-[0.1em] text-[var(--muted)]">
           Types d’alertes
         </p>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 md:grid-cols-2">
           {KIND_ORDER.map((kind) => (
             <label
               key={kind}

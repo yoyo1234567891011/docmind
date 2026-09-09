@@ -20,8 +20,8 @@ export function buildRisksAgentPrompt(input: {
         mitigation: "",
         excerpt: "",
         confidence: 0.8,
-        severity: "modere",
-        criterion_id: "renouvellement_tacite",
+        severity: "eleve",
+        criterion_id: "penalites",
         related_to: "",
       },
     ],
@@ -29,6 +29,18 @@ export function buildRisksAgentPrompt(input: {
   });
 
   const ids = RISK_CRITERION_IDS.join(", ");
+  const category = input.classification.category;
+  const priorityLine =
+    category === "bail"
+      ? "PRIORITÉ bail: loyer, charges, dépôt de garantie, durée, tacite reconduction (si écrite), préavis, clause résolutoire, honoraires, révision IRL — pas un délai générique seul."
+      : category === "assurance"
+        ? "PRIORITÉ assurance: tacite reconduction (si écrite), franchise, cotisation, carence, exclusions, frais/pénalités de résiliation."
+        : category === "impots"
+          ? "PRIORITÉ impôts/taxe: montant dû ou à prélever, date de prélèvement / limite de paiement / opposition, majoration — jamais totaux nationaux."
+          : /mise\s+en\s+demeure|recouvrement/i.test(input.legal.document_type || "")
+            ? "PRIORITÉ: frais/pénalités/montants réclamés, délais courts, huissier/poursuites, obligations du destinataire."
+            : "PRIORITÉ: montants et engagements concrets du destinataire, délais actionnables, clauses de reconduction/résiliation écrites — éviter les généralités.";
+
   const context = JSON.stringify({
     title: input.legal.title,
     summary: input.legal.summary,
@@ -40,10 +52,13 @@ export function buildRisksAgentPrompt(input: {
   return [
     "Agent évaluation des risques juridiques. JSON uniquement.",
     "Consulte les CONNAISSANCES_JURIDIQUES (risques fréquents, pièges, critères) avant de conclure.",
-    "RÈGLE: jamais de risque sans excerpt recopié mot à mot du DOCUMENT.",
+    "FACTUEL: jamais de risque sans excerpt recopié mot à mot du DOCUMENT. N’invente ni clause, ni montant, ni délai.",
     "Chaque risque DOIT avoir: why, implication, consequence, mitigation (phrases courtes, concrètes).",
     "why = pourquoi il existe. implication = ce qu'il implique. consequence = ce qui peut arriver. mitigation = comment le réduire.",
-    "Pas de risque basé sur un seul mot-clé. Si doute → confidence < 0.55.",
+    priorityLine,
+    "INTERDIT d'attribuer renouvellement_tacite sans excerpt contenant reconduction/renouvellement tacite.",
+    "INTERDIT les titres vagues (« obligation de payer », « délai 30 jours ») s’il existe un fait chiffré ou daté dans le DOCUMENT.",
+    "Pas de risque basé sur un seul mot-clé. Si doute → confidence < 0.55. Omettre plutôt qu’inventer.",
     `criterion_id parmi: ${ids}. severity: faible|modere|eleve|critique.`,
     "risks[] = libellés courts. Max 6 findings.",
     `Contexte: ${context}`,

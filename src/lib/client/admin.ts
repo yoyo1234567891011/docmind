@@ -8,6 +8,8 @@ import type {
   AdminRuntimeConfig,
 } from "@/types/admin";
 import type { AnalyticsProductSummary } from "@/types/analytics";
+import type { FeedbackEntry } from "@/types/beta";
+import type { ErrorReportEntry } from "@/types/beta";
 import type { AdminPlatformOverview } from "@/types/admin-platform";
 import type { ProductionDashboard } from "@/types/production";
 import type { HistoryRecord } from "@/types";
@@ -36,6 +38,8 @@ export interface AdminDashboardData {
   frequentErrors: AdminFrequentError[];
   recentEvents: AdminMetricEvent[];
   productAnalytics?: AnalyticsProductSummary;
+  feedback?: FeedbackEntry[];
+  errorReports?: ErrorReportEntry[];
   llmRuntime?: {
     cloudEnabled: boolean;
     provider: string;

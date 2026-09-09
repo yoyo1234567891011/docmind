@@ -6,6 +6,8 @@
 import { spawn, execSync } from "child_process";
 import { createServer } from "net";
 
+import { buildLocalDevEnv } from "./local-dev-env.mjs";
+
 const PORT = Number(process.env.PORT || 3000);
 const OLLAMA_URL = (
   process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434"
@@ -137,16 +139,18 @@ async function main() {
     process.platform === "win32"
       ? "node_modules\\next\\dist\\bin\\next"
       : "node_modules/next/dist/bin/next";
+  const devEnv = buildLocalDevEnv({
+    ...process.env,
+    PORT: String(PORT),
+    OLLAMA_BASE_URL: OLLAMA_URL,
+  });
+
   const next = spawn(
     process.execPath,
     [nextBin, "dev", "--turbopack", "-H", "0.0.0.0", "-p", String(PORT)],
     {
       stdio: "inherit",
-      env: {
-        ...process.env,
-        PORT: String(PORT),
-        OLLAMA_BASE_URL: OLLAMA_URL,
-      },
+      env: devEnv,
       shell: false,
       windowsHide: true,
     },

@@ -10,7 +10,7 @@ const csp = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com",
-  "frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
+  "frame-src 'self' blob: https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self' https://checkout.stripe.com",
@@ -18,6 +18,8 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // Isoler build (.next-build) / e2e (.next-e2e) / dev (.next) pour éviter PageNotFoundError
+  distDir: process.env.DOCMIND_DIST_DIR?.trim() || ".next",
   serverExternalPackages: ["unpdf"],
   turbopack: {
     root: path.join(__dirname),

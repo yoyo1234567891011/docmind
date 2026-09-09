@@ -3,7 +3,7 @@
  * Valeurs surchargées par variables d'environnement — voir .env.example
  */
 
-export type AppDeployEnv = "development" | "beta" | "production";
+export type AppDeployEnv = "development" | "beta" | "staging" | "production";
 
 function readBool(value: string | undefined, fallback = false): boolean {
   if (value === undefined || value === "") return fallback;
@@ -15,7 +15,12 @@ function resolveDeployEnv(): AppDeployEnv {
   const raw = (process.env.NEXT_PUBLIC_APP_ENV || process.env.APP_ENV || "")
     .trim()
     .toLowerCase();
-  if (raw === "beta" || raw === "production" || raw === "development") {
+  if (
+    raw === "beta" ||
+    raw === "production" ||
+    raw === "development" ||
+    raw === "staging"
+  ) {
     return raw;
   }
   return process.env.NODE_ENV === "production" ? "production" : "development";

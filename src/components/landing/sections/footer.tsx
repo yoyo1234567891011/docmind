@@ -16,7 +16,7 @@ export function LandingFooter() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-10 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
                 Produit

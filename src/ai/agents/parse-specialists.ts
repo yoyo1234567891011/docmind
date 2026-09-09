@@ -1,4 +1,5 @@
 import { extractDocumentEntities, sanitizeDeadlines } from "@/ai/extraction";
+import { cleanActionsForDisplay } from "@/ai/post-processing/display-cleanup";
 import { mergeUniqueStrings } from "@/lib/array";
 import { asString, asStringArray } from "@/ai/validation/json";
 import {
@@ -186,5 +187,5 @@ export function buildDeterministicActions(input: {
       actions.push(`Vérifier et traiter le risque : ${label}`);
     }
   }
-  return actions.slice(0, 6);
+  return cleanActionsForDisplay(actions).slice(0, 6);
 }

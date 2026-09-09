@@ -22,7 +22,7 @@ export default function MentionsLegalesPage() {
           ← Accueil
         </Link>
       </p>
-      <h1 className="font-display text-4xl tracking-tight">Mentions légales</h1>
+      <h1 className="font-display text-3xl tracking-tight md:text-4xl">Mentions légales</h1>
       <p className="text-sm text-[var(--muted)]">
         Dernière mise à jour : 30 juillet 2026
       </p>

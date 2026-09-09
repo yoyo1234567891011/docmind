@@ -85,8 +85,8 @@ Toggles : `OPT_ANALYSIS_CACHE`, `OPT_CONDITIONAL_JSON_RETRY`, `OPT_OLLAMA_KEEP_A
 
 | Situation | Comportement attendu |
 |-----------|----------------------|
-| Ollama down pendant P2 | Erreur / salvage ; preview progressive **conservé** si déjà sauvé |
-| Kill process mid-`after()` | Historique peut rester `preview` (pas de watchdog auto) |
+| Ollama down / timeout P2 | Job `failed` + history `failed` (pas de fausse complétion LLM) ; preview P1 **conservé** |
+| Kill process mid-`after()` | Job peut rester `pending` / `processing` stale → **cron drain** reclaim après lease (voir [14 — Drain](./14-analysis-jobs-drain.md)) |
 | Analyse OK mais save history échoue | API peut renvoyer le résultat **sans** `historyId` — perte côté UI |
 | Cache hit | Latence faible ; `resultSource=cache` |
 

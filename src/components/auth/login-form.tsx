@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 import { AuthField } from "@/components/auth/auth-field";
 import { AuthShell } from "@/components/auth/auth-shell";
@@ -13,7 +13,6 @@ import { safeNextPath } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNextPath(
     searchParams.get("next"),
@@ -26,9 +25,9 @@ export function LoginForm() {
   const authUnavailable = searchParams.get("error") === "auth_unavailable";
   const [error, setError] = useState<string | null>(
     configError
-      ? "Supabase non configuré. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local."
+      ? "Supabase non configur?. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local."
       : authUnavailable
-        ? "Authentification temporairement indisponible. Ce n’est pas un problème de mot de passe — réessayez dans quelques minutes."
+        ? "Authentification temporairement indisponible. Ce n?est pas un probl?me de mot de passe ? r?essayez dans quelques minutes."
         : null,
   );
   const [loading, setLoading] = useState(false);
@@ -59,10 +58,11 @@ export function LoginForm() {
         source: "login_form",
       });
 
-      router.replace(next);
-      router.refresh();
+      const continueUrl = `/auth/continue?next=${encodeURIComponent(next)}`;
+      // Full page load so session cookies are sent to /auth/continue.
+      window.location.assign(continueUrl);
     } catch {
-      setError("Impossible de se connecter. Vérifiez la configuration Supabase.");
+      setError("Impossible de se connecter. V?rifiez la configuration Supabase.");
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ export function LoginForm() {
   return (
     <AuthShell
       title="Connexion"
-      subtitle="Accédez à vos analyses PDF."
+      subtitle="Acc?dez ? vos analyses PDF."
       footer={
         <>
           Pas encore de compte ?{" "}
@@ -107,7 +107,7 @@ export function LoginForm() {
             href="/auth/forgot-password"
             className="text-xs text-[var(--accent)] hover:underline"
           >
-            Mot de passe oublié ?
+            Mot de passe oubli? ?
           </Link>
         </div>
 
@@ -118,7 +118,7 @@ export function LoginForm() {
         ) : null}
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Connexion…" : "Se connecter"}
+          {loading ? "Connexion?" : "Se connecter"}
         </Button>
       </form>
     </AuthShell>

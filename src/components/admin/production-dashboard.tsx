@@ -111,7 +111,7 @@ function Section({
       <h3 className="font-display text-sm tracking-wide text-[var(--muted)] uppercase">
         {title}
       </h3>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">{children}</div>
     </section>
   );
 }
@@ -156,7 +156,7 @@ export function ProductionDashboardPanel() {
 
   if (loading && !data) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <Skeleton key={i} className="h-24 rounded-xl" />
         ))}

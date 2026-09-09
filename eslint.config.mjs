@@ -15,9 +15,15 @@ const eslintConfig = [
     ignores: [
       "node_modules/**",
       ".next/**",
+      ".next-*/**",
       "out/**",
       "build/**",
+      "coverage/**",
       "next-env.d.ts",
+      "scripts/**",
+      "e2e/**",
+      "chaos/**",
+      "reports/**",
     ],
   },
   // Fichiers .ts serveur : `usePersistentStorage` / `useRedisCache` ne sont pas des React Hooks.

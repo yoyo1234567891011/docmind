@@ -12,6 +12,7 @@ const MAINTENANCE_ALLOW_PREFIXES = [
   "/maintenance",
   "/api/health",
   "/api/stripe/webhook",
+  "/api/cron",
   "/auth/",
   "/_next/",
 ];

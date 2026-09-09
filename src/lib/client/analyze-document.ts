@@ -1,5 +1,9 @@
 import type { AnalyzeDocumentResult, ApiResponse } from "@/types";
 
+import {
+  abortSignalTimeout,
+  combineAbortSignals,
+} from "@/lib/client/abort-signal";
 import { ClientApiError } from "@/lib/client/api-error";
 import { csrfHeaders } from "@/lib/client/csrf";
 
@@ -22,9 +26,9 @@ export async function analyzeDocument(
   },
 ): Promise<AnalyzeDocumentResult> {
   const mode = options?.mode ?? "progressive";
-  const timeout = AbortSignal.timeout(ANALYZE_TIMEOUT_MS[mode]);
+  const timeout = abortSignalTimeout(ANALYZE_TIMEOUT_MS[mode]);
   const signal = options?.signal
-    ? AbortSignal.any([options.signal, timeout])
+    ? combineAbortSignals(options.signal, timeout)
     : timeout;
 
   let response: Response;

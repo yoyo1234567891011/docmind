@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
 
 import { Alert, Button } from "@/components/ui";
+import { StarFilledIcon, StarIcon } from "@/components/ui/icons";
 import { submitFeedback } from "@/lib/client/beta";
 import {
   FEEDBACK_CATEGORIES,
@@ -12,10 +13,13 @@ import {
   type FeedbackRating,
 } from "@/types/beta";
 
+const RATINGS = [1, 2, 3, 4, 5] as const;
+
 export function FeedbackForm() {
   const pathname = usePathname();
   const [category, setCategory] = useState<FeedbackCategory>("ux");
   const [rating, setRating] = useState<FeedbackRating | "">("");
+  const [hoverRating, setHoverRating] = useState<FeedbackRating | null>(null);
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">(
     "idle",
@@ -52,6 +56,8 @@ export function FeedbackForm() {
     );
   }
 
+  const displayRating = hoverRating ?? (rating === "" ? 0 : rating);
+
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="space-y-4 text-left">
       {error ? (
@@ -81,21 +87,38 @@ export function FeedbackForm() {
         <legend className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
           Note (optionnel)
         </legend>
-        <div className="flex flex-wrap gap-2">
-          {([1, 2, 3, 4, 5] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setRating(value)}
-              className={`h-10 w-10 rounded-lg border text-sm font-medium transition-colors ${
-                rating === value
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                  : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]"
-              }`}
-            >
-              {value}
-            </button>
-          ))}
+        <div
+          className="flex items-center gap-1"
+          onMouseLeave={() => setHoverRating(null)}
+        >
+          {RATINGS.map((value) => {
+            const filled = value <= displayRating;
+            return (
+              <button
+                key={value}
+                type="button"
+                aria-label={`${value} étoile${value > 1 ? "s" : ""}`}
+                aria-pressed={rating === value}
+                onMouseEnter={() => setHoverRating(value)}
+                onFocus={() => setHoverRating(value)}
+                onBlur={() => setHoverRating(null)}
+                onClick={() =>
+                  setRating((current) => (current === value ? "" : value))
+                }
+                className={`inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${
+                  filled
+                    ? "text-[var(--warning)]"
+                    : "text-[var(--muted)] hover:text-[var(--warning)]"
+                }`}
+              >
+                {filled ? (
+                  <StarFilledIcon className="h-6 w-6" />
+                ) : (
+                  <StarIcon className="h-6 w-6" />
+                )}
+              </button>
+            );
+          })}
         </div>
       </fieldset>
 
@@ -115,7 +138,7 @@ export function FeedbackForm() {
       </label>
 
       <Button type="submit" disabled={status === "loading"}>
-        {status === "loading" ? "Envoi…" : "Envoyer le feedback"}
+        {status === "loading" ? "Envoi…" : "Envoyer mon avis"}
       </Button>
     </form>
   );

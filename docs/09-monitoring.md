@@ -8,6 +8,8 @@
 | Admin → onglet **Monitoring** | Snapshot 24h + alertes + check manuel |
 | API | `GET/POST /api/admin/monitoring`, `GET /api/admin/production` |
 | CLI | `npm run monitor:check` |
+| CLI drain jobs | `npm run jobs:drain` (watchdog file d’analyse) |
+| Cron HTTP | `POST /api/cron/drain-analysis-jobs` + `Authorization: Bearer $CRON_SECRET` |
 | Health LB | `GET /api/health` (Ollama ; pas Redis/PG/S3 live) |
 
 ## Dashboard Production
@@ -53,11 +55,21 @@ Webhook optionnel : `MONITORING_WEBHOOK_URL` (POST JSON).
 ## Cron recommandé
 
 ```bash
-# toutes les 5–15 min
+# monitoring — toutes les 5–15 min
 cd /path/to/docmind && npm run monitor:check
+
+# file d’analyse — toutes les 1–2 min (pending + reclaim lease expirée)
+# Détail ops (prod, crash, idempotence) : docs/14-analysis-jobs-drain.md
+cd /path/to/docmind && npm run jobs:drain -- --max 3
+# ou via HTTP (Next démarré) :
+curl -X POST "$APP_URL/api/cron/drain-analysis-jobs" \
+  -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+  -d '{"maxJobs":3}'
 ```
 
-Exit codes : `0` OK · `2` alerte critique (`OLLAMA_DOWN` / `LOW_SUCCESS_RATE`).
+**Fréquence minimale beta drain : 1–2 min.** Sans ce cron, aucun trafic UI ⇒ jobs `pending` / lease expirée non traités.
+
+Exit codes monitor : `0` OK · `2` alerte critique (`OLLAMA_DOWN` / `LOW_SUCCESS_RATE`).
 
 ## Rate-limit metrics
 
