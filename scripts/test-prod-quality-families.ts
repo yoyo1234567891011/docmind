@@ -254,6 +254,20 @@ function runFamily(opts: {
       ),
       "fiscal implication hors contexte (matériel)",
     );
+    const sanctionsFindings = out.risk_findings.filter(
+      (f) => f.criterion_id === "sanctions",
+    );
+    assert.equal(
+      sanctionsFindings.length,
+      1,
+      `fiscal doublons/absence sanctions (${sanctionsFindings.length}): ${sanctionsFindings
+        .map((f) => f.description)
+        .join(" | ")}`,
+    );
+    assert.match(
+      sanctionsFindings[0]!.description,
+      /^Recouvrement\s+forc[ée]/i,
+    );
   }
 
   if (opts.name === "banque") {
@@ -301,6 +315,31 @@ function runFamily(opts: {
     );
   }
 
+  if (opts.name === "fiscal") {
+    assert.match(letter.subject, /contestation/i);
+    assert.ok(/À l'attention de la\s/i.test(letter.body), "fiscal article");
+    assert.ok(
+      /principal|1\s*073/i.test(letter.body) &&
+        /majoration|12\s*%/i.test(letter.body),
+      `fiscal letter montants: ${letter.body.slice(0, 500)}`,
+    );
+  }
+  if (opts.name === "banque") {
+    assert.match(letter.subject, /frais bancaires|contestation/i);
+    assert.ok(
+      /commission|tenue|frais|rejet|int[ée]r[êe]t/i.test(letter.body),
+      `banque letter frais: ${letter.body.slice(0, 400)}`,
+    );
+  }
+  if (opts.name === "med") {
+    assert.ok(
+      /cr[ée]ance|mise en demeure|recouvrement/i.test(
+        `${letter.subject}\n${letter.body}`,
+      ),
+      "med letter hors sujet",
+    );
+  }
+
   console.log(`OK ${opts.name}`);
   console.log(`  résumé: « ${out.summary.slice(0, 160)} »`);
   console.log(
@@ -310,6 +349,7 @@ function runFamily(opts: {
       .join(" | ")}`,
   );
   console.log(`  amounts hero: ${out.amounts.slice(0, 3).join(" · ") || "(vide)"}`);
+  console.log(`  letter: ${letter.subject}`);
 }
 
 function main() {

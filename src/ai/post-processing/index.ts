@@ -34,3 +34,13 @@ export {
   isNationalTaxNoiseTitle,
   type WatchDocFamily,
 } from "@/ai/post-processing/watch-ranking";
+export {
+  areFindingsNearDuplicates,
+  dedupeLabeledAmounts,
+  dedupeRiskFindings,
+  dedupeRiskStrings,
+  findingPrecisionScore,
+  isMorePreciseFinding,
+  jaccardSimilarity,
+  normalizeFindingText,
+} from "@/ai/post-processing/dedupe-findings";

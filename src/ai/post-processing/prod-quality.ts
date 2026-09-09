@@ -12,6 +12,11 @@ import {
   rankFindingsForWatch,
   type WatchDocFamily,
 } from "@/ai/post-processing/watch-ranking";
+import {
+  dedupeLabeledAmounts,
+  dedupeRiskFindings,
+  dedupeRiskStrings,
+} from "@/ai/post-processing/dedupe-findings";
 import { isRecipientObligation } from "@/services/reply/letter-intents";
 import type {
   DocumentAnalysis,
@@ -360,14 +365,16 @@ export function buildDeterministicDisplaySummary(
     title: analysis.title,
   });
   const org = analysis.organizations?.find((o) => o.trim().length > 0);
-  const amounts = prioritizeProductionAmounts(
-    [
-      ...(analysis.amounts ?? []),
-      ...(analysis.risk_findings ?? [])
-        .filter((f) => f.status !== "rejected")
-        .map((f) => f.description),
-    ],
-    family,
+  const amounts = dedupeLabeledAmounts(
+    prioritizeProductionAmounts(
+      [
+        ...(analysis.amounts ?? []),
+        ...(analysis.risk_findings ?? [])
+          .filter((f) => f.status !== "rejected")
+          .map((f) => f.description),
+      ],
+      family,
+    ),
   ).slice(0, 3);
   const deadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
   const findings = (analysis.risk_findings ?? [])
@@ -817,24 +824,28 @@ export function finalizeAnalysisForProd(
     risk_findings_raw,
   );
 
-  const risk_findings = rankFindingsForWatch(
-    risk_findings_raw,
-    {
-      category: classification?.category,
-      documentType: analysis.document_type,
-      title: analysis.title,
-    },
-    6,
-  );
+  const risk_findings = dedupeRiskFindings(
+    rankFindingsForWatch(
+      risk_findings_raw,
+      {
+        category: classification?.category,
+        documentType: analysis.document_type,
+        title: analysis.title,
+      },
+      8,
+    ),
+  ).slice(0, 6);
 
-  const amounts = prioritizeProductionAmounts(
-    [
-      ...(analysis.amounts ?? []),
-      ...risk_findings
-        .map((f) => f.description)
-        .filter((d) => /\d/.test(d) && /€|euro|%|\/mois/i.test(d)),
-    ],
-    family,
+  const amounts = dedupeLabeledAmounts(
+    prioritizeProductionAmounts(
+      [
+        ...(analysis.amounts ?? []),
+        ...risk_findings
+          .map((f) => f.description)
+          .filter((d) => /\d/.test(d) && /€|euro|%|\/mois/i.test(d)),
+      ],
+      family,
+    ),
   );
   const deadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
   const actions = cleanActionsForDisplay(
@@ -849,22 +860,27 @@ export function finalizeAnalysisForProd(
   ).slice(0, 6);
 
   const feeAmounts = amounts.filter((a) => BANK_PRIORITY_AMOUNT_RE.test(a));
-  const important_points = (analysis.important_points ?? [])
-    .map((p) => p.replace(/\s+/g, " ").trim())
-    .filter((p) => p.length >= 8 && !isProdDisplayNoise(p))
-    .filter((p) => {
-      if (family !== "banque" || feeAmounts.length === 0) return true;
-      if (/solde\s+arr[eê]t|salaire|loyer/i.test(p) && !BANK_PRIORITY_AMOUNT_RE.test(p)) {
-        return false;
-      }
-      return true;
-    })
-    .slice(0, 6);
+  const important_points = dedupeRiskStrings(
+    (analysis.important_points ?? [])
+      .map((p) => p.replace(/\s+/g, " ").trim())
+      .filter((p) => p.length >= 8 && !isProdDisplayNoise(p))
+      .filter((p) => {
+        if (family !== "banque" || feeAmounts.length === 0) return true;
+        if (
+          /solde\s+arr[eê]t|salaire|loyer/i.test(p) &&
+          !BANK_PRIORITY_AMOUNT_RE.test(p)
+        ) {
+          return false;
+        }
+        return true;
+      }),
+  ).slice(0, 6);
 
-  const risks = (analysis.risks ?? [])
-    .map((r) => r.replace(/\s+/g, " ").trim())
-    .filter((r) => r.length >= 8 && !isProdDisplayNoise(r))
-    .slice(0, 6);
+  const risks = dedupeRiskStrings(
+    (analysis.risks ?? [])
+      .map((r) => r.replace(/\s+/g, " ").trim())
+      .filter((r) => r.length >= 8 && !isProdDisplayNoise(r)),
+  ).slice(0, 6);
 
   const risk_score = Math.min(
     100,

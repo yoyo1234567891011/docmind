@@ -1,4 +1,5 @@
 import type { DocumentCategory, RiskCriterionId, RiskFinding } from "@/types";
+import { areFindingsNearDuplicates, isMorePreciseFinding } from "@/ai/post-processing/dedupe-findings";
 
 export type WatchDocFamily =
   | "recouvrement"
@@ -439,6 +440,13 @@ function administratifTitlePriority(description: string): number {
     return 2;
   }
   if (/majoration|p[ée]nalit|frais\s+de\s+relance/.test(t)) return 3;
+  if (
+    /recouvrement\s+forc|poursuites?\s+(?:pourront|engag|possibles)|huissier|saisie/.test(
+      t,
+    )
+  ) {
+    return 4;
+  }
   if (/contester|obligation\s+de\s+contester/.test(t)) return 40;
   if (
     /produit\s+national|ensemble\s+des\s+foyers|taxe\s+d['']habitation|valeur\s+locative\s+cadastrale|collectivit/.test(
@@ -519,7 +527,8 @@ export function watchRankScore(
   const base =
     criterionIdx >= 0 ? criterionIdx * 10 : 200 + severityBoost(finding.severity);
 
-  // Hors recouvrement : déprioriser fortement les titres génériques.
+  // Hors recouvrement : déprioriser fortement les titres génériques
+  // (sauf sanctions concrètes déjà couvertes par SPECIFIC_SIGNAL_RE).
   let genericPenalty = 0;
   if (
     family !== "recouvrement" &&
@@ -528,7 +537,13 @@ export function watchRankScore(
     genericPenalty = 120;
   } else if (
     family !== "recouvrement" &&
-    GENERIC_TITLE_RE.test(finding.description)
+    GENERIC_TITLE_RE.test(finding.description) &&
+    !(
+      finding.criterion_id === "sanctions" &&
+      /recouvrement|poursuite|huissier|saisie/.test(
+        finding.description.toLowerCase(),
+      )
+    )
   ) {
     genericPenalty = 80;
   }
@@ -712,19 +727,14 @@ export function rankFindingsForWatch(
 
     const key = findingDedupeKey(finding);
     if (seen.has(key)) continue;
-    // Soft : même critère + description très proche
+    // Soft dedup : similarité titre/extrait (Jaccard / inclusion / synonymes)
     let softDup = false;
-    for (const prev of seen) {
-      const [, prevDesc] = prev.split("::");
-      const [, desc] = key.split("::");
-      if (
-        prev.startsWith(`${finding.criterion_id ?? ""}::`) &&
-        prevDesc &&
-        desc &&
-        prevDesc.length >= 24 &&
-        desc.length >= 24 &&
-        (prevDesc.includes(desc) || desc.includes(prevDesc))
-      ) {
+    for (let i = 0; i < out.length; i += 1) {
+      const prevFinding = out[i]!;
+      if (areFindingsNearDuplicates(prevFinding, finding)) {
+        if (isMorePreciseFinding(finding, prevFinding)) {
+          out[i] = finding;
+        }
         softDup = true;
         break;
       }
