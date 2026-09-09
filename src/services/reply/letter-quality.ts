@@ -111,7 +111,7 @@ export function normalizeBankFeeLine(raw: string): string | null {
   const amountMatch = t.match(/[-−]?\s*(\d+(?:[,.]\d{1,2})?)\s*€/);
   if (!amountMatch) return null;
 
-  const amount = amountMatch[1].replace(".", ",");
+  const amount = (amountMatch[1] ?? "").replace(".", ",");
   let label = t
     .replace(/[-−]?\s*\d+(?:[,.]\d{1,2})?\s*€.*$/i, "")
     .replace(/^montant\s*:\s*/i, "")

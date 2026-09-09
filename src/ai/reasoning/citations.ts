@@ -14,9 +14,10 @@ export type DocumentLocus = {
 
 /** Découpe une page en paragraphes (blocs non vides). */
 export function splitParagraphs(pageText: string): string[] {
+  if (typeof pageText !== "string" || !pageText) return [];
   return pageText
     .split(/\n\s*\n+/g)
-    .map((p) => p.replace(/\s+/g, " ").trim())
+    .map((p) => (typeof p === "string" ? p : "").replace(/\s+/g, " ").trim())
     .filter((p) => p.length >= 8);
 }
 

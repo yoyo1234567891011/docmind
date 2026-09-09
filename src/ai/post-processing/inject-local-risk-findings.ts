@@ -69,8 +69,8 @@ function firstEuroAmount(text: string): string | null {
   const m = text.match(
     /(\d+(?:[\s\u00a0\u202f]\d{3})*(?:[.,]\d{1,2})?)\s*(?:€|euros?\b)/i,
   );
-  if (!m) return null;
-  return `${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
+  if (!m?.[1]) return null;
+  return `${m[1].replace(/[\s\u00a0]/g, " ").trim()} €`;
 }
 
 function euroAmountNear(text: string, keyword: RegExp): string | null {
@@ -79,14 +79,14 @@ function euroAmountNear(text: string, keyword: RegExp): string | null {
   const after = text.match(
     new RegExp(`${keyword.source}[^\\d]{0,40}${amountGroup}`, "i"),
   );
-  if (after) {
-    return `${after[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
+  if (after?.[1]) {
+    return `${after[1].replace(/[\s\u00a0]/g, " ").trim()} €`;
   }
   const before = text.match(
     new RegExp(`${amountGroup}[^\\d]{0,40}${keyword.source}`, "i"),
   );
-  if (before) {
-    return `${before[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
+  if (before?.[1]) {
+    return `${before[1].replace(/[\s\u00a0]/g, " ").trim()} €`;
   }
   return firstEuroAmount(text);
 }
@@ -498,7 +498,7 @@ function findClaimedTotalSnippet(documentText: string): {
   for (const { re, label } of patterns) {
     const m = documentText.match(re);
     if (!m) continue;
-    const amount = `${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
+    const amount = `${(m[1] ?? "").replace(/[\s\u00a0]/g, " ").trim()} €`;
     const idx = m.index ?? 0;
     const excerpt = snippetAround(documentText, idx, m[0]!.length);
     return { excerpt, amount, label };
@@ -763,8 +763,8 @@ type ImpotsLabeledFact = {
 const FR_DATE_RE =
   /(\d{1,2}[/.]\d{1,2}[/.]\d{2,4}|\d{1,2}\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)\s+\d{4})/i;
 
-function normalizeFrDateLabel(raw: string): string {
-  return raw.replace(/\s+/g, " ").trim();
+function normalizeFrDateLabel(raw: string | undefined | null): string {
+  return (typeof raw === "string" ? raw : "").replace(/\s+/g, " ").trim();
 }
 
 /** Faits fiscaux — montant dû / prélèvement / opposition. */
@@ -1396,7 +1396,7 @@ export function buildMissingLocalRiskFindings(
       const idx = m.index ?? 0;
       let title = sig.title;
       if (m[1] && /aide|indu/i.test(sig.title)) {
-        title = `${sig.title} : ${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
+        title = `${sig.title} : ${(m[1] ?? "").replace(/[\s\u00a0]/g, " ").trim()} €`;
       }
       const already = [...existing, ...injected].some(
         (f) =>
@@ -1436,24 +1436,24 @@ export function buildMissingLocalRiskFindings(
       {
         re: /capital\s+emprunt[ée]\s*:?\s*(?:\*{0,2})?(\d[\d\s.,]*)\s*(?:\*{0,2})?€/i,
         title: (m) =>
-          `Capital emprunté : ${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`,
+          `Capital emprunté : ${(m[1] ?? "").replace(/[\s\u00a0]/g, " ").trim()} €`,
         criterion: "engagement",
       },
       {
         re: /\btaeg\s*:?\s*(?:\*{0,2})?(\d+[.,]\d+)\s*%/i,
-        title: (m) => `TAEG : ${m[1]!.replace(".", ",")} %`,
+        title: (m) => `TAEG : ${(m[1] ?? "").replace(".", ",")} %`,
         criterion: "frais_caches",
       },
       {
         re: /mensualit[ée]\s*:?\s*(?:\*{0,2})?(\d[\d\s.,]*)\s*(?:\*{0,2})?€/i,
         title: (m) =>
-          `Mensualité : ${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`,
+          `Mensualité : ${(m[1] ?? "").replace(/[\s\u00a0]/g, " ").trim()} €`,
         criterion: "obligations_importantes",
       },
       {
         re: /frais\s+de\s+dossier\s*:?\s*(?:\*{0,2})?(\d[\d\s.,]*)\s*(?:\*{0,2})?€/i,
         title: (m) =>
-          `Frais de dossier : ${m[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`,
+          `Frais de dossier : ${(m[1] ?? "").replace(/[\s\u00a0]/g, " ").trim()} €`,
         criterion: "frais_caches",
       },
       {
@@ -1540,7 +1540,7 @@ export function buildMissingLocalRiskFindings(
       );
     if (totalTtc) {
       const idx = totalTtc.index ?? 0;
-      const amount = `${totalTtc[1]!.replace(/[\s\u00a0]/g, " ").trim()} €`;
+      const amount = `${(totalTtc[1] ?? "").replace(/[\s\u00a0]/g, " ").trim()} €`;
       const already = [...existing, ...injected].some((f) =>
         isFactureTtcWatchTitle(f.description),
       );
@@ -1559,7 +1559,7 @@ export function buildMissingLocalRiskFindings(
       /date\s+limite\s+de\s+paiement\s*:?\s*(?:\*{0,2})?(\d{1,2}[/.]\d{1,2}[/.]\d{2,4}|\d{1,2}\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)\s+\d{4})/i,
     );
     if (paymentDeadline?.[1]) {
-      const dateLabel = paymentDeadline[1].replace(/\s+/g, " ").trim();
+      const dateLabel = (paymentDeadline[1] ?? "").replace(/\s+/g, " ").trim();
       const already = [...existing, ...injected].some((f) =>
         /date\s+limite\s+de\s+paiement/i.test(f.description),
       );

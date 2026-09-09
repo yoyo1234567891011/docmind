@@ -18,6 +18,10 @@ import {
   dedupeRiskFindings,
   dedupeRiskStrings,
 } from "@/ai/post-processing/dedupe-findings";
+import {
+  annotateReplaceTypeError,
+  snapshotAnalysisStringFields,
+} from "@/ai/post-processing/safe-string";
 import { isRecipientObligation } from "@/services/reply/letter-intents";
 import type {
   DocumentAnalysis,
@@ -882,6 +886,35 @@ export function buildWatchPointsFromCriteria(
 
 /** Normalise l'analyse persistée avant stockage (verify / enrich / worker). */
 export function finalizeAnalysisForProd(
+  analysis: DocumentAnalysis,
+  classification?: DocumentClassification,
+  documentText?: string,
+): DocumentAnalysis {
+  try {
+    return finalizeAnalysisForProdUnchecked(
+      analysis,
+      classification,
+      documentText,
+    );
+  } catch (error) {
+    if (
+      error instanceof TypeError &&
+      /replace|trim|normalize/i.test(error.message)
+    ) {
+      const fields = snapshotAnalysisStringFields(analysis);
+      console.error(
+        "[finalizeAnalysisForProd] TypeError",
+        error.message,
+        fields,
+        error.stack,
+      );
+      throw annotateReplaceTypeError(error, "finalizeAnalysisForProd", fields);
+    }
+    throw error;
+  }
+}
+
+function finalizeAnalysisForProdUnchecked(
   analysis: DocumentAnalysis,
   classification?: DocumentClassification,
   documentText?: string,

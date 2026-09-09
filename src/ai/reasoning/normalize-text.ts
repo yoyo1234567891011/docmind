@@ -1,5 +1,6 @@
 /** Normalisation légère pour matcher un extrait dans le document. */
 export function normalizeForMatch(text: string): string {
+  if (typeof text !== "string") return "";
   return text
     .toLowerCase()
     .normalize("NFD")

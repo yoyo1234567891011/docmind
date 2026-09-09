@@ -81,8 +81,12 @@ export function buildLocalFallbackSummary(input: {
   risks?: string[];
   importantPoints?: string[];
 }): string {
-  const risks = (input.risks ?? []).filter((r) => r.trim().length > 0);
-  const points = (input.importantPoints ?? []).filter((p) => p.trim().length > 0);
+  const risks = (input.risks ?? []).filter(
+    (r): r is string => typeof r === "string" && r.trim().length > 0,
+  );
+  const points = (input.importantPoints ?? []).filter(
+    (p): p is string => typeof p === "string" && p.trim().length > 0,
+  );
   if (risks.length > 0) {
     return `Éléments repérés : ${risks.slice(0, 3).join(" ; ")}.`;
   }
@@ -90,13 +94,13 @@ export function buildLocalFallbackSummary(input: {
     return points.slice(0, 2).join(" ");
   }
   const bits = [
-    ...(input.amounts ?? []).slice(0, 2),
-    ...(input.deadlines ?? []).slice(0, 2),
-  ];
+    ...(input.amounts ?? []).filter((a): a is string => typeof a === "string"),
+    ...(input.deadlines ?? []).filter((d): d is string => typeof d === "string"),
+  ].slice(0, 2);
   if (bits.length > 0) {
-    return `Document ${input.categoryLabel} — ${bits.join(", ")}.`;
+    return `Document ${input.categoryLabel ?? "Document"} — ${bits.join(", ")}.`;
   }
-  return `Analyse partielle du document (${input.categoryLabel}).`;
+  return `Analyse partielle du document (${input.categoryLabel ?? "Document"}).`;
 }
 
 /** Tente de récupérer un bundle partiel / tronqué avant d’échouer. */
@@ -241,8 +245,12 @@ export function buildDeterministicPartialCoreBundle(fallbacks: {
   amounts?: string[];
   deadlines?: string[];
 }): CoreBundleParsed {
-  const amounts = (fallbacks.amounts ?? []).filter((a) => a.trim());
-  const deadlines = (fallbacks.deadlines ?? []).filter((d) => d.trim());
+  const amounts = (fallbacks.amounts ?? []).filter(
+    (a): a is string => typeof a === "string" && a.trim().length > 0,
+  );
+  const deadlines = (fallbacks.deadlines ?? []).filter(
+    (d): d is string => typeof d === "string" && d.trim().length > 0,
+  );
   const summary = buildLocalFallbackSummary({
     categoryLabel: fallbacks.categoryLabel,
     fileName: fallbacks.fileName,

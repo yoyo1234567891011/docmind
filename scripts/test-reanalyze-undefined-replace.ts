@@ -71,7 +71,7 @@ function sparseAnalysis(): DocumentAnalysis {
   };
 }
 
-function main() {
+async function main() {
   const text =
     "Avis de taxe foncière. Principal 1 073 €. Payer avant le 15/05/2026.";
 
@@ -119,11 +119,17 @@ function main() {
   assert.match(msg, /^runtime_error:/);
   assert.match(msg, /replace/);
 
+  // stripModelNoise(undefined) was a classic reading 'replace' crash in JSON path.
+  const { stripModelNoise } = await import("../src/ai/validation/json");
+  assert.equal(stripModelNoise(undefined as unknown as string), "");
+  assert.equal(stripModelNoise(null as unknown as string), "");
+
   console.log("OK shortenLetterSubject(undefined)");
   console.log("OK scrub + finalize sparse ×2 (retry)");
   console.log("OK buildFallbackLetter sparse + after finalize");
   console.log("OK last_error runtime_error");
+  console.log("OK stripModelNoise(undefined)");
   console.log("\nALL reanalyze undefined-replace tests passed.");
 }
 
-main();
+void main();

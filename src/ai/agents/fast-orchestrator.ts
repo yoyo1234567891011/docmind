@@ -206,7 +206,7 @@ async function generateCoreBundleOutcome(
       salvageCtx,
     );
     const snippet = lastGeneration?.text
-      ? lastGeneration.text.replace(/\s+/g, " ").trim().slice(0, 200)
+      ? (lastGeneration.text ?? "").replace(/\s+/g, " ").trim().slice(0, 200)
       : "";
     latencyMeta({
       partialLocalFallback: true,

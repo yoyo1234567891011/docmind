@@ -59,7 +59,7 @@ function parseAmountNumber(value: string): number | null {
     /(\d{1,3}(?:[ \u00a0]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/,
   );
   if (!m) return null;
-  const normalized = m[1]!.replace(/[\s\u00a0]/g, "").replace(",", ".");
+  const normalized = (m[1] ?? "").replace(/[\s\u00a0]/g, "").replace(",", ".");
   const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
 }
@@ -490,7 +490,7 @@ function numericKey(value: string): string {
     /(\d{1,3}(?:[ \u00a0]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/,
   );
   if (!m) return value.toLowerCase();
-  return m[1]!.replace(/[\s\u00a0]/g, "").replace(",", ".");
+  return (m[1] ?? "").replace(/[\s\u00a0]/g, "").replace(",", ".");
 }
 
 /**

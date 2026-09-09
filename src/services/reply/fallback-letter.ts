@@ -22,6 +22,10 @@ import {
   formatBankFeeBulletLines,
   sanitizeRecipient,
 } from "@/services/reply/letter-quality";
+import {
+  annotateReplaceTypeError,
+  snapshotAnalysisStringFields,
+} from "@/ai/post-processing/safe-string";
 
 function firstOrg(
   analysis: DocumentAnalysis,
@@ -629,6 +633,41 @@ function buildFamilyLetter(input: {
  * Courrier déterministe si le LLM est indisponible ou invalide.
  */
 export function buildFallbackLetter(
+  letterType: LetterType,
+  analysis: DocumentAnalysis,
+  classification: DocumentClassification,
+  reason: string,
+  documentText = "",
+  sheet?: DocumentSheet | null,
+): ReadyReply {
+  try {
+    return buildFallbackLetterUnchecked(
+      letterType,
+      analysis,
+      classification,
+      reason,
+      documentText,
+      sheet,
+    );
+  } catch (error) {
+    if (
+      error instanceof TypeError &&
+      /replace|trim|normalize/i.test(error.message)
+    ) {
+      const fields = snapshotAnalysisStringFields(analysis);
+      console.error(
+        "[buildFallbackLetter] TypeError",
+        error.message,
+        fields,
+        error.stack,
+      );
+      throw annotateReplaceTypeError(error, "buildFallbackLetter", fields);
+    }
+    throw error;
+  }
+}
+
+function buildFallbackLetterUnchecked(
   letterType: LetterType,
   analysis: DocumentAnalysis,
   classification: DocumentClassification,

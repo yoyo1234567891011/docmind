@@ -8,7 +8,7 @@ export type JsonParseFailureReason =
 
 /** Retire thinking / fences / bruit modèle avant extract JSON. */
 export function stripModelNoise(raw: string): string {
-  let text = raw;
+  let text = typeof raw === "string" ? raw : "";
   // Blocs thinking fermés
   text = text.replace(/<think>[\s\S]*?<\/think>/gi, "");
   text = text.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "");
@@ -30,7 +30,7 @@ export function stripModelNoise(raw: string): string {
 
 /** Répare les erreurs JSON fréquentes des petits modèles locaux. */
 export function repairJsonText(raw: string): string {
-  let text = raw.trim();
+  let text = (typeof raw === "string" ? raw : "").trim();
 
   text = text
     .replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
