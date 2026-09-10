@@ -20,10 +20,16 @@ import {
   resolveComponentProduct,
 } from "@/services/insights/subscription-dedup";
 import {
-  inferRecurringPeriod,
-  pickRecurringAmountEur,
+  formatSubscriptionLineName,
+  isRecurringSubscriptionCandidate,
+  isValidSubscriptionOrgName,
+  resolveSubscriptionProductForDoc,
+  resolveSubscriptionSpendFromMemory,
+  subscriptionInsightCategory,
+} from "@/services/insights/subscription-aggregate";
+import {
   subscriptionAggregateId,
-  subscriptionDisplayName,
+  toMonthlyFromPeriod,
   type ProductSignal,
 } from "@/services/insights/subscription-identity";
 import type {
@@ -42,29 +48,15 @@ import type {
   MemoryRelation,
 } from "@/types/memory";
 
-const SUB_CATEGORIES = new Set([
-  "assurance",
-  "contrat",
-  "facture",
-  "banque",
-  "bail",
-]);
-
 const CATEGORY_LABELS: Record<string, string> = {
   assurance: "Assurances",
   contrat: "Abonnements / contrats",
   facture: "Factures",
   banque: "Banque",
   bail: "Logement",
+  pret: "Crédit / prêt",
   autre: "Autre",
 };
-
-const RECURRING_PERIODS = new Set([
-  "mensuel",
-  "annuel",
-  "trimestriel",
-  "hebdomadaire",
-]);
 
 /**
  * Convertit un montant en équivalent mensuel UNIQUEMENT si la périodicité
@@ -74,13 +66,7 @@ export function toMonthlySpendEur(
   amount: number | null,
   period: string | null,
 ): number | null {
-  if (amount == null || amount <= 0) return null;
-  if (!period || !RECURRING_PERIODS.has(period)) return null;
-  if (period === "mensuel") return Math.round(amount * 100) / 100;
-  if (period === "annuel") return Math.round((amount / 12) * 100) / 100;
-  if (period === "trimestriel") return Math.round((amount / 3) * 100) / 100;
-  if (period === "hebdomadaire") return Math.round(amount * 4.33 * 100) / 100;
-  return null;
+  return toMonthlyFromPeriod(amount, period);
 }
 
 function toAnnual(monthly: number | null): number | null {
@@ -145,17 +131,11 @@ function resolveSubscriptionSpend(
 ): {
   picked: number | null;
   monthly: number | null;
+  annual: number | null;
   period: string | null;
 } {
-  const amountText = amountContextText(signals, doc);
-  const period = signals?.period ?? inferRecurringPeriod(amountText);
-  const picked = pickRecurringAmountEur(
-    signals?.amounts ?? [],
-    period,
-    amountText,
-  );
-  const monthly = toMonthlySpendEur(picked, period);
-  return { picked, monthly, period };
+  void amountContextText;
+  return resolveSubscriptionSpendFromMemory(signals, doc);
 }
 
 async function buildSubscriptionFromDocs(
@@ -182,6 +162,8 @@ async function buildSubscriptionFromDocs(
   const picked = spend.picked;
   const monthly = spend.monthly;
   const billingPeriod = spend.period;
+  const annual =
+    spend.annual ?? (eligible ? toAnnual(monthly) : null);
 
   let nextDeadline: SubscriptionInsight["nextDeadline"] = null;
   let terminationHint: string | null = null;
@@ -219,14 +201,16 @@ async function buildSubscriptionFromDocs(
         ? "active"
         : "unknown";
 
+  const category = subscriptionInsightCategory(primary, group.product);
+
   return {
     id: subscriptionAggregateId(group.orgId, group.product.key),
     entityId: group.orgId,
-    name: subscriptionDisplayName(group.orgName, group.product),
-    category: primary.category,
+    name: formatSubscriptionLineName(group.orgName, group.product),
+    category,
     productKey: group.product.key,
     monthlyEur: eligible ? monthly : null,
-    annualEur: eligible ? toAnnual(monthly) : null,
+    annualEur: eligible ? annual : null,
     billingPeriod,
     extractedAmountEur: picked,
     nextDeadline,
@@ -242,7 +226,7 @@ export async function listSubscriptionInsights(
   userId: string,
 ): Promise<SubscriptionInsight[]> {
   const orgs = (await listEntities(userId)).filter(
-    (e) => e.kind === "organization",
+    (e) => e.kind === "organization" && isValidSubscriptionOrgName(e.canonicalName),
   );
   const allRelations = await listAllRelations(userId);
   const out: SubscriptionInsight[] = [];
@@ -251,9 +235,8 @@ export async function listSubscriptionInsights(
     const rawDocs = await loadDocsForEntity(userId, org.id);
     const docs: MemoryDocumentNode[] = [];
     for (const doc of rawDocs) {
-      if (!SUB_CATEGORIES.has(doc.category)) continue;
       const signals = await loadRelationSignals(userId, doc.documentId);
-      if (doc.category === "facture" && !signals?.period) continue;
+      if (!isRecurringSubscriptionCandidate(doc, signals)) continue;
       docs.push(doc);
     }
     if (docs.length === 0) continue;
@@ -301,12 +284,36 @@ export async function listSubscriptionInsights(
         componentDocs,
         (doc) => eligibility.get(doc.documentId) ?? false,
       );
-      const product = resolveComponentProduct(
-        componentDocs,
-        snapshots,
-        org.canonicalName,
+      const primarySignals =
+        snapshots.get(primary.documentId)?.signals ??
+        (await loadRelationSignals(userId, primary.documentId));
+      let product = resolveSubscriptionProductForDoc(
         primary,
+        primarySignals,
+        org.canonicalName,
       );
+      if (product.key === "default") {
+        product = resolveComponentProduct(
+          componentDocs,
+          snapshots,
+          org.canonicalName,
+          primary,
+        );
+      }
+      // Crédit / prêt : badge dédié (jamais « abo telecom »).
+      for (const d of componentDocs) {
+        const s = snapshots.get(d.documentId)?.signals ?? null;
+        const credit = resolveSubscriptionProductForDoc(
+          d,
+          s,
+          org.canonicalName,
+        );
+        if (credit.key === "credit") {
+          product = credit;
+          break;
+        }
+      }
+
       const group: SubGroup = {
         orgId: org.id,
         orgName: org.canonicalName,

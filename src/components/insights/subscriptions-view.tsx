@@ -14,6 +14,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   facture: "Facture récurrente",
   banque: "Banque",
   bail: "Logement",
+  pret: "Crédit / prêt",
   autre: "Autre",
 };
 
@@ -34,12 +35,12 @@ function formatMoney(n: number): string {
 }
 
 function formatTotal(n: number | null): string {
-  if (n == null) return "Non détecté";
+  if (n == null) return "—";
   return formatMoney(n);
 }
 
 function formatItemAmount(n: number | null): string {
-  if (n == null) return "Non détecté";
+  if (n == null) return "—";
   return formatMoney(n);
 }
 
@@ -153,6 +154,7 @@ export function SubscriptionsView() {
                     </p>
                     <p className="mt-1 text-xs text-[var(--muted)]">
                       {CATEGORY_LABELS[item.category] ?? item.category}
+                      {item.productKey === "credit" ? " · mensualité de crédit" : ""}
                       {" · "}
                       {item.documentCount} document
                       {item.documentCount > 1 ? "s" : ""}

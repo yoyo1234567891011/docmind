@@ -20,12 +20,12 @@ export type ProductSignal = {
 const PRODUCT_PATTERNS: Array<{ key: string; label: string; re: RegExp }> = [
   {
     key: "internet",
-    label: "Internet",
+    label: "Forfait internet",
     re: /\b(internet|fibre|livebox|adsl|ftth|box\s*internet)\b/i,
   },
   {
     key: "mobile",
-    label: "Mobile",
+    label: "Forfait mobile",
     re: /\b(mobile|forfait\s*mobile|smartphone|ligne\s*mobile|\b5g\b|\b4g\b)\b/i,
   },
   {
@@ -36,7 +36,7 @@ const PRODUCT_PATTERNS: Array<{ key: string; label: string; re: RegExp }> = [
   {
     key: "electricite",
     label: "Électricité",
-    re: /\b(electricite|électricité|edf|enedis|kwh)\b/i,
+    re: /\b(electricite|électricité|enedis|kwh)\b/i,
   },
   {
     key: "gaz",
@@ -46,17 +46,22 @@ const PRODUCT_PATTERNS: Array<{ key: string; label: string; re: RegExp }> = [
   {
     key: "assurance_auto",
     label: "Assurance auto",
-    re: /\b(auto|vehicule|véhicule|automobile)\b/i,
+    re: /\b(assurance\s+auto|automobile|v[ée]hicule|multirisque\s+auto)\b/i,
   },
   {
     key: "assurance_habitation",
     label: "Assurance habitation",
-    re: /\b(habitation|logement|mrh|multirisque)\b/i,
+    re: /\b(habitation|logement|mrh|multirisque\s+habitation)\b/i,
   },
   {
     key: "assurance_sante",
     label: "Santé",
-    re: /\b(sante|santé|mutuelle)\b/i,
+    re: /\b(sant[eé]|mutuelle)\b/i,
+  },
+  {
+    key: "credit",
+    label: "Mensualité de crédit",
+    re: /\b(pr[eê]t|cr[eé]dit\s+(?:immobilier|consommation|personnel)|emprunteur|taeg)\b/i,
   },
 ];
 
@@ -145,6 +150,27 @@ const PERIOD_PATTERNS: Array<{ re: RegExp; key: string }> = [
   { re: /hebdomadaire|par semaine/i, key: "hebdomadaire" },
 ];
 
+const RECURRING_PERIODS = new Set([
+  "mensuel",
+  "annuel",
+  "trimestriel",
+  "hebdomadaire",
+]);
+
+/** Convertit un montant en équivalent mensuel si la périodicité est connue. */
+export function toMonthlyFromPeriod(
+  amount: number | null,
+  period: string | null,
+): number | null {
+  if (amount == null || amount <= 0) return null;
+  if (!period || !RECURRING_PERIODS.has(period)) return null;
+  if (period === "mensuel") return Math.round(amount * 100) / 100;
+  if (period === "annuel") return Math.round((amount / 12) * 100) / 100;
+  if (period === "trimestriel") return Math.round((amount / 3) * 100) / 100;
+  if (period === "hebdomadaire") return Math.round(amount * 4.33 * 100) / 100;
+  return null;
+}
+
 /** Périodicité récurrente détectée dans le texte (sans LLM). */
 export function inferRecurringPeriod(sourceText: string): string | null {
   const text = sourceText || "";
@@ -181,7 +207,7 @@ export function pickRecurringAmountEur(
   const patterns = [
     /(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros)?\s*(?:\/\s*|par\s+)?mois/gi,
     /(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros)?\s*(?:\/\s*|par\s+)?an(?:nee|ée)?/gi,
-    /(?:abonnement|cotisation|mensualite|mensualité|redevance)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/gi,
+    /(?:abonnement|cotisation|mensualite|mensualité|redevance|loyer|forfait)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/gi,
     /(?:mensuel(?:le)?|prix\s+mensuel)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/gi,
     /(?:prime|cotisation)\s+annuelle\s*[:=]?\s*(\d+(?:[.,]\d+)?)/gi,
   ];

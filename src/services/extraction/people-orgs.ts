@@ -103,12 +103,15 @@ const ORG_TOKEN_RE =
 
 /**
  * Titulaire / abonné / allocataire — à exclure du destinataire courrier.
- * Ne confond pas « Banque Horizon » avec un prénom+nom.
+ * Ne confond pas « Banque Horizon » / « BNP Paribas » avec un prénom+nom.
  */
 export function isSubscriberPersonName(value: string): boolean {
   const v = cleanValue(value);
   if (!v || ORG_TOKEN_RE.test(v)) return false;
   if (extractKnownEmitterBrands(v).length > 0) return false;
+  // Acronymes org (BNP, EDF, CAF, SFR…) → pas une personne
+  const parts = v.split(/\s+/).filter(Boolean);
+  if (parts.some((p) => /^[A-Z]{2,6}$/.test(p))) return false;
   return looksLikePersonName(v);
 }
 

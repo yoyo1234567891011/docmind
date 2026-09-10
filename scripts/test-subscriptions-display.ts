@@ -140,7 +140,7 @@ async function main() {
   assert.ok(auto, "ligne MAIF");
   assert.equal(auto.productKey, "assurance_auto");
   assert.equal(auto.monthlyEur, 58.33);
-  assert.equal(auto.annualEur, 699.96);
+  assert.equal(auto.annualEur, 700);
   const autoFinance = await buildFinanceInsight(autoUser);
   assert.equal(autoFinance.monthlyTotalEur, 58.33);
   await wipe(autoUser);
@@ -186,7 +186,7 @@ async function main() {
   await wipe(bankUser);
   console.log("  ok  relevé frais mensuels");
 
-  // 4. Contrepartie sans période → pas de faux 0 € global
+  // 4. Contrepartie sans signal récurrent → aucune ligne abo
   const ambigUser = await fresh("ambig");
   await addDoc(ambigUser, {
     org: "MysteryCorp",
@@ -197,12 +197,11 @@ async function main() {
     ),
   });
   const ambigSubs = await listSubscriptionInsights(ambigUser);
-  assert.ok(ambigSubs.length >= 1);
-  assert.equal(ambigSubs[0]?.monthlyEur, null);
+  assert.equal(ambigSubs.length, 0, "one-shot sans récurrence exclu");
   const ambigFinance = await buildFinanceInsight(ambigUser);
   assert.equal(ambigFinance.monthlyTotalEur, null);
   await wipe(ambigUser);
-  console.log("  ok  pas de faux 0 €");
+  console.log("  ok  one-shot exclu");
 
   // 5. Contrat + facture même abo → 1 ligne, 1 montant
   const cfUser = await fresh("contrat-facture");
@@ -320,6 +319,103 @@ async function main() {
   assert.equal(stream[0]?.documentCount, 2);
   await wipe(replUser);
   console.log("  ok  doc remplacé → montant actif");
+
+  // 9. Facture Free — abo labellisé
+  const freeUser = await fresh("free");
+  await addDoc(freeUser, {
+    org: "Free",
+    title: "Facture Free",
+    category: "facture",
+    amounts: ["37,68 EUR", "3,00 EUR", "88,80 EUR"],
+    text: [
+      "Facture Free. Abonné Léa Morel.",
+      "Abonnement : 37,68 EUR par mois.",
+      "Frais de service : 3,00 EUR. Total TTC : 88,80 EUR.",
+      "Renouvellement automatique de l'abonnement mensuel.",
+    ].join(" "),
+  });
+  const freeSubs = await listSubscriptionInsights(freeUser);
+  const free = freeSubs.find((s) => /free/i.test(s.name));
+  assert.ok(free, "ligne Free");
+  assert.ok(!/l[eé]a|morel/i.test(free.name), "pas le titulaire");
+  assert.ok(
+    free.monthlyEur != null && Math.abs(free.monthlyEur - 37.68) < 0.02,
+    `Free mois: ${free.monthlyEur}`,
+  );
+  await wipe(freeUser);
+  console.log("  ok  facture Free");
+
+  // 10. Mutuelle — cotisation mensuelle
+  const mutUser = await fresh("mutuelle");
+  await addDoc(mutUser, {
+    org: "Mutuelle Santé Équilibre",
+    title: "Mutuelle Santé Équilibre",
+    category: "assurance",
+    amounts: ["99,61 EUR", "3,03 EUR"],
+    text: [
+      "Contrat mutuelle santé.",
+      "Cotisation mensuelle : 99,61 EUR.",
+      "Frais de gestion : 3,03 EUR.",
+      "Renouvellement automatique annuel.",
+    ].join(" "),
+  });
+  const mutSubs = await listSubscriptionInsights(mutUser);
+  const mut = mutSubs.find((s) => /mutuelle/i.test(s.name));
+  assert.ok(mut, "ligne mutuelle");
+  assert.ok(
+    mut.monthlyEur != null && Math.abs(mut.monthlyEur - 99.61) < 0.02,
+    `mutuelle mois: ${mut.monthlyEur}`,
+  );
+  await wipe(mutUser);
+  console.log("  ok  mutuelle cotisation");
+
+  // 11. CAF / MED → pas de fausse ligne abo
+  const adminUser = await fresh("admin");
+  await addDoc(adminUser, {
+    org: "Caisse d'Allocations Familiales",
+    title: "Notification CAF",
+    category: "courrier-administratif",
+    amounts: ["483 EUR"],
+    text: "CAF aide mensuelle 483 EUR. Allocataire Camille Thomas. Demande de pièces.",
+  });
+  await addDoc(adminUser, {
+    org: "Service recouvrement",
+    title: "Mise en demeure",
+    category: "courrier-administratif",
+    amounts: ["451 EUR"],
+    text: "Mise en demeure de payer 451 EUR. Destinataire Hugo Robert.",
+  });
+  const adminSubs = await listSubscriptionInsights(adminUser);
+  assert.equal(adminSubs.length, 0, `CAF/MED exclus: ${adminSubs.map((s) => s.name).join(",")}`);
+  await wipe(adminUser);
+  console.log("  ok  CAF/MED exclus");
+
+  // 12. Prêt → crédit, pas abo telecom
+  const pretUser = await fresh("pret");
+  await addDoc(pretUser, {
+    org: "Crédit Serein",
+    title: "Offre de prêt personnel",
+    category: "contrat",
+    amounts: ["271 EUR", "32653 EUR"],
+    text: [
+      "Offre de prêt personnel Crédit Serein.",
+      "Emprunteur Hugo Fournier.",
+      "Mensualité : 271 EUR.",
+      "TAEG : 3,20 %. Capital emprunté 32653 EUR.",
+    ].join(" "),
+  });
+  const pretSubs = await listSubscriptionInsights(pretUser);
+  const pret = pretSubs.find((s) => /serein|cr[eé]dit/i.test(s.name));
+  assert.ok(pret, "ligne prêt");
+  assert.equal(pret.productKey, "credit");
+  assert.equal(pret.category, "pret");
+  assert.ok(!/orange|edf|telecom|internet|mobile/i.test(pret.name));
+  assert.ok(
+    pret.monthlyEur != null && Math.abs(pret.monthlyEur - 271) < 0.02,
+    `prêt mois: ${pret.monthlyEur}`,
+  );
+  await wipe(pretUser);
+  console.log("  ok  prêt = crédit");
 
   console.log("\nall ok");
 }
