@@ -45,7 +45,7 @@ export function LetterDraftPanel({
   const [error, setError] = useState<string | null>(null);
   const [planBlocked, setPlanBlocked] = useState(false);
   const [quotaBlocked, setQuotaBlocked] = useState(false);
-  const [analyzeRemaining, setAnalyzeRemaining] = useState<number | null>(null);
+  const [letterRemaining, setLetterRemaining] = useState<number | null>(null);
   const [billingChecked, setBillingChecked] = useState(false);
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export function LetterDraftPanel({
         setSuggestionReason(data.suggestion.reason);
         setAlternativeSuggestions(data.suggestion.alternatives ?? []);
 
-        const remaining = data.analyzeQuota?.remaining ?? null;
+        const remaining = data.letterQuota?.remaining ?? null;
 
         if (data.premiumRequired === true) {
           setPlanBlocked(true);
@@ -65,8 +65,9 @@ export function LetterDraftPanel({
           setLetter(null);
         } else {
           setPlanBlocked(false);
-          setAnalyzeRemaining(remaining);
-          const canGenerate = data.canGenerate ?? (remaining == null || remaining > 0);
+          setLetterRemaining(remaining);
+          const canGenerate =
+            data.canGenerate ?? (remaining == null || remaining > 0);
           setQuotaBlocked(!canGenerate);
           if (canGenerate && data.currentLetter?.required) {
             setLetter(data.currentLetter);
@@ -96,8 +97,8 @@ export function LetterDraftPanel({
       });
       setLetter(result.letter);
       onDrafted?.(result.letter);
-      if (analyzeRemaining != null && analyzeRemaining > 0) {
-        setAnalyzeRemaining(analyzeRemaining - 1);
+      if (letterRemaining != null && letterRemaining > 0) {
+        setLetterRemaining(letterRemaining - 1);
       }
     } catch (draftError) {
       const message =
@@ -108,9 +109,9 @@ export function LetterDraftPanel({
       if (/plan payant|offre Pro|Facturation/i.test(message)) {
         setPlanBlocked(true);
       }
-      if (/quota|analyses du mois/i.test(message)) {
+      if (/quota|courriers? du mois|courriers?\s+IA/i.test(message)) {
         setQuotaBlocked(true);
-        setAnalyzeRemaining(0);
+        setLetterRemaining(0);
       }
     } finally {
       setIsLoading(false);
@@ -118,11 +119,11 @@ export function LetterDraftPanel({
   };
 
   const remainingLabel =
-    analyzeRemaining == null
+    letterRemaining == null
       ? null
-      : analyzeRemaining === 1
+      : letterRemaining === 1
         ? "1 courrier restant ce mois"
-        : `${analyzeRemaining} courriers restants ce mois`;
+        : `${letterRemaining} courriers restants ce mois`;
 
   return (
     <div className="space-y-4">
@@ -171,9 +172,9 @@ export function LetterDraftPanel({
               </Link>
             </Alert>
           ) : billingChecked && quotaBlocked ? (
-            <Alert tone="info" title="Quota analyses atteint">
-              Vous avez utilisé toutes vos analyses ce mois — les courriers
-              partagent ce quota.{" "}
+            <Alert tone="info" title="Quota courriers atteint">
+              Vous avez utilisé tous vos courriers IA ce mois. Les analyses
+              restantes ne sont pas affectées.{" "}
               <Link
                 href="/facturation"
                 className="font-medium text-[var(--accent)] hover:underline"

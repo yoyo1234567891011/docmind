@@ -21,7 +21,7 @@ export const runtime = "nodejs";
  * POST /api/letters
  * Body: { historyId: string, letterType?: LetterType | "auto", persist?: boolean }
  *
- * Plans payants uniquement — 1 courrier réussi = 1 unité du quota analyses.
+ * Plans payants uniquement — 1 courrier réussi = 1 unité du quota letter (indépendant d’analyze).
  */
 export async function POST(request: Request) {
   try {
@@ -70,8 +70,8 @@ export async function POST(request: Request) {
 
     const historyId = body.historyId.trim();
     await getHistoryRecord(user.id, historyId);
-    await assertQuotaAvailable(user.id, "analyze");
-    await consumeQuota(user.id, "analyze");
+    await assertQuotaAvailable(user.id, "letter");
+    await consumeQuota(user.id, "letter");
 
     try {
       const result = await draftLetterForHistory({
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       });
       return apiSuccess(result);
     } catch (error) {
-      await refundQuota(user.id, "analyze").catch(() => undefined);
+      await refundQuota(user.id, "letter").catch(() => undefined);
       throw error;
     }
   } catch (error) {
@@ -114,11 +114,11 @@ export async function GET(request: Request) {
       reconcile: true,
     });
     const quotas = await getQuotaStatus(user.id);
-    const analyze = pickQuotaItem(quotas, "analyze");
+    const letter = pickQuotaItem(quotas, "letter");
     const canGenerate =
       canLetter &&
-      analyze != null &&
-      (analyze.unlimited || analyze.remaining > 0);
+      letter != null &&
+      (letter.unlimited || letter.remaining > 0);
 
     return apiSuccess({
       historyId,
@@ -126,12 +126,12 @@ export async function GET(request: Request) {
       currentLetter: canLetter ? (record.readyReply ?? null) : null,
       premiumRequired: !canLetter,
       canGenerate,
-      analyzeQuota: canLetter
-        ? analyze
+      letterQuota: canLetter
+        ? letter
           ? {
-              used: analyze.used,
-              limit: analyze.limit,
-              remaining: analyze.unlimited ? null : analyze.remaining,
+              used: letter.used,
+              limit: letter.limit,
+              remaining: letter.unlimited ? null : letter.remaining,
             }
           : null
         : null,

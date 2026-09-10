@@ -1,5 +1,5 @@
 /**
- * Agent courrier — Free bloqué, payants quota = analyses.
+ * Agent courrier — Free bloqué, payants quota letter indépendant d’analyze.
  *
  * Usage: npm run test:letter-quota
  */
@@ -58,7 +58,7 @@ async function main() {
   const free = getPlanQuotas("free");
   assert.equal(free.letter, 0, "Free : 0 courrier affiché");
   const pro = getPlanQuotas("pro");
-  assert.equal(pro.letter, pro.analyze, "Payant : letter = analyze");
+  assert.equal(pro.letter, pro.analyze, "Payant : plafond letter = analyze par défaut");
   assert.ok(planHasLetterAgent("pro"));
   assert.ok(planHasLetterAgent("basique"));
   console.log("  ok  entitlements + quotas par plan");
@@ -67,6 +67,7 @@ async function main() {
   assert.equal(await hasEntitlement(freeUser, "letter_agent"), false);
   console.log("  ok  Free bloqué (entitlement)");
 
+  // Analyze épuisé ≠ letter bloqué
   const paidUser = await fresh("paid");
   await upsertSubscriptionPatch(paidUser, {
     plan: "pro",
@@ -77,49 +78,92 @@ async function main() {
   const paidStatus = await getQuotaStatus(paidUser);
   assert.equal(paidStatus.plan, "pro");
   const analyzeItem = paidStatus.items.find((i) => i.metric === "analyze");
+  const letterItem = paidStatus.items.find((i) => i.metric === "letter");
   assert.ok(analyzeItem && !analyzeItem.unlimited);
+  assert.ok(letterItem && !letterItem.unlimited);
   for (let i = 0; i < analyzeItem.limit; i++) {
     await consumeQuota(paidUser, "analyze");
   }
 
-  let blocked = false;
+  let analyzeBlocked = false;
   try {
     await assertQuotaAvailable(paidUser, "analyze");
   } catch (error) {
-    blocked = error instanceof Error && /analyses/i.test(error.message);
+    analyzeBlocked = error instanceof Error && /analyses/i.test(error.message);
   }
-  assert.ok(blocked, "payant quota 0 → bloqué");
-  console.log("  ok  quota épuisé → bloqué");
+  assert.ok(analyzeBlocked, "analyze = 0 → bloqué");
+
+  await assertQuotaAvailable(paidUser, "letter");
+  const afterAnalyzeExhausted = await getQuotaStatus(paidUser);
+  const letterAfter = afterAnalyzeExhausted.items.find((i) => i.metric === "letter");
+  assert.ok(letterAfter && letterAfter.remaining === letterAfter.limit);
+  console.log("  ok  analyze épuisé → letter encore dispo");
+
+  await consumeQuota(paidUser, "letter");
+  const afterLetter = await getQuotaStatus(paidUser);
+  assert.equal(
+    afterLetter.items.find((i) => i.metric === "letter")?.used,
+    1,
+  );
+  assert.equal(
+    afterLetter.items.find((i) => i.metric === "analyze")?.remaining,
+    0,
+  );
+  console.log("  ok  consommer letter n’affecte pas analyze");
+
+  for (let i = 1; i < letterItem.limit; i++) {
+    await consumeQuota(paidUser, "letter");
+  }
+  let letterBlocked = false;
+  try {
+    await assertQuotaAvailable(paidUser, "letter");
+  } catch (error) {
+    letterBlocked =
+      error instanceof Error && /courriers?/i.test(error.message);
+  }
+  assert.ok(letterBlocked, "letter = 0 → message quota courrier");
+  console.log("  ok  letter épuisé → message courrier");
 
   await wipe(paidUser);
+
   const refundUser = await fresh("refund");
   await upsertSubscriptionPatch(refundUser, {
     plan: "basique",
     status: "active",
   });
-  await consumeQuota(refundUser, "analyze");
+  await consumeQuota(refundUser, "letter");
   assert.equal(
-    (await getQuotaStatus(refundUser)).items.find((i) => i.metric === "analyze")
+    (await getQuotaStatus(refundUser)).items.find((i) => i.metric === "letter")
       ?.used,
     1,
   );
-  await refundQuota(refundUser, "analyze");
+  await refundQuota(refundUser, "letter");
   assert.equal(
-    (await getQuotaStatus(refundUser)).items.find((i) => i.metric === "analyze")
+    (await getQuotaStatus(refundUser)).items.find((i) => i.metric === "letter")
       ?.used,
     0,
   );
-  console.log("  ok  consommation + remboursement analyze");
+  console.log("  ok  consommation + remboursement letter");
 
   const routeSrc = await readFile("src/app/api/letters/route.ts", "utf8");
-  assert.ok(routeSrc.includes("hasEntitlement(user.id, \"letter_agent\""));
-  assert.ok(routeSrc.includes('consumeQuota(user.id, "analyze")'));
-  assert.ok(routeSrc.includes("refundQuota(user.id, \"analyze\")"));
-  console.log("  ok  route API (gate + analyze + refund)");
+  assert.ok(routeSrc.includes('hasEntitlement(user.id, "letter_agent"'));
+  assert.ok(routeSrc.includes('consumeQuota(user.id, "letter")'));
+  assert.ok(routeSrc.includes('refundQuota(user.id, "letter")'));
+  assert.ok(!routeSrc.includes('consumeQuota(user.id, "analyze")'));
+  console.log("  ok  route API (gate + letter + refund)");
 
   const draftSrc = await readFile("src/services/reply/draft.ts", "utf8");
   assert.ok(draftSrc.includes("requireEntitlement"));
   console.log("  ok  draft gate entitlement");
+
+  const panelSrc = await readFile(
+    "src/components/documents/letter-draft-panel.tsx",
+    "utf8",
+  );
+  assert.ok(panelSrc.includes("letterQuota"));
+  assert.ok(panelSrc.includes("Quota courriers atteint"));
+  assert.ok(!panelSrc.includes("partagent ce quota"));
+  console.log("  ok  UI letter indépendant d’analyze");
 
   await wipe(freeUser);
   await wipe(refundUser);

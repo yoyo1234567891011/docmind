@@ -25,7 +25,7 @@ function envInt(key: string, fallback: number): number {
   return Number.isFinite(n) ? Math.trunc(n) : fallback;
 }
 
-/** letter = 0 sur Free ; miroir analyze sur plans payants (affichage). */
+/** letter = 0 sur Free ; plafonds payants indépendants d’analyze (défaut = même plafond). */
 const DEFAULTS: Record<BillingPlanId, PlanQuotaLimits> = {
   free: { analyze: 5, upload: 10, letter: 0, search: 5 },
   basique: { analyze: 15, upload: 30, letter: 15, search: 40 },

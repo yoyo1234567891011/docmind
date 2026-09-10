@@ -53,9 +53,16 @@ export function quotaExceededMessage(
 
   if (metric === "analyze") {
     if (status.plan === "free") {
-      return `Vous avez utilisé vos ${item.limit} analyses du mois (courriers inclus). Passez à Basique, Pro ou supérieur pour continuer.`;
+      return `Vous avez utilisé vos ${item.limit} analyses du mois. Passez à Basique, Pro ou supérieur pour continuer.`;
     }
-    return `Quota ${planName} atteint pour ce mois (${item.limit} analyses et courriers). Passez à une offre supérieure ou réessayez le mois prochain.`;
+    return `Quota ${planName} atteint pour ce mois (${item.limit} analyses). Passez à une offre supérieure ou réessayez le mois prochain.`;
+  }
+
+  if (metric === "letter") {
+    if (status.plan === "free") {
+      return `L’agent courrier n’est pas inclus dans le plan Free. Passez à Basique ou supérieur depuis Facturation.`;
+    }
+    return `Vous avez utilisé vos ${item.limit} courriers IA du mois (plan ${planName}). Passez à une offre supérieure ou réessayez le mois prochain.`;
   }
 
   if (metric === "search") {
