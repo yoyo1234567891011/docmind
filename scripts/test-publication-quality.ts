@@ -354,6 +354,22 @@ function runCase(c: Case) {
       /Madame,\s*Monsieur/i.test(letter.body),
     `${c.name} destinataire vide`,
   );
+  const person0 = out.people?.find((p) => typeof p === "string" && p.trim());
+  if (person0 && letter.recipient.trim()) {
+    const norm = (v: string) =>
+      v
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .replace(/['’]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    assert.ok(
+      norm(letter.recipient) !== norm(person0) &&
+        !norm(letter.recipient).includes(norm(person0)),
+      `${c.name} recipient = persons[0] (${person0}): ${letter.recipient}`,
+    );
+  }
   assert.ok(!/\[Destinataire\]/i.test(letter.body), `${c.name} [Destinataire]`);
   assert.ok(
     !/v[ée]rifier\s+l[''][ée]ch[ée]ance\s*:/i.test(letter.body),

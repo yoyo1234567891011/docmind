@@ -7,6 +7,7 @@ import type {
 
 import {
   extractKnownEmitterBrands,
+  extractOrganizations,
   formatEmitterRecipient,
   isSubscriberPersonName,
 } from "@/services/extraction/people-orgs";
@@ -424,11 +425,17 @@ function pickOrgRecipient(
   organizations: string[],
   documentText: string,
 ): string {
-  const org =
-    organizations.find((o) => typeof o === "string" && o.trim().length > 1) ??
-    "";
-  if (org) {
-    return formatEmitterRecipient(org, documentText);
+  const fromLists = (organizations ?? []).filter(
+    (o) => typeof o === "string" && o.trim().length > 1 && !isSubscriberPersonName(o),
+  );
+  if (fromLists[0]) {
+    return formatEmitterRecipient(fromLists[0], documentText);
+  }
+  const fromText = extractOrganizations(documentText).find(
+    (o) => !isSubscriberPersonName(o),
+  );
+  if (fromText) {
+    return formatEmitterRecipient(fromText, documentText);
   }
   const brand = extractKnownEmitterBrands(documentText)[0];
   return brand ? formatEmitterRecipient(brand, documentText) : "";

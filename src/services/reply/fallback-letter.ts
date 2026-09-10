@@ -24,6 +24,7 @@ import {
 } from "@/services/reply/letter-quality";
 import {
   extractKnownEmitterBrands,
+  extractOrganizations,
   formatEmitterRecipient,
   isSubscriberPersonName,
 } from "@/services/extraction/people-orgs";
@@ -34,7 +35,7 @@ import {
 
 /**
  * Émetteur / organisation pour le courrier sortant.
- * Ne jamais renvoyer un titulaire / abonné / allocataire.
+ * Ne jamais renvoyer un titulaire / abonné / allocataire / emprunteur.
  */
 function firstOrg(
   analysis: DocumentAnalysis,
@@ -64,6 +65,12 @@ function firstOrg(
     const cleaned = bailleur.replace(/\*\*/g, "").trim();
     if (cleaned && !isSubscriberPersonName(cleaned)) return cleaned;
   }
+
+  // Org absente dans l'analyse → titre / en-tête / marques (Free, CAF, Crédit X…)
+  const fromText = extractOrganizations(
+    `${analysis.title ?? ""}\n${documentText}`,
+  ).find((o) => !isSubscriberPersonName(o));
+  if (fromText) return formatEmitterRecipient(fromText, documentText);
 
   const brand = extractKnownEmitterBrands(
     `${analysis.title ?? ""}\n${documentText}`,

@@ -23,7 +23,21 @@ import {
 import { suggestLetterType } from "../src/services/reply/suggest-type";
 import { parseReadyReplyResponse } from "../src/ai/validation/reply";
 import { RISK_CRITERIA } from "../src/services/risk/criteria";
-import type { DocumentAnalysis, DocumentClassification } from "../src/types";
+import type {
+  DocumentAnalysis,
+  DocumentClassification,
+  LetterType,
+} from "../src/types";
+
+function normalizePerson(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/['’]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 function analysis(overrides: Partial<DocumentAnalysis> = {}): DocumentAnalysis {
   return {
@@ -260,84 +274,130 @@ function main() {
   );
   assert.ok(validateLetterBody(invoiceLetter.body).valid);
 
-  // --- Facture Free : destinataire = émetteur, jamais l'abonné ---
-  const freeText = fs.readFileSync(
-    path.join(
-      process.cwd(),
-      "test-documents/factures-free/01-facture-free-fre-174846.md",
-    ),
-    "utf8",
-  );
-  const freeOrgs = extractOrganizations(freeText);
-  const freePeople = extractPeople(freeText);
-  assert.ok(
-    freeOrgs.some((o) => /free/i.test(o)),
-    `Free org manquante: ${freeOrgs.join(" | ") || "(vide)"}`,
-  );
-  assert.ok(
-    freePeople.some((p) => /l[eé]a/i.test(p)),
-    `abonné Free attendu: ${freePeople.join(" | ")}`,
-  );
-  const freeLetter = buildFallbackLetter(
-    "contestation",
-    analysis({
-      title: "Facture Free",
-      organizations: freeOrgs,
-      people: freePeople,
-      amounts: ["88,80 €"],
-    }),
-    { category: "facture", label: "Facture", confidence: 0.9 },
-    "Contestation facture Free",
-    freeText,
-  );
-  assert.ok(
-    !/l[eé]a\s+mercier|l[eé]a\s+morel/i.test(freeLetter.recipient),
-    `destinataire ne doit pas être l'abonné: ${freeLetter.recipient}`,
-  );
-  assert.ok(
-    /free|service\s+(?:clients|facturation)/i.test(freeLetter.recipient),
-    `destinataire Free attendu: ${freeLetter.recipient}`,
-  );
-  const leakedPerson = sanitizeRecipient(
-    freePeople[0] ?? "Léa Morel",
-    freeOrgs,
-    freeText,
-    "Facture Free",
-    freePeople,
-  );
-  assert.ok(
-    !/l[eé]a/i.test(leakedPerson) && /free/i.test(leakedPerson),
-    `sanitize rejette la personne: ${leakedPerson}`,
-  );
-
-  // --- CAF : destinataire organisme (régression) ---
-  const cafText = fs.readFileSync(
-    path.join(
-      process.cwd(),
-      "test-documents/caf/01-notification-caf-caf-500877.md",
-    ),
-    "utf8",
-  );
-  const cafOrgs = extractOrganizations(cafText);
-  const cafLetter = buildFallbackLetter(
-    "autre",
-    analysis({
-      title: "Notification CAF",
-      organizations: cafOrgs,
-      people: extractPeople(cafText),
-    }),
+  // --- Destinataire universel : org/émetteur, jamais persons[0] ---
+  const recipientCases: Array<{
+    name: string;
+    file: string;
+    orgOk: RegExp;
+    letterType: LetterType;
+    category: DocumentClassification["category"];
+    label: string;
+  }> = [
     {
+      name: "free",
+      file: "test-documents/factures-free/01-facture-free-fre-174846.md",
+      orgOk: /free|service\s+(?:clients|facturation)/i,
+      letterType: "contestation",
+      category: "facture",
+      label: "Facture",
+    },
+    {
+      name: "mutuelle",
+      file: "test-documents/mutuelles/01-contrat-mutuelle-sante-mut-437004.md",
+      orgOk: /mutuelle/i,
+      letterType: "autre",
+      category: "assurance",
+      label: "Mutuelle",
+    },
+    {
+      name: "releve",
+      file: "test-documents/banques/03-releve-bancaire-banque-horizon-bqe-463739.md",
+      orgOk: /horizon|banque/i,
+      letterType: "contestation",
+      category: "banque",
+      label: "Banque",
+    },
+    {
+      name: "pret",
+      file: "test-documents/contrats-de-pret/01-offre-de-pret-personnel-prt-637352.md",
+      orgOk: /cr[ée]dit|serein/i,
+      letterType: "autre",
+      category: "contrat",
+      label: "Offre de prêt",
+    },
+    {
+      name: "caf",
+      file: "test-documents/caf/01-notification-caf-caf-500877.md",
+      orgOk: /caisse|allocations|caf/i,
+      letterType: "reponse_administrative",
       category: "courrier-administratif",
       label: "Notification CAF",
-      confidence: 0.9,
     },
-    "Réponse CAF",
-    cafText,
-  );
-  assert.ok(
-    /caisse|allocations|caf/i.test(cafLetter.recipient),
-    `CAF recipient: ${cafLetter.recipient}`,
-  );
+    {
+      name: "med",
+      file: "test-documents/relances-de-paiement/01-mise-en-demeure-de-paiement-rel-681955.md",
+      orgOk: /recouvrement|service/i,
+      letterType: "contestation",
+      category: "courrier-administratif",
+      label: "Mise en demeure",
+    },
+  ];
+
+  for (const c of recipientCases) {
+    const text = fs.readFileSync(path.join(process.cwd(), c.file), "utf8");
+    const orgs = extractOrganizations(text);
+    const people = extractPeople(text);
+    assert.ok(
+      people.length > 0,
+      `${c.name}: persons[0] attendu pour le test`,
+    );
+    const person0 = people[0]!;
+
+    const letter = buildFallbackLetter(
+      c.letterType,
+      analysis({
+        title: text.split(/\r?\n/).find((l) => l.trim().startsWith("#")) ?? c.name,
+        organizations: orgs,
+        people,
+      }),
+      { category: c.category, label: c.label, confidence: 0.9 },
+      `Test destinataire ${c.name}`,
+      text,
+    );
+    assert.ok(
+      c.orgOk.test(letter.recipient),
+      `${c.name} recipient org: ${letter.recipient}`,
+    );
+    assert.ok(
+      normalizePerson(letter.recipient) !== normalizePerson(person0) &&
+        !normalizePerson(letter.recipient).includes(normalizePerson(person0)),
+      `${c.name} recipient = persons[0] (${person0}): ${letter.recipient}`,
+    );
+
+    // Org absente dans l'analyse → marque / titre / en-tête
+    const letterNoOrgs = buildFallbackLetter(
+      c.letterType,
+      analysis({
+        title: text.split(/\r?\n/).find((l) => l.trim().startsWith("#")) ?? c.name,
+        organizations: [],
+        people,
+      }),
+      { category: c.category, label: c.label, confidence: 0.9 },
+      `Test destinataire sans org ${c.name}`,
+      text,
+    );
+    assert.ok(
+      c.orgOk.test(letterNoOrgs.recipient),
+      `${c.name} fallback titre/marque: ${letterNoOrgs.recipient}`,
+    );
+    assert.ok(
+      normalizePerson(letterNoOrgs.recipient) !== normalizePerson(person0),
+      `${c.name} fallback persons[0]: ${letterNoOrgs.recipient}`,
+    );
+
+    const sanitized = sanitizeRecipient(
+      person0,
+      [],
+      text,
+      c.label,
+      people,
+    );
+    assert.ok(
+      c.orgOk.test(sanitized) &&
+        normalizePerson(sanitized) !== normalizePerson(person0),
+      `${c.name} sanitize persons[0] → org: ${sanitized}`,
+    );
+  }
 
   // --- Bail ---
   const bail = suggestLetterType(

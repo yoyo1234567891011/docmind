@@ -211,9 +211,18 @@ function extractOrgFromTitle(text: string): string[] {
     return [formatEmitterRecipient(brandInTitle, text)];
   }
 
+  // "Crédit Serein" / "Banque Horizon" / "Mutuelle …" dans le titre
+  const namedOrg = title.match(
+    /\b((?:banque|cr[ée]dit|mutuelle|assurances?)\s+[A-ZÀ-Ü][\w'’-]{2,}(?:\s+[A-ZÀ-Ü][\w'’-]+){0,3})/i,
+  )?.[1];
+  if (namedOrg) {
+    const cleanedNamed = cleanValue(namedOrg);
+    if (looksLikeOrganization(cleanedNamed)) return [cleanedNamed];
+  }
+
   // Ignore titres de type document + id sans org claire
   if (
-    /^(contrat|facture|devis|notification|avis|releve|relevé|abonnement)\b/i.test(
+    /^(contrat|facture|devis|notification|avis|releve|relevé|abonnement|offre)\b/i.test(
       title,
     ) ||
     /\b[A-Z]{2,5}-\d{4,}\b/.test(title)
