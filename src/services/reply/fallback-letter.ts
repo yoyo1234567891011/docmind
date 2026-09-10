@@ -23,10 +23,19 @@ import {
   sanitizeRecipient,
 } from "@/services/reply/letter-quality";
 import {
+  extractKnownEmitterBrands,
+  formatEmitterRecipient,
+  isSubscriberPersonName,
+} from "@/services/extraction/people-orgs";
+import {
   annotateReplaceTypeError,
   snapshotAnalysisStringFields,
 } from "@/ai/post-processing/safe-string";
 
+/**
+ * Émetteur / organisation pour le courrier sortant.
+ * Ne jamais renvoyer un titulaire / abonné / allocataire.
+ */
 function firstOrg(
   analysis: DocumentAnalysis,
   sheet?: DocumentSheet | null,
@@ -34,23 +43,34 @@ function firstOrg(
 ): string {
   const fromLists =
     sheet?.organizations?.find(
-      (o) => typeof o === "string" && o.trim().length > 2,
+      (o) =>
+        typeof o === "string" &&
+        o.trim().length > 2 &&
+        !isSubscriberPersonName(o),
     ) ||
     analysis.organizations?.find(
-      (o) => typeof o === "string" && o.trim().length > 2,
+      (o) =>
+        typeof o === "string" &&
+        o.trim().length > 2 &&
+        !isSubscriberPersonName(o),
     ) ||
     "";
-  if (fromLists) return fromLists;
+  if (fromLists) return formatEmitterRecipient(fromLists, documentText);
 
   const bailleur = documentText.match(
     /(?:^|\n)\s*(?:\*\*)?\s*bailleur\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*([^\n*]{3,60})/i,
   )?.[1];
-  if (bailleur) return bailleur.replace(/\*\*/g, "").trim();
+  if (bailleur) {
+    const cleaned = bailleur.replace(/\*\*/g, "").trim();
+    if (cleaned && !isSubscriberPersonName(cleaned)) return cleaned;
+  }
 
-  const person = analysis.people?.find(
-    (p) => typeof p === "string" && p.trim().length > 2,
-  );
-  return person ?? "";
+  const brand = extractKnownEmitterBrands(
+    `${analysis.title ?? ""}\n${documentText}`,
+  )[0];
+  if (brand) return formatEmitterRecipient(brand, documentText);
+
+  return "";
 }
 
 /** Article + destinataire : « la Direction… », « la Banque… », « du Crédit… ». */
@@ -679,12 +699,17 @@ function buildFallbackLetterUnchecked(
   const orgs = [
     ...(sheet?.organizations ?? []),
     ...(analysis.organizations ?? []),
-  ].filter((o): o is string => typeof o === "string");
+  ].filter((o): o is string => typeof o === "string" && !isSubscriberPersonName(o));
+  const people = [
+    ...(sheet?.people ?? []),
+    ...(analysis.people ?? []),
+  ].filter((p): p is string => typeof p === "string");
   const recipient = sanitizeRecipient(
     firstOrg(analysis, sheet, documentText),
     orgs,
     documentText,
     analysis.title ?? "",
+    people,
   );
   const dateFromText =
     documentText.match(

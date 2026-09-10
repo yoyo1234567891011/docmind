@@ -41,6 +41,24 @@ const ORG_LABELS = [
 const HEADER_ORG_RE =
   /(?:^|\n)\s*(?:\*\*)?(?:direction\s+g[ée]n[ée]rale\s+des\s+finances\s+publiques|dgfip|finances\s+publiques|caisse\s+d['']allocations\s+familiales|service\s+recouvrement|banque\s+[A-ZÀ-Ü][\w'’-]{2,}(?:\s+[A-ZÀ-Ü][\w'’-]+){0,2}|cr[ée]dit\s+[A-ZÀ-Ü][\w'’-]{2,}(?:\s+[A-ZÀ-Ü][\w'’-]+){0,2})(?:\*\*)?/gim;
 
+/** Marques / organismes fréquents (émetteur du document, pas le titulaire). */
+const KNOWN_EMITTER_BRANDS: Array<[RegExp, string]> = [
+  [/\bfree\b/i, "Free"],
+  [/\borange\b/i, "Orange"],
+  [/\bsfr\b/i, "SFR"],
+  [/\bbouygues(?:\s+telecom)?\b/i, "Bouygues Telecom"],
+  [/\bedf\b/i, "EDF"],
+  [/\bengie\b/i, "Engie"],
+  [/\bmaif\b/i, "MAIF"],
+  [/\bmacif\b/i, "MACIF"],
+  [/\baxa\b/i, "AXA"],
+  [/\ballianz\b/i, "Allianz"],
+  [/\bgmf\b/i, "GMF"],
+  [/\bmaaf\b/i, "MAAF"],
+  [/\bcaf\b/i, "CAF"],
+  [/\burssaf\b/i, "URSSAF"],
+];
+
 function normalizeKey(value: string): string {
   return value
     .toLowerCase()
@@ -63,7 +81,8 @@ function cleanValue(raw: string): string {
     .replace(/[.;,]+$/, "");
 }
 
-function looksLikePersonName(value: string): boolean {
+/** Prénom + nom (titulaire / abonné) — pas un destinataire de courrier sortant. */
+export function looksLikePersonName(value: string): boolean {
   const v = cleanValue(value);
   if (v.length < 3 || v.length > 60) return false;
   if (/\d/.test(v)) return false;
@@ -79,6 +98,48 @@ function looksLikePersonName(value: string): boolean {
   );
 }
 
+const ORG_TOKEN_RE =
+  /\b(sas|sarl|sa|eurl|sci|assurances?|banque|mutuelle|caisse|direction|service|cr[ée]dit|etablissement|établissement|organisme|soci[eé]t[eé]|agence|tribunal|free|orange|sfr|edf|engie)\b/i;
+
+/**
+ * Titulaire / abonné / allocataire — à exclure du destinataire courrier.
+ * Ne confond pas « Banque Horizon » avec un prénom+nom.
+ */
+export function isSubscriberPersonName(value: string): boolean {
+  const v = cleanValue(value);
+  if (!v || ORG_TOKEN_RE.test(v)) return false;
+  if (extractKnownEmitterBrands(v).length > 0) return false;
+  return looksLikePersonName(v);
+}
+
+/** Marques connues présentes dans le texte (émetteur). */
+export function extractKnownEmitterBrands(text: string): string[] {
+  const haystack = (text ?? "").slice(0, 4000);
+  const out: string[] = [];
+  for (const [re, label] of KNOWN_EMITTER_BRANDS) {
+    if (re.test(haystack)) out.push(label);
+  }
+  return mergeUniqueStrings(out);
+}
+
+/**
+ * Libellé destinataire courrier : marque (+ service clients si mentionné).
+ */
+export function formatEmitterRecipient(
+  brand: string,
+  documentText = "",
+): string {
+  const b = cleanValue(brand);
+  if (!b) return "";
+  if (
+    /^free$/i.test(b) &&
+    /service\s+(?:clients?|facturation|client[eè]le)/i.test(documentText)
+  ) {
+    return "Free – Service clients";
+  }
+  return b;
+}
+
 function looksLikeOrganization(value: string): boolean {
   const v = cleanValue(value);
   if (v.length < 3 || v.length > 90) return false;
@@ -86,7 +147,7 @@ function looksLikeOrganization(value: string): boolean {
   // Ignore bare legal-form tokens / contract ids
   if (/^(sas|sarl|sa|eurl|sci|ass)$/i.test(v)) return false;
   if (/^[A-Z]{2,5}-\d+$/i.test(v)) return false;
-  if (looksLikePersonName(v) && !/\b(sas|sarl|sa|assurances?|banque|mutuelle|caisse|direction)\b/i.test(v)) {
+  if (looksLikePersonName(v) && !ORG_TOKEN_RE.test(v)) {
     return false;
   }
   return true;
@@ -130,6 +191,10 @@ function extractOrgFromTitle(text: string): string[] {
   // "Facture … — Fournisseur ÉnergieClaire" / "Mise en demeure — Service recouvrement"
   const afterDash = title.split("—")[1]?.trim();
   if (afterDash) {
+    const brandAfterDash = extractKnownEmitterBrands(afterDash)[0];
+    if (brandAfterDash) {
+      return [formatEmitterRecipient(brandAfterDash, text)];
+    }
     const cleaned = cleanValue(afterDash.replace(/^(fournisseur)\s+/i, ""));
     if (
       looksLikeOrganization(cleaned) &&
@@ -140,9 +205,17 @@ function extractOrgFromTitle(text: string): string[] {
     }
   }
 
+  // "Facture Free" / "Abonnement Orange" / marque dans le titre
+  const brandInTitle = extractKnownEmitterBrands(title)[0];
+  if (brandInTitle) {
+    return [formatEmitterRecipient(brandInTitle, text)];
+  }
+
   // Ignore titres de type document + id sans org claire
   if (
-    /^(contrat|facture|devis|notification|avis|releve|relevé)\b/i.test(title) ||
+    /^(contrat|facture|devis|notification|avis|releve|relevé|abonnement)\b/i.test(
+      title,
+    ) ||
     /\b[A-Z]{2,5}-\d{4,}\b/.test(title)
   ) {
     return [];
@@ -162,7 +235,7 @@ function extractOrgFromTitle(text: string): string[] {
 }
 
 /**
- * Extraction déterministe des organisations (labels + titre + en-tête).
+ * Extraction déterministe des organisations (labels + titre + en-tête + marques).
  */
 export function extractOrganizations(text: string): string[] {
   const fromLabels = extractLabeledValues(text, ORG_LABELS)
@@ -179,8 +252,13 @@ export function extractOrganizations(text: string): string[] {
     fromLabels.length === 0 && fromHeader.length === 0
       ? extractOrgFromTitle(text)
       : [];
-  return mergeUniqueStrings([...fromLabels, ...fromHeader, ...fromTitle]).slice(
-    0,
-    8,
+  const fromBrands = extractKnownEmitterBrands(text).map((b) =>
+    formatEmitterRecipient(b, text),
   );
+  return mergeUniqueStrings([
+    ...fromLabels,
+    ...fromHeader,
+    ...fromTitle,
+    ...fromBrands,
+  ]).slice(0, 8);
 }

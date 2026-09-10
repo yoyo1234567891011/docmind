@@ -75,7 +75,11 @@ function finalizeLetter(input: {
   const orgs = [
     ...(input.sheet?.organizations ?? []),
     ...(input.analysis.organizations ?? []),
-  ];
+  ].filter((o): o is string => typeof o === "string");
+  const people = [
+    ...(input.sheet?.people ?? []),
+    ...(input.analysis.people ?? []),
+  ].filter((p): p is string => typeof p === "string");
   const corpus = analysisCorpus(input.analysis);
 
   const body = stripInventedAddressesFromBody(
@@ -104,6 +108,7 @@ function finalizeLetter(input: {
       orgs,
       input.documentText,
       corpus,
+      people,
     ),
     factsUsed: deriveFactsUsedInLetter(body, input.allowedFacts),
   };

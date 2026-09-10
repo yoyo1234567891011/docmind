@@ -2,6 +2,8 @@
  * Tests agent courrier (suggestion + qualité + fallback, sans LLM).
  */
 import assert from "assert";
+import fs from "fs";
+import path from "path";
 
 import { buildFallbackLetter } from "../src/services/reply/fallback-letter";
 import {
@@ -14,6 +16,10 @@ import {
   sanitizeRecipient,
   validateLetterBody,
 } from "../src/services/reply/letter-quality";
+import {
+  extractOrganizations,
+  extractPeople,
+} from "../src/services/extraction/people-orgs";
 import { suggestLetterType } from "../src/services/reply/suggest-type";
 import { parseReadyReplyResponse } from "../src/ai/validation/reply";
 import { RISK_CRITERIA } from "../src/services/risk/criteria";
@@ -253,6 +259,85 @@ function main() {
     "Contrat abonnement fibre Orange",
   );
   assert.ok(validateLetterBody(invoiceLetter.body).valid);
+
+  // --- Facture Free : destinataire = émetteur, jamais l'abonné ---
+  const freeText = fs.readFileSync(
+    path.join(
+      process.cwd(),
+      "test-documents/factures-free/01-facture-free-fre-174846.md",
+    ),
+    "utf8",
+  );
+  const freeOrgs = extractOrganizations(freeText);
+  const freePeople = extractPeople(freeText);
+  assert.ok(
+    freeOrgs.some((o) => /free/i.test(o)),
+    `Free org manquante: ${freeOrgs.join(" | ") || "(vide)"}`,
+  );
+  assert.ok(
+    freePeople.some((p) => /l[eé]a/i.test(p)),
+    `abonné Free attendu: ${freePeople.join(" | ")}`,
+  );
+  const freeLetter = buildFallbackLetter(
+    "contestation",
+    analysis({
+      title: "Facture Free",
+      organizations: freeOrgs,
+      people: freePeople,
+      amounts: ["88,80 €"],
+    }),
+    { category: "facture", label: "Facture", confidence: 0.9 },
+    "Contestation facture Free",
+    freeText,
+  );
+  assert.ok(
+    !/l[eé]a\s+mercier|l[eé]a\s+morel/i.test(freeLetter.recipient),
+    `destinataire ne doit pas être l'abonné: ${freeLetter.recipient}`,
+  );
+  assert.ok(
+    /free|service\s+(?:clients|facturation)/i.test(freeLetter.recipient),
+    `destinataire Free attendu: ${freeLetter.recipient}`,
+  );
+  const leakedPerson = sanitizeRecipient(
+    freePeople[0] ?? "Léa Morel",
+    freeOrgs,
+    freeText,
+    "Facture Free",
+    freePeople,
+  );
+  assert.ok(
+    !/l[eé]a/i.test(leakedPerson) && /free/i.test(leakedPerson),
+    `sanitize rejette la personne: ${leakedPerson}`,
+  );
+
+  // --- CAF : destinataire organisme (régression) ---
+  const cafText = fs.readFileSync(
+    path.join(
+      process.cwd(),
+      "test-documents/caf/01-notification-caf-caf-500877.md",
+    ),
+    "utf8",
+  );
+  const cafOrgs = extractOrganizations(cafText);
+  const cafLetter = buildFallbackLetter(
+    "autre",
+    analysis({
+      title: "Notification CAF",
+      organizations: cafOrgs,
+      people: extractPeople(cafText),
+    }),
+    {
+      category: "courrier-administratif",
+      label: "Notification CAF",
+      confidence: 0.9,
+    },
+    "Réponse CAF",
+    cafText,
+  );
+  assert.ok(
+    /caisse|allocations|caf/i.test(cafLetter.recipient),
+    `CAF recipient: ${cafLetter.recipient}`,
+  );
 
   // --- Bail ---
   const bail = suggestLetterType(

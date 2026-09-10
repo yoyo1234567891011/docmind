@@ -6,6 +6,11 @@ import type {
 } from "@/types";
 
 import {
+  extractKnownEmitterBrands,
+  formatEmitterRecipient,
+  isSubscriberPersonName,
+} from "@/services/extraction/people-orgs";
+import {
   filterDeadlinesForLetter,
   isRecipientObligation,
 } from "./letter-intents";
@@ -392,32 +397,83 @@ export function deriveFactsUsedInLetter(
   return uniqueStrings(matched).slice(0, 8);
 }
 
-/** Supprime adresse inventée si absente du document / analyse. */
+function normalizePersonKey(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/['’]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isKnownPersonRecipient(
+  recipient: string,
+  people: string[] | undefined,
+): boolean {
+  if (!recipient || !people?.length) return false;
+  const key = normalizePersonKey(recipient);
+  return people.some((p) => {
+    if (typeof p !== "string" || !p.trim()) return false;
+    const pk = normalizePersonKey(p);
+    return pk === key || key.includes(pk) || pk.includes(key);
+  });
+}
+
+function pickOrgRecipient(
+  organizations: string[],
+  documentText: string,
+): string {
+  const org =
+    organizations.find((o) => typeof o === "string" && o.trim().length > 1) ??
+    "";
+  if (org) {
+    return formatEmitterRecipient(org, documentText);
+  }
+  const brand = extractKnownEmitterBrands(documentText)[0];
+  return brand ? formatEmitterRecipient(brand, documentText) : "";
+}
+
+/**
+ * Destinataire courrier sortant = émetteur / organisation.
+ * Jamais titulaire, abonné, allocataire (persons).
+ */
 export function sanitizeRecipient(
   raw: string,
   organizations: string[],
   documentText: string,
   analysisCorpus: string,
+  people: string[] = [],
 ): string {
   const source = `${documentText ?? ""}\n${analysisCorpus ?? ""}`.toLowerCase();
   let recipient = (typeof raw === "string" ? raw : "").trim();
 
+  if (
+    recipient &&
+    (isKnownPersonRecipient(recipient, people) || isSubscriberPersonName(recipient))
+  ) {
+    recipient = "";
+  }
+
   if (!recipient) {
-    return organizations?.[0] ?? "";
+    return pickOrgRecipient(organizations, documentText);
   }
 
   const street = recipient.match(STREET_RE)?.[0];
   if (street && !source.includes(street.toLowerCase().slice(0, 12))) {
-    recipient = organizations[0] ?? recipient.replace(STREET_RE, "").trim();
+    recipient =
+      pickOrgRecipient(organizations, documentText) ||
+      recipient.replace(STREET_RE, "").trim();
   }
 
   const postal = recipient.match(POSTAL_RE)?.[0];
   if (postal && !source.includes(postal.toLowerCase().slice(0, 5))) {
-    recipient = organizations[0] ?? "";
+    recipient = pickOrgRecipient(organizations, documentText);
   }
 
-  if (recipient.length > 80 && organizations[0]) {
-    return organizations[0];
+  if (recipient.length > 80) {
+    const org = pickOrgRecipient(organizations, documentText);
+    if (org) return org;
   }
 
   return recipient;
