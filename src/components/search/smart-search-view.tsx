@@ -112,6 +112,12 @@ export function SmartSearchView() {
           Posez votre question en langage naturel. DocMind interroge d’abord vos
           fiches structurées, puis le texte des documents seulement si besoin.
         </p>
+        {!result && !error && !isLoading ? (
+          <p className="mt-1 max-w-2xl text-xs text-[var(--muted)] sm:text-sm">
+            Exemples ci-dessous, ou tapez une question sur vos documents déjà
+            analysés.
+          </p>
+        ) : null}
       </div>
 
       {quotas ? <SearchQuotaBanner quotas={quotas} /> : null}

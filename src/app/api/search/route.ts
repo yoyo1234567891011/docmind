@@ -1,7 +1,7 @@
 import { apiFromUnknownError, apiSuccess } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
-import { consumeQuota } from "@/services/quotas/enforce";
+import { consumeQuota, refundQuota } from "@/services/quotas/enforce";
 import { runSmartSearch } from "@/services/search";
 
 export const runtime = "nodejs";
@@ -11,6 +11,8 @@ export const runtime = "nodejs";
  * Body: { query: string, folderId?: string, limit?: number }
  *
  * Natural-language search over history (intent parse + structured match).
+ * Quota search consommé définitivement seulement si la recherche aboutit
+ * (hits ou 0 résultat) ; remboursé si échec technique après débit.
  */
 export async function POST(request: Request) {
   try {
@@ -33,14 +35,18 @@ export async function POST(request: Request) {
     }
 
     await consumeQuota(user.id, "search");
-    const result = await runSmartSearch({
-      userId: user.id,
-      query,
-      folderId: body.folderId,
-      limit: body.limit,
-    });
-
-    return apiSuccess(result);
+    try {
+      const result = await runSmartSearch({
+        userId: user.id,
+        query,
+        folderId: body.folderId,
+        limit: body.limit,
+      });
+      return apiSuccess(result);
+    } catch (error) {
+      await refundQuota(user.id, "search").catch(() => undefined);
+      throw error;
+    }
   } catch (error) {
     return apiFromUnknownError(error);
   }

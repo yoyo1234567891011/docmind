@@ -315,14 +315,25 @@ async function testM9QuotaAfterValidation() {
   );
   const search = await readSource("src/app/api/search/route.ts");
   const searchConsume = search.indexOf("await consumeQuota(");
+  const searchRefund = search.indexOf("await refundQuota(");
+  const searchRun = search.indexOf("await runSmartSearch(");
   assert.ok(
     search.slice(0, searchConsume).includes("500"),
     "search: longueur max avant quota",
   );
+  assert.ok(
+    searchConsume > 0 &&
+      searchRun > searchConsume &&
+      searchRefund > searchRun,
+    "search: refundQuota si échec après consume (0 résultat = succès)",
+  );
   const letters = await readSource("src/app/api/letters/route.ts");
-  const consumeIdx = letters.indexOf("await consumeQuota(");
+  const lettersConsumeIdx = letters.indexOf("await consumeQuota(");
   const histIdx = letters.indexOf("await getHistoryRecord(");
-  assert.ok(histIdx > 0 && histIdx < consumeIdx, "letters: ownership avant quota");
+  assert.ok(
+    histIdx > 0 && histIdx < lettersConsumeIdx,
+    "letters: ownership avant quota",
+  );
   console.log("OK M9 quota après validation");
 }
 
