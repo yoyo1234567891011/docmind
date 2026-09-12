@@ -85,24 +85,36 @@ export function collapseHistoryDuplicates(
   return out.sort((a, b) => b.analyzedAt.localeCompare(a.analyzedAt));
 }
 
-function relationPairKey(alert: DocumentAlert): string {
+function relationCollapseKey(alert: DocumentAlert): string {
+  const fileKey = normalizeKeyPart(alert.fileName);
+  const titleKey = normalizeKeyPart(alert.documentTitle);
+
+  // Re-uploads du même PDF (ex. MED ×4) : une ligne par kind + fichier,
+  // comme collapseHistoryDuplicates — pas une ligne par paire A↔B / A↔C…
+  if (alert.kind === "relation_duplicate") {
+    return `dup:${fileKey || titleKey}`;
+  }
+
   const a = alert.historyId || "";
   const b = alert.secondaryHistoryId || "";
   const pair = [a, b].filter(Boolean).sort().join("|");
-  if (pair.includes("|")) return `${alert.kind}|${pair}`;
-  // Doublons MED sans secondary : regrouper par kind + titre normalisé
-  return `${alert.kind}|${normalizeKeyPart(alert.documentTitle)}|${normalizeKeyPart(alert.fileName)}`;
+  if (pair.includes("|")) {
+    // Même paire + même kind ; ancrage fichier pour éviter les variantes d’id
+    return `${alert.kind}|${pair}|${fileKey || titleKey}`;
+  }
+  return `${alert.kind}|meta:${titleKey}|${fileKey}`;
 }
 
 /**
- * Une ligne par paire de docs + type d’alerte relationnelle.
+ * Une ligne par type + identité documentaire (fichier / paire).
+ * Les « Document en doublon » sur le même MED sont fusionnés avec badge ×N.
  */
 export function collapseRelationAlerts(
   alerts: DocumentAlert[],
 ): RelationAlertDisplay[] {
   const groups = new Map<string, DocumentAlert[]>();
   for (const alert of alerts) {
-    const key = relationPairKey(alert);
+    const key = relationCollapseKey(alert);
     const list = groups.get(key);
     if (list) list.push(alert);
     else groups.set(key, [alert]);
@@ -170,12 +182,16 @@ export function resolveDisplayCategoryLabel(input: {
   );
 }
 
-/** Ids catégorie contreparties → FR ; crédit/prêt prioritaire si le nom le dit. */
+/** Ids catégorie contreparties → FR ; crédit/prêt / CAF si le nom le dit. */
 export function formatCounterpartyCategoryLabels(
   entityName: string,
   categories: string[],
 ): string[] {
   const creditName = /cr[eé]dit|pr[eê]t|serein|taeg/i.test(entityName);
+  const cafName =
+    /\bcaf\b|allocations\s+familiales|caisse\s+d['']allocations/i.test(
+      entityName,
+    );
   const out: string[] = [];
   const seen = new Set<string>();
 
@@ -186,6 +202,9 @@ export function formatCounterpartyCategoryLabels(
       (raw === "banque" || raw === "contrat" || raw === "autre")
     ) {
       label = "Offre de prêt";
+    }
+    if (cafName && raw === "courrier-administratif") {
+      label = "Notification CAF";
     }
     if (seen.has(label)) continue;
     seen.add(label);
