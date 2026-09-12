@@ -2,7 +2,8 @@
  * Helpers d’affichage tableau de bord / mémoire — pas de logique analyse P2.
  */
 import type { DocumentAlert } from "@/types/alerts";
-import type { DocumentCategory, HistoryListItem } from "@/types/history";
+import type { DocumentCategory } from "@/types/document-category";
+import type { HistoryListItem } from "@/types/history";
 
 const GENERIC_LABELS = new Set([
   "Courrier administratif",
