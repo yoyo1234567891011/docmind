@@ -233,7 +233,38 @@ export function resolveSubscriptionProductForDoc(
   if (isCreditOrLoanDoc(doc, signals)) {
     return { key: "credit", label: "Mensualité de crédit" };
   }
+  const text = corpus(signals, doc);
+  if (doc.category === "banque" && BANK_FEE_RE.test(text)) {
+    return { key: "bank_fees", label: "Frais de tenue" };
+  }
   return resolveProductSignal(doc, signals, orgName);
+}
+
+/** KPI abonnements / dépenses : hors mensualités de crédit. */
+export function isCreditSubscriptionLine(item: {
+  category?: string | null;
+  productKey?: string | null;
+}): boolean {
+  return item.category === "pret" || item.productKey === "credit";
+}
+
+export function sumMonthlyExcludingCredit(
+  items: Array<{
+    monthlyEur: number | null;
+    category?: string | null;
+    productKey?: string | null;
+  }>,
+): number | null {
+  let sum = 0;
+  let hasAny = false;
+  for (const item of items) {
+    if (isCreditSubscriptionLine(item)) continue;
+    const m = item.monthlyEur;
+    if (m == null || m <= 0) continue;
+    sum += m;
+    hasAny = true;
+  }
+  return hasAny ? Math.round(sum * 100) / 100 : null;
 }
 
 export function subscriptionInsightCategory(

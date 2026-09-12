@@ -2,6 +2,7 @@
  * Déduplication abonnements — lecture seule, sans LLM.
  * 1 abonnement réel = 1 ligne ; jamais sommer plusieurs docs du même abo.
  */
+import { resolveSubscriptionProductForDoc } from "@/services/insights/subscription-aggregate";
 import {
   amountsClose,
   resolveProductSignal,
@@ -278,6 +279,6 @@ export function buildDocSpendSnapshot(
     signals,
     monthly,
     period,
-    product: resolveProductSignal(doc, signals, orgName),
+    product: resolveSubscriptionProductForDoc(doc, signals, orgName),
   };
 }

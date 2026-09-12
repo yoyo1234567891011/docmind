@@ -24,7 +24,12 @@ import {
   buildFinanceInsight,
   listSubscriptionInsights,
 } from "@/services/insights";
+import {
+  isCreditSubscriptionLine,
+  sumMonthlyExcludingCredit,
+} from "@/services/insights/subscription-aggregate";
 import { upsertMemoryFromHistoryRecord } from "@/services/memory";
+import { extractRiskLabels } from "@/services/memory/detect-p3";
 import { RISK_CRITERIA } from "@/services/risk/criteria";
 import type { HistoryRecord } from "@/types";
 import { EMPTY_READY_REPLY } from "@/types/reply";
@@ -108,15 +113,7 @@ async function addDoc(
 function sumReliable(
   subs: Awaited<ReturnType<typeof listSubscriptionInsights>>,
 ): number | null {
-  let sum = 0;
-  let has = false;
-  for (const s of subs) {
-    if (s.monthlyEur != null && s.monthlyEur > 0) {
-      sum += s.monthlyEur;
-      has = true;
-    }
-  }
-  return has ? Math.round(sum * 100) / 100 : null;
+  return sumMonthlyExcludingCredit(subs);
 }
 
 async function main() {
@@ -183,6 +180,9 @@ async function main() {
   const bank = bankSubs.find((s) => /bnp/i.test(s.name));
   assert.ok(bank, "ligne BNP");
   assert.equal(bank.monthlyEur, 9.9);
+  assert.equal(bank.productKey, "bank_fees");
+  assert.ok(/frais de tenue/i.test(bank.name), `label banque: ${bank.name}`);
+  assert.ok(!/\bsant[eé]\b/i.test(bank.name), `pas Santé: ${bank.name}`);
   await wipe(bankUser);
   console.log("  ok  relevé frais mensuels");
 
@@ -259,6 +259,12 @@ async function main() {
   assert.equal(horizon.length, 1, `2 relevés: attendu 1 ligne, got ${horizon.length}`);
   assert.equal(horizon[0]?.monthlyEur, 9.9);
   assert.equal(horizon[0]?.documentCount, 2);
+  assert.equal(horizon[0]?.productKey, "bank_fees");
+  assert.ok(
+    /frais de tenue/i.test(horizon[0]?.name ?? ""),
+    `Horizon label: ${horizon[0]?.name}`,
+  );
+  assert.ok(!/\bsant[eé]\b/i.test(horizon[0]?.name ?? ""));
   await wipe(bank2User);
   console.log("  ok  2 relevés banque dédupliqués");
 
@@ -390,17 +396,25 @@ async function main() {
   await wipe(adminUser);
   console.log("  ok  CAF/MED exclus");
 
-  // 12. Prêt → crédit, pas abo telecom
+  // 12. Prêt → crédit, pas abo telecom ; hors total « Par mois »
   const pretUser = await fresh("pret");
+  await addDoc(pretUser, {
+    org: "Orange",
+    title: "Orange Livebox",
+    amounts: ["39,99 EUR"],
+    text: "Contrat Orange Livebox Fibre. Abonnement mensuel 39,99 EUR par mois. ".repeat(
+      4,
+    ),
+  });
   await addDoc(pretUser, {
     org: "Crédit Serein",
     title: "Offre de prêt personnel",
     category: "contrat",
-    amounts: ["271 EUR", "32653 EUR"],
+    amounts: ["411 EUR", "32653 EUR"],
     text: [
       "Offre de prêt personnel Crédit Serein.",
       "Emprunteur Hugo Fournier.",
-      "Mensualité : 271 EUR.",
+      "Mensualité : 411 EUR.",
       "TAEG : 3,20 %. Capital emprunté 32653 EUR.",
     ].join(" "),
   });
@@ -409,13 +423,72 @@ async function main() {
   assert.ok(pret, "ligne prêt");
   assert.equal(pret.productKey, "credit");
   assert.equal(pret.category, "pret");
+  assert.ok(isCreditSubscriptionLine(pret));
   assert.ok(!/orange|edf|telecom|internet|mobile/i.test(pret.name));
   assert.ok(
-    pret.monthlyEur != null && Math.abs(pret.monthlyEur - 271) < 0.02,
+    pret.monthlyEur != null && Math.abs(pret.monthlyEur - 411) < 0.02,
     `prêt mois: ${pret.monthlyEur}`,
   );
+  assert.equal(
+    sumMonthlyExcludingCredit(pretSubs),
+    39.99,
+    "Crédit Serein exclu du total abo",
+  );
+  const pretFinance = await buildFinanceInsight(pretUser);
+  assert.equal(
+    pretFinance.monthlyTotalEur,
+    39.99,
+    "Dépenses/mois hors 411 € crédit",
+  );
   await wipe(pretUser);
-  console.log("  ok  prêt = crédit");
+  console.log("  ok  prêt = crédit hors total abo");
+
+  // 13. Banque Horizon + « suffisante » → Frais de tenue, jamais Santé
+  const labels = extractRiskLabels(
+    {
+      analysis: {
+        title: "Relevé Banque Horizon",
+        summary: "Provision suffisante sur le compte.",
+        important_points: [],
+        risks: ["Provision suffisante"],
+        risk_findings: [],
+        amounts: ["9,90 EUR"],
+        organizations: ["Banque Horizon"],
+      },
+      extractedText:
+        "Relevé Banque Horizon. Frais de tenue de compte mensuels 9,90 EUR. Provision suffisante.",
+    } as HistoryRecord,
+    "banque",
+  );
+  assert.ok(!labels.some((l) => /^sant/i.test(l)), `riskLabels: ${labels.join(",")}`);
+
+  const horizonSanteUser = await fresh("horizon-sante");
+  await addDoc(horizonSanteUser, {
+    org: "Banque Horizon",
+    title: "Relevé Banque Horizon",
+    category: "banque",
+    amounts: ["9,90 EUR", "800 EUR"],
+    text: [
+      "Relevé Banque Horizon.",
+      "Frais de tenue de compte mensuels : 9,90 EUR par mois.",
+      "Provision suffisante. Solde 800 EUR.",
+    ].join(" "),
+  });
+  const horizonSanteSubs = await listSubscriptionInsights(horizonSanteUser);
+  const horizonLine = horizonSanteSubs.find((s) => /horizon/i.test(s.name));
+  assert.ok(horizonLine, "ligne Banque Horizon");
+  assert.equal(horizonLine.productKey, "bank_fees");
+  assert.ok(
+    /frais de tenue/i.test(horizonLine.name),
+    `attendu Frais de tenue, got ${horizonLine.name}`,
+  );
+  assert.ok(
+    !/\bsant[eé]\b/i.test(horizonLine.name),
+    `Banque ≠ Santé: ${horizonLine.name}`,
+  );
+  assert.equal(sumMonthlyExcludingCredit(horizonSanteSubs), 9.9);
+  await wipe(horizonSanteUser);
+  console.log("  ok  Banque Horizon ≠ Santé");
 
   console.log("\nall ok");
 }

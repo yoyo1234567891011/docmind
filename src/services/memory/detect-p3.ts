@@ -116,7 +116,11 @@ export function extractRiskLabels(
   const text = normalizeEntityKey(corpusText(record));
   const found: string[] = [];
   for (const r of RISK_LEXICON) {
-    if (text.includes(normalizeEntityKey(r))) found.push(r);
+    const key = normalizeEntityKey(r);
+    if (!key) continue;
+    // Mot entier — évite « sante » dans « suffisante ».
+    const re = new RegExp(`(?:^|[^a-z0-9])${key}(?=[^a-z0-9]|$)`);
+    if (re.test(text)) found.push(r);
   }
   if (category === "assurance" || category === "bail") {
     if (text.includes("habitation") || text.includes("logement")) {

@@ -62,6 +62,9 @@ export function FinanceView() {
               <p className="mt-1 font-display text-3xl">
                 {money(data.monthlyTotalEur)}
               </p>
+              <p className="mt-1 text-[11px] leading-snug text-[var(--muted)]">
+                Hors crédits / mensualités de prêt.
+              </p>
             </div>
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-5">
               <p className="text-xs text-[var(--muted)]">Total annuel</p>

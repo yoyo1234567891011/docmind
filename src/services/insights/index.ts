@@ -21,11 +21,13 @@ import {
 } from "@/services/insights/subscription-dedup";
 import {
   formatSubscriptionLineName,
+  isCreditSubscriptionLine,
   isRecurringSubscriptionCandidate,
   isValidSubscriptionOrgName,
   resolveSubscriptionProductForDoc,
   resolveSubscriptionSpendFromMemory,
   subscriptionInsightCategory,
+  sumMonthlyExcludingCredit,
 } from "@/services/insights/subscription-aggregate";
 import {
   subscriptionAggregateId,
@@ -343,11 +345,12 @@ export async function buildFinanceInsight(
   const subs = await listSubscriptionInsights(userId);
   const byCat = new Map<string, FinanceCategoryBucket>();
 
-  let monthlyTotal: number | null = null;
+  // Total « dépenses / mois » = abonnements & frais récurrents, hors crédits.
+  const roundedMonthly = sumMonthlyExcludingCredit(subs);
+
   for (const s of subs) {
     const m = s.monthlyEur;
     if (m == null || m <= 0) continue;
-    monthlyTotal = (monthlyTotal ?? 0) + m;
     const cur = byCat.get(s.category) ?? {
       category: s.category,
       label: CATEGORY_LABELS[s.category] || s.category,
@@ -361,12 +364,10 @@ export async function buildFinanceInsight(
     byCat.set(s.category, cur);
   }
 
-  const roundedMonthly =
-    monthlyTotal != null ? Math.round(monthlyTotal * 100) / 100 : null;
-
-  // Série : un point par abonnement actif (évite double-compte multi-docs).
+  // Série : hors crédits (aligné sur le total KPI).
   const seriesMap = new Map<string, FinanceMonthPoint>();
   for (const s of subs) {
+    if (isCreditSubscriptionLine(s)) continue;
     if (s.monthlyEur == null || s.monthlyEur <= 0) continue;
     if (!s.primaryDocumentId) continue;
     const doc = await getMemoryDocument(userId, s.primaryDocumentId);
