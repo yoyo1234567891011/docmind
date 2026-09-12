@@ -4,6 +4,7 @@ import {
   extractDocumentSignalHead,
   hasCafDocumentSignal,
   hasPretDocumentSignal,
+  hasRecouvrementDocumentSignal,
   hasReleveBancaireSignal,
 } from "@/ai/post-processing/watch-ranking";
 
@@ -171,6 +172,13 @@ export function classifyDocumentHeuristic(
       confidence: 0.92,
     };
   }
+  if (hasRecouvrementDocumentSignal(head)) {
+    return {
+      category: "courrier-administratif",
+      label: "Mise en demeure",
+      confidence: 0.92,
+    };
+  }
 
   const scores = (
     Object.entries(CATEGORY_PATTERNS) as Array<
@@ -212,7 +220,10 @@ export function classifyDocumentHeuristic(
   const confidence = Math.min(0.95, 0.55 + best.score * 0.03);
 
   let label = DOCUMENT_CATEGORY_LABELS[best.category];
-  if (best.category === "contrat" && hasPretDocumentSignal(head)) {
+  if (
+    best.category === "contrat" &&
+    (hasPretDocumentSignal(head) || hasPretDocumentSignal(sample))
+  ) {
     label = "Offre de prêt";
   }
   if (
@@ -220,6 +231,18 @@ export function classifyDocumentHeuristic(
     hasCafDocumentSignal(head)
   ) {
     label = "Notification CAF";
+  }
+  if (
+    best.category === "courrier-administratif" &&
+    hasRecouvrementDocumentSignal(head)
+  ) {
+    label = "Mise en demeure";
+  }
+  if (
+    best.category === "assurance" &&
+    /\bmutuelle\b/i.test(head)
+  ) {
+    label = "Contrat mutuelle";
   }
 
   return {

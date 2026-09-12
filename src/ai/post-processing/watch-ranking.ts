@@ -53,6 +53,20 @@ export function hasBailDocumentSignal(blob: string): boolean {
   );
 }
 
+/** MED / relance / service recouvrement — sans CAF ni bail. */
+export function hasRecouvrementDocumentSignal(blob: string): boolean {
+  const head = (blob || "").slice(0, 4500);
+  if (hasCafDocumentSignal(head) || hasBailDocumentSignal(head)) return false;
+  return (
+    /(?:^|[\n\r#])[^\n]{0,120}(?:1[èe]re\s+relance|mise\s+en\s+demeure\s+de\s+payer|mise\s+en\s+demeure\s*[—–-]|montant\s+impay[ée]|total\s+r[ée]clam[ée]\s*:)/i.test(
+      head,
+    ) ||
+    /huissier|commandement\s+de\s+payer|recouvrement\s+judiciaire|service\s+recouvrement/i.test(
+      head,
+    )
+  );
+}
+
 /** Ordre des critères pour « Points à surveiller » selon le type de document. */
 export const WATCH_CRITERION_ORDER_BY_FAMILY: Record<
   WatchDocFamily,

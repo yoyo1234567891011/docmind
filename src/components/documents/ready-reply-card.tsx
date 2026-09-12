@@ -113,7 +113,15 @@ export function ReadyReplyCard({ reply }: ReadyReplyCardProps) {
 
               </span>
 
-            ) : null}
+            ) : (
+
+              <span className="rounded-md border border-dashed border-[var(--border)] px-2 py-0.5 text-[var(--muted)]">
+
+                Destinataire à compléter
+
+              </span>
+
+            )}
 
           </div>
 

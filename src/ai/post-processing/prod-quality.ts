@@ -67,7 +67,7 @@ const ASSURANCE_PRIORITY_AMOUNT_RE =
 
 /** Montants / libellés qui ne sont PAS des « frais cachés ». */
 const NOT_HIDDEN_FEE_RE =
-  /principal(?:\s+d[ûu])?|taxe\s+fonci[eè]re|montant\s+[àa]\s+pr[ée]lever|montant\s+[àa]\s+(?:payer|r[ée]gler)|total\s+[àa]\s+r[ée]gler|total\s+r[ée]clam|solde\s+arr[eê]t|^\s*solde\b|salaire|loyer(?:\s+mensuel)?|charges\s+locatives|provisions?\s+pour\s+charges|d[ée]p[ôo]t\s+de\s+garantie|capital\s+emprunt|mensualit[ée]/i;
+  /principal(?:\s+d[ûu])?|taxe\s+fonci[eè]re|montant\s+[àa]\s+pr[ée]lever|montant\s+[àa]\s+(?:payer|r[ée]gler)|total\s+[àa]\s+r[ée]gler|total\s+r[ée]clam|total\s+ttc|net\s+[àa]\s+payer|solde\s+arr[eê]t|^\s*solde\b|salaire|loyer(?:\s+mensuel)?|charges\s+locatives|provisions?\s+pour\s+charges|d[ée]p[ôo]t\s+de\s+garantie|capital\s+emprunt|mensualit[ée]|aide\s+mensuelle|cotisation/i;
 
 /** Critères souvent déclenchés par le glossaire boilerplate des relevés bancaires. */
 const BANQUE_GLOSSARY_CRITERIA = new Set([
@@ -1035,18 +1035,33 @@ function finalizeAnalysisForProdUnchecked(
     ),
   ).slice(0, 6);
 
+  const seedAmounts = (analysis.amounts ?? []).filter(
+    (a): a is string =>
+      typeof a === "string" &&
+      a.trim().length > 0 &&
+      !isFakeScheduleDeadline(a) &&
+      !isProdDisplayNoise(a),
+  );
+  const amountDigitKeys = new Set(
+    seedAmounts
+      .map((a) => a.replace(/[^\d]/g, "").replace(/^0+/, ""))
+      .filter((k) => k.length >= 2),
+  );
   const amounts = dedupeLabeledAmounts(
     prioritizeProductionAmounts(
       [
-        ...(analysis.amounts ?? []),
+        ...seedAmounts,
         ...risk_findings
           .map((f) => f.description)
-          .filter(
-            (d): d is string =>
-              typeof d === "string" &&
-              /\d/.test(d) &&
-              /€|euro|%|\/mois/i.test(d),
-          ),
+          .filter((d): d is string => {
+            if (typeof d !== "string") return false;
+            if (!/\d/.test(d) || !/€|euro|%|\/mois/i.test(d)) return false;
+            if (isFakeScheduleDeadline(d) || isProdDisplayNoise(d)) return false;
+            const digits = d.replace(/[^\d]/g, "").replace(/^0+/, "");
+            if (digits.length >= 2 && amountDigitKeys.has(digits)) return false;
+            if (digits.length >= 2) amountDigitKeys.add(digits);
+            return true;
+          }),
       ],
       family,
     ),

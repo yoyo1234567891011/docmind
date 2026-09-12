@@ -135,7 +135,7 @@ export function buildLetterAgentPrompt(input: LetterPromptInput): string {
     "1. Réponds UNIQUEMENT avec un objet JSON valide (pas de markdown).",
     "2. Utilise UNIQUEMENT les entrées de FAITS_AUTORISES — rien d’autre.",
     "3. ZÉRO INVENTION : pas d’adresse, SIRET, IBAN, téléphone, montant ou date absents de FAITS_AUTORISES.",
-    "4. recipient = nom de l’organisme uniquement (pas d’adresse postale inventée).",
+    "4. recipient = organisme / émetteur uniquement (jamais titulaire, abonné, allocataire, emprunteur ni destinataire du document).",
     "5. subject = objet COURT (≤ 80 caractères), sans période du/au ni titre technique du PDF.",
     `6. body = courrier COMPLET (≥ ${MIN_LETTER_WORDS} mots) : « Madame, Monsieur, » + exposé des faits + demande claire + délai de réponse + formule de politesse + [Votre nom] / [Votre adresse].`,
     "7. Ne termine JAMAIS le corps par une phrase inachevée (ex. « Je » seul).",

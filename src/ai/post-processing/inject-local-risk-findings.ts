@@ -229,6 +229,12 @@ export function describeLocalFinding(
           const amount = firstEuroAmount(excerpt);
           return amount ? `Total TTC : ${amount}` : "Total TTC";
         }
+        if (/frais\s+(?:de\s+)?service|frais\s+cach/i.test(excerpt)) {
+          const amount =
+            euroAmountNear(excerpt, /frais\s+(?:de\s+)?service|frais\s+cach/) ||
+            firstEuroAmount(excerpt);
+          return amount ? `Frais de service : ${amount}` : "Frais de service";
+        }
         if (/abonnement|forfait|part\s+fixe/i.test(excerpt)) {
           const amount = euroAmountNear(excerpt, /abonnement|forfait/) || firstEuroAmount(excerpt);
           return amount ? `Abonnement : ${amount}` : "Abonnement";
@@ -275,6 +281,14 @@ export function describeLocalFinding(
         return amount
           ? `Frais de résiliation anticipée : ${amount}`
           : "Frais de résiliation anticipée";
+      }
+      if (
+        family === "assurance" &&
+        /cotisation|prime/i.test(excerpt)
+      ) {
+        const amount =
+          euroAmountNear(excerpt, /cotisation|prime/) || firstEuroAmount(excerpt);
+        return amount ? `Cotisation : ${amount}` : "Cotisation";
       }
       if (/mensuel|par\s+mois|\/mois/i.test(excerpt)) {
         const amount = firstEuroAmount(excerpt);

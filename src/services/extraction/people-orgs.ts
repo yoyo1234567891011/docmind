@@ -126,7 +126,8 @@ export function extractKnownEmitterBrands(text: string): string[] {
 }
 
 /**
- * Libellé destinataire courrier : marque (+ service clients si mentionné).
+ * Libellé destinataire courrier : marque (+ service clients pour opérateurs).
+ * Ne suffixe pas CAF / banque / crédit (bruit « service client » en glossaire).
  */
 export function formatEmitterRecipient(
   brand: string,
@@ -135,10 +136,10 @@ export function formatEmitterRecipient(
   const b = cleanValue(brand);
   if (!b) return "";
   if (
-    /^free$/i.test(b) &&
+    /^(free|orange|sfr|bouygues(?:\s+telecom)?)$/i.test(b) &&
     /service\s+(?:clients?|facturation|client[eè]le)/i.test(documentText)
   ) {
-    return "Free – Service clients";
+    return `Service clients — ${b}`;
   }
   return b;
 }

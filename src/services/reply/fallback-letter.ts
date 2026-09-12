@@ -129,7 +129,7 @@ function extractDocReference(documentText: string, analysis: DocumentAnalysis): 
   const blob = `${head}\n${analysis.title}\n${(analysis.amounts ?? []).join("\n")}`;
   const preferred =
     blob.match(
-      /\b((?:IMP|REL|BQE|BAIL|FAC|PRT|CAF|MUT|ASS|NET|MOB|EDF)[-–]?\d{4,})\b/i,
+      /\b((?:IMP|REL|BQE|BAIL|FAC|FRE|PRT|CAF|MUT|ASS|NET|MOB|EDF)[-–]?\d{4,})\b/i,
     ) ||
     blob.match(
       /n[°o]\s*allocataire[^:\n]{0,20}:\s*([A-Z]{2,5}[-–]?\d{4,})/i,

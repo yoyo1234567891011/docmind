@@ -424,21 +424,58 @@ function isKnownPersonRecipient(
 function pickOrgRecipient(
   organizations: string[],
   documentText: string,
+  analysisCorpus = "",
 ): string {
+  const corpus = `${analysisCorpus ?? ""}\n${documentText ?? ""}`;
   const fromLists = (organizations ?? []).filter(
     (o) => typeof o === "string" && o.trim().length > 1 && !isSubscriberPersonName(o),
   );
   if (fromLists[0]) {
-    return formatEmitterRecipient(fromLists[0], documentText);
+    return formatEmitterRecipient(fromLists[0], corpus);
   }
-  const fromText = extractOrganizations(documentText).find(
+  const fromText = extractOrganizations(corpus).find(
     (o) => !isSubscriberPersonName(o),
   );
   if (fromText) {
-    return formatEmitterRecipient(fromText, documentText);
+    return formatEmitterRecipient(fromText, corpus);
   }
-  const brand = extractKnownEmitterBrands(documentText)[0];
-  return brand ? formatEmitterRecipient(brand, documentText) : "";
+  const brand = extractKnownEmitterBrands(corpus)[0];
+  return brand ? formatEmitterRecipient(brand, corpus) : "";
+}
+
+/** Retire un prénom+nom collé devant l’organisme (« Chloé Garcia - Service… »). */
+function stripLeadingPersonRecipient(
+  recipient: string,
+  people: string[],
+): string {
+  let out = recipient.trim();
+  if (!out) return "";
+
+  for (const p of people) {
+    if (typeof p !== "string" || !p.trim()) continue;
+    const pk = normalizePersonKey(p);
+    const rk = normalizePersonKey(out);
+    if (!pk || !rk.startsWith(pk)) continue;
+    const rest = out
+      .replace(
+        new RegExp(
+          `^${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[-–—,:]?\\s*`,
+          "i",
+        ),
+        "",
+      )
+      .trim();
+    if (rest && !isSubscriberPersonName(rest)) return rest;
+    return "";
+  }
+
+  const split = out.split(/\s*[-–—,/]\s*/);
+  if (split.length >= 2 && isSubscriberPersonName(split[0] || "")) {
+    const rest = split.slice(1).join(" — ").trim();
+    if (rest && !isSubscriberPersonName(rest)) return rest;
+    return "";
+  }
+  return out;
 }
 
 /**
@@ -454,33 +491,43 @@ export function sanitizeRecipient(
 ): string {
   const source = `${documentText ?? ""}\n${analysisCorpus ?? ""}`.toLowerCase();
   let recipient = (typeof raw === "string" ? raw : "").trim();
+  const pick = () =>
+    pickOrgRecipient(organizations, documentText, analysisCorpus);
 
   if (
     recipient &&
     (isKnownPersonRecipient(recipient, people) || isSubscriberPersonName(recipient))
   ) {
     recipient = "";
+  } else if (recipient) {
+    recipient = stripLeadingPersonRecipient(recipient, people);
   }
 
   if (!recipient) {
-    return pickOrgRecipient(organizations, documentText);
+    return pick();
   }
 
   const street = recipient.match(STREET_RE)?.[0];
   if (street && !source.includes(street.toLowerCase().slice(0, 12))) {
-    recipient =
-      pickOrgRecipient(organizations, documentText) ||
-      recipient.replace(STREET_RE, "").trim();
+    recipient = pick() || recipient.replace(STREET_RE, "").trim();
   }
 
   const postal = recipient.match(POSTAL_RE)?.[0];
   if (postal && !source.includes(postal.toLowerCase().slice(0, 5))) {
-    recipient = pickOrgRecipient(organizations, documentText);
+    recipient = pick();
   }
 
   if (recipient.length > 80) {
-    const org = pickOrgRecipient(organizations, documentText);
+    const org = pick();
     if (org) return org;
+  }
+
+  if (
+    !recipient ||
+    isKnownPersonRecipient(recipient, people) ||
+    isSubscriberPersonName(recipient)
+  ) {
+    return pick();
   }
 
   return recipient;

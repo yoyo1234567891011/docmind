@@ -399,6 +399,42 @@ function main() {
     );
   }
 
+  // MED composite « personne - org » ne doit pas fuiter
+  const medLeak = sanitizeRecipient(
+    "Chloé Garcia - Service recouvrement",
+    [],
+    "Mise en demeure — Service recouvrement. Total réclamé : 451 €.",
+    "Mise en demeure",
+    [],
+  );
+  assert.ok(
+    /recouvrement/i.test(medLeak) && !/chlo[eé]/i.test(medLeak),
+    `MED composite leak: ${medLeak}`,
+  );
+
+  // Free : destinataire ≠ abonné + objet avec réf FRE-
+  const freeCase = recipientCases.find((c) => c.name === "free")!;
+  const freeText2 = fs.readFileSync(
+    path.join(process.cwd(), freeCase.file),
+    "utf8",
+  );
+  const freeLetterRef = buildFallbackLetter(
+    "contestation",
+    analysis({
+      title: "Facture Free",
+      organizations: extractOrganizations(freeText2),
+      people: extractPeople(freeText2),
+      amounts: ["Abonnement : 72,62 €", "Total TTC : 88,80 €"],
+    }),
+    { category: "facture", label: "Facture", confidence: 0.9 },
+    "Contestation",
+    freeText2,
+  );
+  assert.ok(
+    /FRE-?\d+/i.test(freeLetterRef.subject) || /free/i.test(freeLetterRef.recipient),
+    `Free ref/destinataire: ${freeLetterRef.subject} / ${freeLetterRef.recipient}`,
+  );
+
   // --- Bail ---
   const bail = suggestLetterType(
     "Bail location vide — loyer 850 €. Congé du bail avec préavis de 3 mois.",

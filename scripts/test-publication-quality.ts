@@ -132,6 +132,7 @@ const CASES: Case[] = [
     name: "med",
     file: "test-documents/relances-de-paiement/01-mise-en-demeure-de-paiement-rel-681955.md",
     family: "recouvrement",
+    labelOk: /mise en demeure/i,
     orgOk: /recouvrement/i,
     findingOk: /total\s+r[ée]clam|principal|frais|p[ée]nalit/i,
     letterSubjectOk: /contestation|cr[ée]ance/i,
