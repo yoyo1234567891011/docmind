@@ -448,7 +448,7 @@ function stripLeadingPersonRecipient(
   recipient: string,
   people: string[],
 ): string {
-  let out = recipient.trim();
+  const out = recipient.trim();
   if (!out) return "";
 
   for (const p of people) {
