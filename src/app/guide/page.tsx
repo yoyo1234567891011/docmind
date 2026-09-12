@@ -48,8 +48,8 @@ export default function GuidePage() {
               mutuelles, mises en demeure, courriers administratifs.
             </p>
             <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-              PDF avec texte sélectionnable uniquement — les scans ne sont pas
-              pris en charge pour l’instant.
+              Documents PDF avec texte sélectionnable uniquement. Les PDF
+              scannés ou photos ne sont pas pris en charge pour l’instant.
             </p>
           </article>
 

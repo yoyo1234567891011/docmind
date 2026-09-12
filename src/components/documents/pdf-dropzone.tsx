@@ -242,6 +242,11 @@ export function PdfDropzone({
         </div>
       </div>
 
+      <p className="mt-3 text-center text-sm leading-relaxed text-[var(--muted)]">
+        Documents PDF avec texte sélectionnable uniquement. Les PDF scannés ou
+        photos ne sont pas pris en charge pour l’instant.
+      </p>
+
       {error ? (
         <Alert tone="error" title="Import impossible" className="mt-3">
           {error}

@@ -33,6 +33,10 @@ export default function AnalyserPage() {
           Contrats, factures, courriers — import local. L’aperçu arrive vite ;
           l’analyse IA prend en général 1 à 3 minutes.
         </p>
+        <p className="animate-fade-up-delay-2 mt-2 max-w-xl text-pretty text-sm leading-relaxed text-[var(--muted)]">
+          Documents PDF avec texte sélectionnable uniquement. Les PDF scannés ou
+          photos ne sont pas pris en charge pour l’instant.
+        </p>
 
         <div className="animate-fade-up-delay-3 mt-10 w-full max-w-3xl">
           <HomeUploadSection />

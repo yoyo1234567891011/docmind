@@ -214,16 +214,25 @@ export function LetterDraftPanel({
                 ))}
               </div>
 
-              <Button disabled={isLoading} onClick={() => void handleGenerate()}>
-                {isLoading ? (
-                  <>
-                    <SpinnerIcon className="h-4 w-4" />
-                    Rédaction…
-                  </>
-                ) : (
-                  "Rédiger le courrier"
-                )}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  disabled={isLoading}
+                  onClick={() => void handleGenerate()}
+                >
+                  {isLoading ? (
+                    <>
+                      <SpinnerIcon className="h-4 w-4" />
+                      Rédaction…
+                    </>
+                  ) : (
+                    "Rédiger le courrier"
+                  )}
+                </Button>
+                <p className="text-xs leading-relaxed text-[var(--muted)]">
+                  Brouillon d’aide à la rédaction — à relire et adapter avant
+                  envoi. Ceci ne remplace pas un conseil juridique.
+                </p>
+              </div>
             </>
           )}
 

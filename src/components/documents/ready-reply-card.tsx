@@ -93,6 +93,11 @@ export function ReadyReplyCard({ reply }: ReadyReplyCardProps) {
 
           <p className="mt-1 text-sm text-[var(--muted)]">{reply.reason}</p>
 
+          <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+            Brouillon d’aide à la rédaction — à relire et adapter avant envoi.
+            Ceci ne remplace pas un conseil juridique.
+          </p>
+
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
 
             {reply.letterType ? (
@@ -124,6 +129,10 @@ export function ReadyReplyCard({ reply }: ReadyReplyCardProps) {
             )}
 
           </div>
+
+          <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+            Vérifiez le destinataire avant envoi.
+          </p>
 
         </div>
 
