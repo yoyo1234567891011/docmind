@@ -171,6 +171,29 @@ assert.ok(
   taxeExcerpt,
 );
 
+// Mutuelle : cotisation principale vs frais de gestion (pas 2× « Cotisation »)
+const MUTUELLE = `
+# Mutuelle Santé Équilibre (document fictif)
+**Cotisation mensuelle :** 115,12 €
+**Frais cachés** : contribution aux frais de gestion de **3,03 €** / mois hors cotisation affichée.
+`;
+const mutLabeled = extractLabeledAmounts(MUTUELLE);
+const mutCot = mutLabeled.find((a) => a.label === "Cotisation");
+const mutFrais = mutLabeled.find((a) => a.label === "Frais de gestion");
+assert.ok(mutCot && /115[,.]12/.test(mutCot.value), `cotisation: ${mutCot?.value}`);
+assert.equal(mutCot!.importance, "primary");
+assert.ok(
+  mutFrais && /3[,.]03/.test(mutFrais.value),
+  `frais gestion: ${mutFrais?.value}`,
+);
+assert.equal(mutFrais!.importance, "secondary");
+assert.ok(
+  !mutLabeled.some(
+    (a) => a.label === "Cotisation" && /3[,.]03/.test(a.value),
+  ),
+  "3,03 € ne doit pas être labellisé Cotisation",
+);
+
 console.log("OK labeled amounts");
 console.log(display.join("\n"));
 console.log("--- taxe foncière ---");

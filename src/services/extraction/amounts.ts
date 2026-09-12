@@ -315,10 +315,23 @@ const LABEL_RULES: LabelRule[] = [
   },
   {
     id: "cotisation",
-    patterns: [/cotisation(?:\s+mensuelle|\s+annuelle)?/i, /prime\s+(?:d['']assurance|mensuelle)/i],
+    patterns: [
+      /cotisation\s+(?:mensuelle|annuelle)/i,
+      /prime\s+(?:d['']assurance|mensuelle|annuelle)/i,
+    ],
     label: "Cotisation",
     importance: "primary",
     priority: 62,
+  },
+  {
+    id: "frais_gestion",
+    patterns: [
+      /frais\s+de\s+gestion/i,
+      /contribution\s+aux\s+frais(?:\s+de\s+gestion)?/i,
+    ],
+    label: "Frais de gestion",
+    importance: "secondary",
+    priority: 128,
   },
   {
     id: "mensualite",

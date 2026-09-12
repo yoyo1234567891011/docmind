@@ -294,7 +294,7 @@ function main() {
     {
       name: "mutuelle",
       file: "test-documents/mutuelles/01-contrat-mutuelle-sante-mut-437004.md",
-      orgOk: /mutuelle/i,
+      orgOk: /mutuelle\s+sant[eé]\s+[ée]quilibre/i,
       letterType: "autre",
       category: "assurance",
       label: "Mutuelle",
@@ -397,6 +397,20 @@ function main() {
         normalizePerson(sanitized) !== normalizePerson(person0),
       `${c.name} sanitize persons[0] → org: ${sanitized}`,
     );
+
+    if (c.name === "mutuelle") {
+      assert.ok(
+        orgs.some((o) => /mutuelle\s+sant[eé]\s+[ée]quilibre/i.test(o)),
+        `mutuelle org complète: ${orgs.join(" | ")}`,
+      );
+      assert.ok(
+        !orgs.some((o) => /^mutuelle\s+sant$/i.test(o.trim())),
+        `mutuelle org tronquée: ${orgs.join(" | ")}`,
+      );
+    }
+    if (c.name === "free") {
+      assert.match(letter.recipient, /service\s+clients\s*[—–-]\s*free/i);
+    }
   }
 
   // MED composite « personne - org » ne doit pas fuiter

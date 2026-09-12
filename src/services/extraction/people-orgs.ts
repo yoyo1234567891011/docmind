@@ -182,6 +182,14 @@ export function extractPeople(text: string): string[] {
   return mergeUniqueStrings(fromLabels).slice(0, 8);
 }
 
+function clipOrgLabel(value: string, max = 80): string {
+  const v = value.replace(/\s+/g, " ").trim();
+  if (v.length <= max) return v;
+  const cut = v.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return (at > 24 ? cut.slice(0, at) : cut).trim();
+}
+
 function extractOrgFromTitle(text: string): string[] {
   const firstLine = text.split(/\r?\n/).find((l) => l.trim().startsWith("#"));
   if (!firstLine) return [];
@@ -205,7 +213,7 @@ function extractOrgFromTitle(text: string): string[] {
       !/\b[A-Z]{2,5}-\d{4,}\b/.test(cleaned) &&
       cleaned.length >= 5
     ) {
-      return [cleaned];
+      return [clipOrgLabel(cleaned)];
     }
   }
 
@@ -215,13 +223,24 @@ function extractOrgFromTitle(text: string): string[] {
     return [formatEmitterRecipient(brandInTitle, text)];
   }
 
-  // "Crédit Serein" / "Banque Horizon" / "Mutuelle …" dans le titre
+  // Titre entier « Mutuelle Santé Équilibre » avant le match partiel (accents).
+  const cleanedTitle = cleanValue(title);
+  if (
+    /^(mutuelle|assurances?)\b/i.test(cleanedTitle) &&
+    looksLikeOrganization(cleanedTitle)
+  ) {
+    return [clipOrgLabel(cleanedTitle)];
+  }
+
+  // "Crédit Serein" / "Banque Horizon" / "Mutuelle …" — lettres accentuées OK
   const namedOrg = title.match(
-    /\b((?:banque|cr[ée]dit|mutuelle|assurances?)\s+[A-ZÀ-Ü][\w'’-]{2,}(?:\s+[A-ZÀ-Ü][\w'’-]+){0,3})/i,
+    /\b((?:banque|cr[ée]dit|mutuelle|assurances?)\s+[A-ZÀ-Ü][A-Za-zÀ-ÿ'’-]{1,}(?:\s+[A-ZÀ-Ü][A-Za-zÀ-ÿ'’-]{1,}){0,4})/i,
   )?.[1];
   if (namedOrg) {
     const cleanedNamed = cleanValue(namedOrg);
-    if (looksLikeOrganization(cleanedNamed)) return [cleanedNamed];
+    if (looksLikeOrganization(cleanedNamed)) {
+      return [clipOrgLabel(cleanedNamed)];
+    }
   }
 
   // Ignore titres de type document + id sans org claire
@@ -234,15 +253,14 @@ function extractOrgFromTitle(text: string): string[] {
     return [];
   }
 
-  // "Mutuelle Santé Équilibre" / "Direction générale des Finances publiques"
-  const cleanedTitle = cleanValue(title);
+  // "Direction générale des Finances publiques" / caisse…
   if (
     /\b(mutuelle|banque|assurances?|caisse|direction|service)\b/i.test(
       cleanedTitle,
     ) &&
     looksLikeOrganization(cleanedTitle)
   ) {
-    return [cleanedTitle];
+    return [clipOrgLabel(cleanedTitle)];
   }
   return [];
 }

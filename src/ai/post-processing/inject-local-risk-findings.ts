@@ -284,10 +284,29 @@ export function describeLocalFinding(
       }
       if (
         family === "assurance" &&
-        /cotisation|prime/i.test(excerpt)
+        /frais\s+de\s+gestion|contribution\s+aux\s+frais/i.test(excerpt)
       ) {
         const amount =
-          euroAmountNear(excerpt, /cotisation|prime/) || firstEuroAmount(excerpt);
+          euroAmountNear(
+            excerpt,
+            /frais\s+de\s+gestion|contribution\s+aux\s+frais/,
+          ) || firstEuroAmount(excerpt);
+        return amount ? `Frais de gestion : ${amount}` : "Frais de gestion";
+      }
+      if (
+        family === "assurance" &&
+        /cotisation\s+(?:mensuelle|annuelle)|prime\s+(?:mensuelle|annuelle|d['']assurance)/i.test(
+          excerpt,
+        ) &&
+        !/hors\s+cotisation|frais\s+de\s+gestion|contribution\s+aux\s+frais/i.test(
+          excerpt,
+        )
+      ) {
+        const amount =
+          euroAmountNear(
+            excerpt,
+            /cotisation\s+(?:mensuelle|annuelle)|prime\s+(?:mensuelle|annuelle)/,
+          ) || firstEuroAmount(excerpt);
         return amount ? `Cotisation : ${amount}` : "Cotisation";
       }
       if (/mensuel|par\s+mois|\/mois/i.test(excerpt)) {
