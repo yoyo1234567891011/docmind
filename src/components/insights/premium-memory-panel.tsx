@@ -98,7 +98,7 @@ export function PremiumMemoryPanel({
           <p className="font-display text-xl">{money(data.monthlySpendEur)}</p>
         </div>
         <div>
-          <p className="text-xs text-[var(--muted)]">Pistes d’économie</p>
+          <p className="text-xs text-[var(--muted)]">Relations à vérifier</p>
           <p className="font-display text-xl">{data.savingsCount}</p>
         </div>
         <div>

@@ -1,3 +1,4 @@
+import { collapseRelationAlerts } from "@/lib/dashboard-display";
 import { getRiskLevelLabel } from "@/lib/format";
 import type { DocumentAlert, HistoryListItem } from "@/types";
 
@@ -120,7 +121,10 @@ export function listRelationAlertsForDisplay(
   alerts: DocumentAlert[],
   limit = 6,
 ): DocumentAlert[] {
-  return filterRelationAlerts(alerts).slice(0, Math.max(0, limit));
+  return collapseRelationAlerts(filterRelationAlerts(alerts)).slice(
+    0,
+    Math.max(0, limit),
+  );
 }
 
 export function computeDashboardStats(

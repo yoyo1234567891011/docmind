@@ -62,7 +62,7 @@ const TYPE_LABELS: Record<MemoryRelationType, string> = {
   same_guarantee: "Garantie déjà présente",
   linked_deadline: "Échéances liées",
   contradicts_clause: "Clauses contradictoires",
-  redundant_payment: "Paiement redondant",
+  redundant_payment: "Même montant récurrent ?",
   party_shared: "Même contrepartie",
   invoice_for: "Facture liée",
   obsoletes_fact: "Information obsolète",
@@ -146,6 +146,17 @@ export function buildRelationMessage(
     case "redundant_payment": {
       const amount = evidence.find((e) => e.field === "amount_eur")?.left;
       const period = evidence.find((e) => e.field === "periodicity")?.left;
+      const soft =
+        !period ||
+        period === "inconnue" ||
+        /partielle/i.test(
+          evidence.find((e) => e.field === "periodicity")?.note ?? "",
+        );
+      if (soft) {
+        return amount
+          ? `Même montant récurrent ? (${amount} €) — à vérifier avec « ${title} ».`
+          : `Même montant récurrent ? À vérifier avec « ${title} ».`;
+      }
       if (amount && period && period !== "inconnue") {
         return `Paiement ${amount} € (${period}) déjà engagé — voir « ${title} ».`;
       }

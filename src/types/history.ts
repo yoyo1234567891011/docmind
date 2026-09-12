@@ -84,6 +84,8 @@ export interface HistoryListItem {
    * Progressive UX : preview / failed affichés en liste ; absent = complete.
    */
   analysisPhase?: "preview" | "complete" | "failed";
+  /** SHA-256 texte — dédup affichage dashboard. */
+  contentHash?: string | null;
 }
 
 export interface HistoryQuery {

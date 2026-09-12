@@ -78,7 +78,7 @@ export const NOTIFICATION_KIND_LABELS: Record<NotificationKind, string> = {
   relation_duplicate: "Doublon entre documents",
   relation_supersede: "Remplacement de contrat",
   relation_overlap_risk: "Risque / garantie en double",
-  relation_redundant_payment: "Paiement redondant",
+  relation_redundant_payment: "Même montant récurrent ?",
   relation_deadline_conflict: "Échéances liées",
   relation_contradiction: "Contradiction entre documents",
 };

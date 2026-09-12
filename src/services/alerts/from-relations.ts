@@ -34,7 +34,7 @@ const TYPE_TO_ALERT: Partial<
   redundant_payment: {
     kind: "relation_redundant_payment",
     severity: "warning",
-    title: "Paiement potentiellement redondant",
+    title: "Même montant récurrent ?",
   },
   linked_deadline: {
     kind: "relation_deadline_conflict",
@@ -94,8 +94,8 @@ function messageFor(
     case "redundant_payment": {
       const amount = evidence.find((e) => e.field === "amount_eur")?.left;
       return amount
-        ? `Montant similaire (${amount} €) déjà engagé — voir « ${peerTitle} ».`
-        : `Montant similaire déjà engagé auprès de la même contrepartie (« ${peerTitle} »).`;
+        ? `Montant similaire (${amount} €) — même montant récurrent ? Voir « ${peerTitle} ».`
+        : `Montants proches chez la même contrepartie — même montant récurrent ? (« ${peerTitle} »).`;
     }
     case "linked_deadline": {
       const due = evidence.find((e) => e.field === "due_date");

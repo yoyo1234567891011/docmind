@@ -9,6 +9,7 @@ import {
   type CounterpartyAggregate,
 } from "@/lib/client/memory-timeline";
 import { fetchEntityTimeline } from "@/lib/client/insights";
+import { formatCounterpartyCategoryLabels } from "@/lib/dashboard-display";
 import { cn } from "@/lib/utils";
 import type { MemoryTimelineEvent } from "@/types/memory";
 
@@ -133,7 +134,7 @@ export function CounterpartyTimelineView({
                       {c.documentCount} doc
                       {c.documentCount > 1 ? "s" : ""}
                       {c.categories.length
-                        ? ` · ${c.categories.slice(0, 2).join(", ")}`
+                        ? ` · ${formatCounterpartyCategoryLabels(c.name, c.categories).slice(0, 2).join(", ")}`
                         : ""}
                     </p>
                   </button>

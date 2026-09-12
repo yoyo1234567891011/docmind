@@ -134,7 +134,7 @@ export const ALERT_KIND_LABELS: Record<AlertKind, string> = {
   relation_duplicate: "Doublon (relation)",
   relation_supersede: "Remplacement (relation)",
   relation_overlap_risk: "Risque / garantie en double",
-  relation_redundant_payment: "Paiement redondant",
+  relation_redundant_payment: "Même montant récurrent ?",
   relation_deadline_conflict: "Échéances liées",
   relation_contradiction: "Contradiction (relation)",
 };

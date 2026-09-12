@@ -32,6 +32,10 @@ import {
   toMonthlyFromPeriod,
   type ProductSignal,
 } from "@/services/insights/subscription-identity";
+import {
+  countRelationsToVerify,
+  isSoftRedundantPaymentEvidence,
+} from "@/lib/dashboard-display";
 import type {
   FinanceCategoryBucket,
   FinanceInsight,
@@ -466,12 +470,20 @@ export async function listSavingsOpportunities(
 
     const peer = toDoc.displayName || toDoc.fileName || "autre document";
     const estimated = estimateSaving(rel);
+    const softPayment =
+      rel.type === "redundant_payment" &&
+      isSoftRedundantPaymentEvidence(rel.evidence);
+    const title = softPayment
+      ? "Relation à vérifier — même montant récurrent ?"
+      : meta.title;
     out.push({
       id: `save:${pairKey}`,
       kind: meta.kind,
-      title: meta.title,
-      message: `Relation proposée « ${rel.type} » avec « ${peer} » (score ${Math.round(rel.score * 100)} %). À vérifier — ce n’est pas une économie/contradiction certaine.${estimated != null ? ` Montant lié aux preuves : ${estimated} €.` : ""}`,
-      estimatedMonthlySavingEur: estimated,
+      title,
+      message: softPayment
+        ? `Montants proches (±2 %) chez la même contrepartie (« ${peer} ») sans périodicité alignée — à vérifier, pas une économie certaine.${estimated != null ? ` Montant lié : ${estimated} €.` : ""}`
+        : `Relation proposée « ${rel.type} » avec « ${peer} » (score ${Math.round(rel.score * 100)} %). À vérifier — ce n’est pas une économie/contradiction certaine.${estimated != null ? ` Montant lié aux preuves : ${estimated} €.` : ""}`,
+      estimatedMonthlySavingEur: softPayment ? null : estimated,
       certainty: "potential",
       relationType: rel.type,
       relationId: rel.id,
@@ -529,7 +541,7 @@ export async function buildMemoryDigest(
   const summary =
     newDocuments === 0 && savings.length === 0
       ? `Aucun nouvel événement mémoire sur la période (${period === "week" ? "7 jours" : "30 jours"}).`
-      : `Sur ${period === "week" ? "7 jours" : "30 jours"} : ${newDocuments} document(s), ${upcomingDeadlines} échéance(s), ${savings.length} piste(s) d’économie.`;
+      : `Sur ${period === "week" ? "7 jours" : "30 jours"} : ${newDocuments} document(s), ${upcomingDeadlines} échéance(s), ${savings.length} relation(s) à vérifier.`;
 
   return {
     period,
@@ -622,6 +634,17 @@ export async function buildPremiumMemoryDashboard(
     0,
   );
 
+  const softRedundantCount = savings.filter(
+    (s) =>
+      s.kind === "redundant_payment" &&
+      isSoftRedundantPaymentEvidence(s.evidence),
+  ).length;
+
+  const relationsToVerifyCount = countRelationsToVerify({
+    total: savings.length,
+    softRedundantCount,
+  });
+
   const contradictionCount = savings.filter(
     (s) => s.kind === "contradiction",
   ).length;
@@ -632,7 +655,7 @@ export async function buildPremiumMemoryDashboard(
     monthlySpendEur: finance.monthlyTotalEur,
     annualSpendEur: finance.annualTotalEur,
     subscriptionCount: subs.length,
-    savingsCount: savings.length,
+    savingsCount: relationsToVerifyCount,
     estimatedMonthlySavingsEur:
       Math.round(estimatedMonthlySavingsEur * 100) / 100,
     upcomingDeadlines: digest.upcomingDeadlines,
@@ -643,7 +666,7 @@ export async function buildPremiumMemoryDashboard(
     letterIntents: letters.slice(0, 5),
     uniqueValuePoints: [
       `${subs.length} ligne(s) d’abonnement reconstruite(s) depuis vos PDF`,
-      `${savings.length} piste(s) d’économie potentielle(s) (relations à vérifier)`,
+      `${relationsToVerifyCount} relation(s) à vérifier (pas des économies €)`,
       `${contradictionCount} contradiction(s) potentielle(s) basée(s) sur des preuves textuelles`,
       `Timeline et contreparties sur ${corpus} document(s) indexés`,
       digest.summary,

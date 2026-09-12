@@ -1,10 +1,15 @@
 import Link from "next/link";
+import { useMemo } from "react";
 
 import {
   DashboardPanel,
   getRiskToneClass,
 } from "@/components/dashboard/dashboard-panel";
 import { ChevronRightIcon } from "@/components/ui/icons";
+import {
+  collapseHistoryDuplicates,
+  type HistoryDisplayItem,
+} from "@/lib/dashboard-display";
 import { formatDateTime, getRiskLevelLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { HistoryListItem } from "@/types";
@@ -13,7 +18,21 @@ interface LatestAnalysesTableProps {
   items: HistoryListItem[];
 }
 
+function DupBadge({ count }: { count?: number }) {
+  if (!count || count < 2) return null;
+  return (
+    <span className="ml-1.5 rounded-md border border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+      ×{count}
+    </span>
+  );
+}
+
 export function LatestAnalysesTable({ items }: LatestAnalysesTableProps) {
+  const displayItems: HistoryDisplayItem[] = useMemo(
+    () => collapseHistoryDuplicates(items),
+    [items],
+  );
+
   return (
     <DashboardPanel
       title="Dernières analyses"
@@ -28,7 +47,7 @@ export function LatestAnalysesTable({ items }: LatestAnalysesTableProps) {
         </Link>
       }
     >
-      {items.length === 0 ? (
+      {displayItems.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">
           Aucune analyse pour le moment.
         </p>
@@ -46,7 +65,7 @@ export function LatestAnalysesTable({ items }: LatestAnalysesTableProps) {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {displayItems.map((item) => (
                 <tr
                   key={item.id}
                   className="border-b border-[var(--border)] last:border-0"
@@ -54,6 +73,7 @@ export function LatestAnalysesTable({ items }: LatestAnalysesTableProps) {
                   <td className="px-2 py-3">
                     <p className="max-w-[220px] truncate font-medium text-[var(--foreground)]">
                       {item.title}
+                      <DupBadge count={item.duplicateCount} />
                     </p>
                     <p className="max-w-[220px] truncate text-xs text-[var(--muted)]">
                       {item.fileName}

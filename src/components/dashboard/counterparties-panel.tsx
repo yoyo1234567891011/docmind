@@ -9,6 +9,7 @@ import {
   fetchCounterparties,
   type CounterpartyAggregate,
 } from "@/lib/client/memory-timeline";
+import { formatCounterpartyCategoryLabels } from "@/lib/dashboard-display";
 
 export function CounterpartiesPanel({
   refreshKey = 0,
@@ -70,7 +71,7 @@ export function CounterpartiesPanel({
                     {item.documentCount} document
                     {item.documentCount > 1 ? "s" : ""}
                     {item.categories.length
-                      ? ` · ${item.categories.slice(0, 3).join(", ")}`
+                      ? ` · ${formatCounterpartyCategoryLabels(item.name, item.categories).slice(0, 3).join(", ")}`
                       : ""}
                     {item.familyCount
                       ? ` · ${item.familyCount} famille${item.familyCount > 1 ? "s" : ""}`

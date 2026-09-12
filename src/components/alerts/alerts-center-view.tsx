@@ -32,7 +32,7 @@ const FILTERS: Array<{ id: AlertKind | "all"; label: string }> = [
   { id: "relation_duplicate", label: "Doublons" },
   { id: "relation_supersede", label: "Remplacements" },
   { id: "relation_overlap_risk", label: "Risques / garanties" },
-  { id: "relation_redundant_payment", label: "Paiements redondants" },
+  { id: "relation_redundant_payment", label: "Même montant récurrent ?" },
   { id: "relation_deadline_conflict", label: "Échéances liées" },
   { id: "relation_contradiction", label: "Contradictions" },
 ];

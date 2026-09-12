@@ -1,10 +1,15 @@
 import Link from "next/link";
+import { useMemo } from "react";
 
 import {
   DashboardPanel,
   getRiskToneClass,
 } from "@/components/dashboard/dashboard-panel";
 import { ChevronRightIcon } from "@/components/ui/icons";
+import {
+  collapseHistoryDuplicates,
+  type HistoryDisplayItem,
+} from "@/lib/dashboard-display";
 import { formatDateTime, getRiskLevelLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { HistoryListItem } from "@/types";
@@ -18,6 +23,15 @@ interface DocumentLinkListProps {
   showActions?: boolean;
 }
 
+function DupBadge({ count }: { count?: number }) {
+  if (!count || count < 2) return null;
+  return (
+    <span className="ml-1.5 rounded-md border border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+      ×{count}
+    </span>
+  );
+}
+
 export function DocumentLinkList({
   title,
   subtitle,
@@ -26,6 +40,11 @@ export function DocumentLinkList({
   viewAllHref,
   showActions = false,
 }: DocumentLinkListProps) {
+  const displayItems: HistoryDisplayItem[] = useMemo(
+    () => collapseHistoryDuplicates(items),
+    [items],
+  );
+
   return (
     <DashboardPanel
       title={title}
@@ -42,11 +61,11 @@ export function DocumentLinkList({
         ) : null
       }
     >
-      {items.length === 0 ? (
+      {displayItems.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">{emptyLabel}</p>
       ) : (
         <ul className="divide-y divide-[var(--border)]">
-          {items.map((item) => (
+          {displayItems.map((item) => (
             <li key={item.id}>
               <Link
                 href={`/historique/${item.id}`}
@@ -55,6 +74,7 @@ export function DocumentLinkList({
                 <div className="min-w-0 text-left">
                   <p className="truncate font-medium text-[var(--foreground)] group-hover:text-[var(--accent)]">
                     {item.title}
+                    <DupBadge count={item.duplicateCount} />
                   </p>
                   <p className="mt-1 truncate text-xs text-[var(--muted)]">
                     {item.categoryLabel} · {formatDateTime(item.analyzedAt)}

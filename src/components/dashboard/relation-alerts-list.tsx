@@ -5,6 +5,7 @@ import { AlertIcon, ChevronRightIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import type { DocumentAlert } from "@/types";
 import { ALERT_KIND_LABELS } from "@/types";
+import { softenRedundantPaymentTypeLabel } from "@/lib/dashboard-display";
 
 interface RelationAlertsListProps {
   alerts: DocumentAlert[];
@@ -19,6 +20,16 @@ function severityClass(severity: DocumentAlert["severity"]): string {
     default:
       return "text-[var(--accent)] bg-[var(--accent-soft)]";
   }
+}
+
+function kindLabel(alert: DocumentAlert): string {
+  if (alert.kind === "relation_redundant_payment") {
+    if (/facture\s+li[eé]e/i.test(alert.title)) {
+      return "Facture liée";
+    }
+    return softenRedundantPaymentTypeLabel(true);
+  }
+  return ALERT_KIND_LABELS[alert.kind];
 }
 
 export function RelationAlertsList({ alerts }: RelationAlertsListProps) {
@@ -42,33 +53,46 @@ export function RelationAlertsList({ alerts }: RelationAlertsListProps) {
         </p>
       ) : (
         <ul className="divide-y divide-[var(--border)]">
-          {alerts.map((alert) => (
-            <li key={alert.id}>
-              <Link
-                href={`/historique/${alert.historyId}`}
-                className="group flex items-start gap-3 py-3 first:pt-0 last:pb-0"
-              >
-                <span
-                  className={cn(
-                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                    severityClass(alert.severity),
-                  )}
+          {alerts.map((alert) => {
+            const dup =
+              "duplicateCount" in alert &&
+              typeof (alert as { duplicateCount?: number }).duplicateCount ===
+                "number"
+                ? (alert as { duplicateCount?: number }).duplicateCount
+                : undefined;
+            return (
+              <li key={alert.id}>
+                <Link
+                  href={`/historique/${alert.historyId}`}
+                  className="group flex items-start gap-3 py-3 first:pt-0 last:pb-0"
                 >
-                  <AlertIcon className="h-4 w-4" />
-                </span>
-                <div className="min-w-0 flex-1 text-left">
-                  <p className="truncate font-medium text-[var(--foreground)] group-hover:text-[var(--accent)]">
-                    {alert.title}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
-                    {ALERT_KIND_LABELS[alert.kind]}
-                    {" · "}
-                    {alert.documentTitle}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          ))}
+                  <span
+                    className={cn(
+                      "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                      severityClass(alert.severity),
+                    )}
+                  >
+                    <AlertIcon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="truncate font-medium text-[var(--foreground)] group-hover:text-[var(--accent)]">
+                      {alert.title}
+                      {dup && dup > 1 ? (
+                        <span className="ml-1.5 rounded-md border border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+                          ×{dup}
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
+                      {kindLabel(alert)}
+                      {" · "}
+                      {alert.documentTitle}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </DashboardPanel>

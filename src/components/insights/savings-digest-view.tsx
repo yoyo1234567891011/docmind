@@ -88,8 +88,8 @@ export function SavingsAndDigestView() {
           Économies & digests
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-[var(--muted)] sm:text-base">
-          Pistes d’économies issues des relations mémoire, digests périodiques
-          et courriers adaptés.
+          Relations à vérifier issues de la mémoire documentaire, digests
+          périodiques et courriers adaptés — pas des économies € garanties.
         </p>
       </div>
 
@@ -134,7 +134,7 @@ export function SavingsAndDigestView() {
                 <p className="mt-2 text-xs text-[var(--muted)]">
                   {digest.from} → {digest.to} · {digest.newDocuments} docs ·{" "}
                   {digest.upcomingDeadlines} échéances · {digest.savingsCount}{" "}
-                  économies
+                  relations
                 </p>
                 {digest.relationHighlights.length > 0 ? (
                   <ul className="mt-3 space-y-1">
@@ -151,11 +151,11 @@ export function SavingsAndDigestView() {
 
           <section className="space-y-3">
             <h2 className="font-display text-2xl tracking-tight">
-              Économies potentielles
+              Relations à vérifier
             </h2>
             {savings.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">
-                Aucune piste d’économie pour le moment.
+                Aucune relation à vérifier pour le moment.
               </p>
             ) : (
               <ul className="space-y-3">

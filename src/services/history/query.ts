@@ -6,6 +6,7 @@ import type {
   HistoryRecord,
 } from "@/types";
 import { UNFILED_FOLDER_ID } from "@/types";
+import { resolveDisplayCategoryLabel } from "@/lib/dashboard-display";
 
 export function toHistoryListItem(record: HistoryRecord): HistoryListItem {
   const actionCount = record.analysis.actions.length;
@@ -14,19 +15,27 @@ export function toHistoryListItem(record: HistoryRecord): HistoryListItem {
     record.analysis.risk_level === "eleve" ||
     record.analysis.risk_level === "critique";
   const displayName = record.displayName?.trim() || null;
+  const title = displayName || record.analysis.title || record.fileName;
+  const documentType =
+    record.analysis.document_type || record.classification.label;
 
   return {
     id: record.id,
     documentId: record.documentId,
     fileName: record.fileName,
     displayName,
-    title: displayName || record.analysis.title || record.fileName,
+    title,
     favorite: Boolean(record.favorite),
     tagIds: Array.isArray(record.tagIds) ? record.tagIds : [],
     createdAt: record.createdAt,
-    documentType: record.analysis.document_type || record.classification.label,
+    documentType,
     category: record.classification.category,
-    categoryLabel: record.classification.label,
+    categoryLabel: resolveDisplayCategoryLabel({
+      category: record.classification.category,
+      categoryLabel: record.classification.label,
+      title,
+      documentType,
+    }),
     riskScore: record.analysis.risk_score,
     riskLevel: record.analysis.risk_level,
     analyzedAt: record.analyzedAt,
@@ -35,6 +44,7 @@ export function toHistoryListItem(record: HistoryRecord): HistoryListItem {
     needsAction: actionCount > 0 || replyRequired || highRisk,
     folderId: record.folderId ?? null,
     analysisPhase: record.analysisPhase,
+    contentHash: record.contentHash ?? null,
   };
 }
 
