@@ -4,12 +4,13 @@
 import assert from "assert";
 import { rm } from "fs/promises";
 
-import { BILLING_PLANS, buildStripePriceToPlanMap, getBillingPlan, getPlanQuotaFeatureLines, planIdFromStripePriceId } from "../src/config/billing";
+import { BILLING_PLANS, buildStripePriceToPlanMap, getBillingPlan, getPlanQuotaFeatureLines, hasAnyStripePaidPriceConfigured, planIdFromStripePriceId } from "../src/config/billing";
 import { userSubscriptionFile } from "../src/config/paths";
 import { isStripeConfigured } from "../src/lib/stripe";
 import {
   hasPremiumAccess,
   resolveAccessBadge,
+  resolveEffectivePlan,
 } from "../src/services/billing/access";
 import {
   entitlementsFailOpen,
@@ -67,7 +68,8 @@ async function main() {
       } as never),
       "free",
     );
-  } else {
+  } else if (!hasAnyStripePaidPriceConfigured()) {
+    // Local sans aucun STRIPE_PRICE_* : fallback metadata autorisé
     assert.equal(
       planFromSubscription({
         status: "active",
@@ -75,6 +77,16 @@ async function main() {
         metadata: { plan: "premium" },
       } as never),
       "premium",
+    );
+  } else {
+    // Catalogue partiel : metadata ignorée (fail-closed)
+    assert.equal(
+      planFromSubscription({
+        status: "active",
+        items: { data: [{ price: { id: "price_other" } }] },
+        metadata: { plan: "premium" },
+      } as never),
+      "free",
     );
   }
 
@@ -105,9 +117,23 @@ async function main() {
   if (!isStripeConfigured()) {
     assert.equal(typeof entitlementsFailOpen(), "boolean");
   }
-  assert.equal(hasPremiumAccess("premium", "past_due"), true);
+  // past_due : plus de grace quotas — Free effectif (portal pour régulariser)
+  assert.equal(hasPremiumAccess("premium", "past_due"), false);
+  assert.equal(resolveEffectivePlan("premium", "past_due"), "free");
   assert.equal(hasPremiumAccess("premium", "unpaid"), false);
   assert.equal(hasPremiumAccess("premium", "trialing"), true);
+  assert.equal(hasPremiumAccess("premium", "active"), true);
+  assert.equal(
+    resolveAccessBadge({
+      plan: "premium",
+      status: "past_due",
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+      canceledAt: null,
+      stripeSubscriptionId: "sub_x",
+    }).id,
+    "past_due",
+  );
 
   assert.equal(
     resolveAccessBadge({

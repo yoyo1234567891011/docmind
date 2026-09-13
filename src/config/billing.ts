@@ -226,3 +226,10 @@ export function areStripePaidPricesConfigured(): boolean {
     Boolean(getStripePriceIdForPlan(plan)),
   );
 }
+
+/** Au moins un STRIPE_PRICE_* payant est défini. */
+export function hasAnyStripePaidPriceConfigured(): boolean {
+  return PAID_BILLING_PLAN_IDS.some((plan) =>
+    Boolean(getStripePriceIdForPlan(plan)),
+  );
+}

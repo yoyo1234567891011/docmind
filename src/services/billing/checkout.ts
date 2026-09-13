@@ -22,6 +22,35 @@ function canStartNewCheckout(status: string): boolean {
   );
 }
 
+/** Statuts Stripe qui bloquent un nouveau Checkout (éviter double abo / double charge). */
+const CHECKOUT_BLOCKING_STRIPE_STATUSES = new Set([
+  "active",
+  "trialing",
+  "past_due",
+  "unpaid",
+  "paused",
+]);
+
+const EXISTING_SUB_CHECKOUT_MSG =
+  "Un abonnement Stripe existe déjà. Gérez-le depuis Facturation (portail) — aucun nouveau Checkout n’est ouvert.";
+
+async function assertNoBlockingStripeSubscription(
+  customerId: string,
+): Promise<void> {
+  const stripe = getStripe();
+  const list = await stripe.subscriptions.list({
+    customer: customerId,
+    status: "all",
+    limit: 20,
+  });
+  const blocking = list.data.find((s) =>
+    CHECKOUT_BLOCKING_STRIPE_STATUSES.has(s.status),
+  );
+  if (blocking) {
+    throw new AppError("BAD_REQUEST", EXISTING_SUB_CHECKOUT_MSG, 400);
+  }
+}
+
 export type PlanCheckoutResult =
   | { mode: "redirect"; url: string }
   | {
@@ -73,17 +102,16 @@ export async function createPlanCheckoutSession(input: {
     }
 
     if (sub.stripeSubscriptionId && !canStartNewCheckout(sub.status)) {
-      throw new AppError(
-        "BAD_REQUEST",
-        "Un abonnement Stripe est déjà ouvert. Gérez-le depuis Facturation.",
-        400,
-      );
+      throw new AppError("BAD_REQUEST", EXISTING_SUB_CHECKOUT_MSG, 400);
     }
 
     const customerId = await getOrCreateStripeCustomer({
       userId: input.userId,
       email: input.email,
     });
+
+    // Garde Stripe (DB locale peut être stale après 1er Checkout non webhooké).
+    await assertNoBlockingStripeSubscription(customerId);
 
     const stripe = getStripe();
     const baseUrl = getAppBaseUrl();

@@ -1,6 +1,9 @@
 import { getPlanQuotas, type QuotaMetric } from "@/config/quotas";
 import { AppError } from "@/lib/errors";
-import { entitlementsFailOpen } from "@/services/billing/entitlements";
+import {
+  entitlementsFailOpen,
+  getUserEntitlements,
+} from "@/services/billing/entitlements";
 import { resolveEffectivePlan } from "@/services/billing/access";
 import { getUserSubscription } from "@/services/billing/store";
 import {
@@ -88,7 +91,19 @@ function quotaExceededError(
   );
 }
 
-export async function getQuotaStatus(userId: string): Promise<QuotaStatus> {
+/**
+ * État quotas mensuels — un seul plan effectif pour analyze / search / letter / upload.
+ * @param options.reconcile — sync Stripe (throttle entitlements) avant lecture, pour
+ *   aligner les 3 plafonds après checkout / portal / webhook retardé.
+ */
+export async function getQuotaStatus(
+  userId: string,
+  options?: { reconcile?: boolean },
+): Promise<QuotaStatus> {
+  if (options?.reconcile) {
+    await getUserEntitlements(userId, { reconcile: true });
+  }
+
   const sub = await getUserSubscription(userId);
   const plan = resolvePlan(sub.plan, sub.status, sub.currentPeriodEnd);
   const limits = getPlanQuotas(plan);

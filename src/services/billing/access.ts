@@ -6,10 +6,15 @@ import type {
 } from "@/types/billing";
 import { isPaidBillingPlanId, normalizeBillingPlanId } from "@/config/billing";
 
+/**
+ * Statuts qui ouvrent les quotas / entitlements payants.
+ * `past_due` exclus volontairement : dès échec de prélèvement → quotas Free
+ * jusqu’à régularisation (Customer Portal). Compatible Stripe (retry + portal).
+ */
 function statusAllowsPaidAccess(
   status: BillingSubscriptionStatus | string,
 ): boolean {
-  return status === "active" || status === "trialing" || status === "past_due";
+  return status === "active" || status === "trialing";
 }
 
 function periodStillValid(period?: {
@@ -138,7 +143,8 @@ export function resolveAccessBadge(
       id: "past_due",
       label: "Paiement en retard",
       tone: "warning",
-      description: "Accès maintenu pendant les relances Stripe.",
+      description:
+        "Quotas Free jusqu’à régularisation — mettez à jour la carte via le portail.",
     };
   }
 

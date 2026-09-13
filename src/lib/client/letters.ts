@@ -34,7 +34,9 @@ export async function fetchLetterSuggestion(historyId: string): Promise<{
   currentLetter: ReadyReply | null;
   premiumRequired?: boolean;
   canGenerate?: boolean;
+  plan?: string;
   letterQuota?: {
+    plan?: string;
     used: number;
     limit: number;
     remaining: number | null;
@@ -50,7 +52,9 @@ export async function fetchLetterSuggestion(historyId: string): Promise<{
     currentLetter: ReadyReply | null;
     premiumRequired?: boolean;
     canGenerate?: boolean;
+    plan?: string;
     letterQuota?: {
+      plan?: string;
       used: number;
       limit: number;
       remaining: number | null;

@@ -6,8 +6,10 @@ import { useEffect, useState } from "react";
 import { ReadyReplyCard } from "@/components/documents/ready-reply-card";
 import { Alert, Button } from "@/components/ui";
 import { SpinnerIcon } from "@/components/ui/icons";
+import { BILLING_PLANS } from "@/config/billing";
 import { draftLetter, fetchLetterSuggestion } from "@/lib/client";
 import { cn } from "@/lib/utils";
+import type { BillingPlanId } from "@/types/billing";
 import {
   LETTER_TYPE_LABELS,
   type LetterType,
@@ -20,6 +22,13 @@ const SELECTABLE_TYPES: LetterType[] = [
   "contestation",
   "reponse_administrative",
 ];
+
+type LetterQuotaView = {
+  plan: string;
+  used: number;
+  limit: number;
+  remaining: number | null;
+};
 
 interface LetterDraftPanelProps {
   historyId: string;
@@ -45,27 +54,39 @@ export function LetterDraftPanel({
   const [error, setError] = useState<string | null>(null);
   const [planBlocked, setPlanBlocked] = useState(false);
   const [quotaBlocked, setQuotaBlocked] = useState(false);
-  const [letterRemaining, setLetterRemaining] = useState<number | null>(null);
+  const [letterQuota, setLetterQuota] = useState<LetterQuotaView | null>(null);
   const [billingChecked, setBillingChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    void fetchLetterSuggestion(historyId)
-      .then((data) => {
+
+    const applySuggestion = async () => {
+      try {
+        const data = await fetchLetterSuggestion(historyId);
         if (cancelled) return;
         setSuggestedType(data.suggestion.letterType);
         setSuggestionReason(data.suggestion.reason);
         setAlternativeSuggestions(data.suggestion.alternatives ?? []);
 
-        const remaining = data.letterQuota?.remaining ?? null;
-
         if (data.premiumRequired === true) {
           setPlanBlocked(true);
           setQuotaBlocked(false);
+          setLetterQuota(null);
           setLetter(null);
         } else {
           setPlanBlocked(false);
-          setLetterRemaining(remaining);
+          const q = data.letterQuota;
+          if (q) {
+            setLetterQuota({
+              plan: q.plan ?? data.plan ?? "free",
+              used: q.used,
+              limit: q.limit,
+              remaining: q.remaining,
+            });
+          } else {
+            setLetterQuota(null);
+          }
+          const remaining = q?.remaining ?? null;
           const canGenerate =
             data.canGenerate ?? (remaining == null || remaining > 0);
           setQuotaBlocked(!canGenerate);
@@ -76,12 +97,19 @@ export function LetterDraftPanel({
           }
         }
         setBillingChecked(true);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setBillingChecked(true);
-      });
+      }
+    };
+
+    void applySuggestion();
+    const onFocus = () => {
+      void applySuggestion();
+    };
+    window.addEventListener("focus", onFocus);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", onFocus);
     };
   }, [historyId]);
 
@@ -97,8 +125,15 @@ export function LetterDraftPanel({
       });
       setLetter(result.letter);
       onDrafted?.(result.letter);
-      if (letterRemaining != null && letterRemaining > 0) {
-        setLetterRemaining(letterRemaining - 1);
+      if (letterQuota && letterQuota.remaining != null && letterQuota.remaining > 0) {
+        const nextUsed = letterQuota.used + 1;
+        const nextRemaining = Math.max(0, letterQuota.limit - nextUsed);
+        setLetterQuota({
+          ...letterQuota,
+          used: nextUsed,
+          remaining: nextRemaining,
+        });
+        if (nextRemaining <= 0) setQuotaBlocked(true);
       }
     } catch (draftError) {
       const message =
@@ -111,19 +146,26 @@ export function LetterDraftPanel({
       }
       if (/quota|courriers? du mois|courriers?\s+IA/i.test(message)) {
         setQuotaBlocked(true);
-        setLetterRemaining(0);
+        if (letterQuota) {
+          setLetterQuota({ ...letterQuota, remaining: 0 });
+        }
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const remainingLabel =
-    letterRemaining == null
+  const planName =
+    letterQuota != null
+      ? (BILLING_PLANS[letterQuota.plan as BillingPlanId]?.name ??
+        letterQuota.plan)
+      : null;
+  const quotaLabel =
+    letterQuota == null
       ? null
-      : letterRemaining === 1
-        ? "1 courrier restant ce mois"
-        : `${letterRemaining} courriers restants ce mois`;
+      : letterQuota.remaining == null
+        ? `Plan ${planName} · ${letterQuota.used} courriers ce mois`
+        : `Plan ${planName} · ${letterQuota.used}/${letterQuota.limit} utilisés`;
 
   return (
     <div className="space-y-4">
@@ -136,8 +178,8 @@ export function LetterDraftPanel({
             Rédige automatiquement un courrier à partir des informations
             extraites du document.
           </p>
-          {!planBlocked && remainingLabel && !quotaBlocked ? (
-            <p className="mt-2 text-xs text-[var(--muted)]">{remainingLabel}</p>
+          {!planBlocked && quotaLabel && !quotaBlocked ? (
+            <p className="mt-2 text-xs text-[var(--muted)]">{quotaLabel}</p>
           ) : null}
           {suggestionReason ? (
             <p className="mt-2 text-xs text-[var(--muted)]">

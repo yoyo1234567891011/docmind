@@ -113,7 +113,8 @@ export async function GET(request: Request) {
     const canLetter = await hasEntitlement(user.id, "letter_agent", {
       reconcile: true,
     });
-    const quotas = await getQuotaStatus(user.id);
+    // Même plan que /api/quotas (reconcile déjà fait ci-dessus → pas de double sync).
+    const quotas = await getQuotaStatus(user.id, { reconcile: false });
     const letter = pickQuotaItem(quotas, "letter");
     const canGenerate =
       canLetter &&
@@ -126,9 +127,11 @@ export async function GET(request: Request) {
       currentLetter: canLetter ? (record.readyReply ?? null) : null,
       premiumRequired: !canLetter,
       canGenerate,
+      plan: quotas.plan,
       letterQuota: canLetter
         ? letter
           ? {
+              plan: quotas.plan,
               used: letter.used,
               limit: letter.limit,
               remaining: letter.unlimited ? null : letter.remaining,

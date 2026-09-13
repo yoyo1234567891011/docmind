@@ -101,8 +101,39 @@ Helper création prices : `node scripts/create-stripe-plan-prices.mjs`
 
 \*Payant : si `QUOTA_*_LETTER` est omis, `letter = analyze`.
 
+### Source de vérité (analyze / search / letter)
+
+| Champ | Source |
+|-------|--------|
+| `plan` | `resolveEffectivePlan(subscription)` — un seul plan pour les 3 métriques |
+| `used` | compteur mensuel (`usage.json` / PG) par métrique |
+| `limit` | `getPlanQuotas(plan)[metric]` |
+| `remaining` | `max(0, limit - used)` |
+
+`GET /api/quotas` et l’agent courrier utilisent le **même** `getQuotaStatus` (avec reconcile Stripe côté quotas).
+
+### Changement de plan
+
+| Événement | Usage du mois | Limites |
+|-----------|---------------|---------|
+| **Upgrade** de palier (ex. Basique→Pro) | `analyze` + `search` + `letter` remis à **0** | nouveau plan |
+| **Downgrade** / même plan / renouvellement | **conservé** | plan effectif actuel (`remaining = max(0, limit − used)`) |
+| `past_due` | conservé | plan effectif = **free** (limites Free) |
+
+Affichage : toujours `Plan · used/limit` du plan **actuel** (pas un « restants » orphelin d’un autre plafond).
+
 ## Accès
 
-- `hasPaidAccess` / `resolveEffectivePlan` — plan payant actif  
-- `letter_agent` dès **Basique** (tous les plans payants)  
+- `hasPaidAccess` / `resolveEffectivePlan` — plan payant actif **uniquement** si `active` ou `trialing` (+ période non expirée)
+- **`past_due`** : quotas / entitlements = **Free** jusqu’à régularisation (Customer Portal). Le plan catalogue reste en base ; l’accès payant revient au webhook `active` après paiement réussi. Compatible portal Stripe.
+- `letter_agent` dès **Basique** (tous les plans payants)
 - `isPremium` dans l’API billing = accès payant (compat UI)
+
+### Checkout — anti double abonnement
+
+Avant `checkout.sessions.create`, l’API liste les abonnements Stripe du customer et **refuse** un nouveau Checkout s’il existe déjà un statut `active` | `trialing` | `past_due` | `unpaid` | `paused` (message : gérer via Facturation / portail). Les changements Basique↔Pro… passent par `changeSubscriptionPlan` (pas un 2ᵉ Checkout).
+
+### Mapping plan (webhook / sync)
+
+Source de vérité = `price_id` ↔ `STRIPE_PRICE_*`.  
+**Fail-closed** : en déployé, ou dès qu’**un** `STRIPE_PRICE_*` est défini, la metadata `plan` / `docmind_plan` n’est **jamais** utilisée. Fallback metadata uniquement en local sans aucun price configuré.

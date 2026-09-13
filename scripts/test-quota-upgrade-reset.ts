@@ -70,6 +70,13 @@ async function main() {
       DOCMIND_STORAGE: "fs",
       BILLING_ENTITLEMENTS_FAIL_OPEN: "0",
       STRIPE_SECRET_KEY: "",
+      // Isoler le mock metadata (pas de trust price map dans ce script).
+      STRIPE_PRICE_BASIQUE: "",
+      STRIPE_PRICE_PRO: "",
+      STRIPE_PRICE_PREMIUM: "",
+      STRIPE_PRICE_EXTRA: "",
+      NEXT_PUBLIC_APP_ENV: "development",
+      NODE_ENV: "development",
     },
     async () => {
       const userId = `quota-upgrade-${Date.now()}`;
@@ -111,16 +118,22 @@ async function main() {
       const proLimits = getPlanQuotas("pro");
       const analyzeAfter = pickQuotaItem(status, "analyze");
       const searchAfter = pickQuotaItem(status, "search");
+      const letterAfter = pickQuotaItem(status, "letter");
       assert.equal(analyzeAfter?.used, 0);
       assert.equal(searchAfter?.used, 0);
+      assert.equal(letterAfter?.used, 0);
       assert.equal(analyzeAfter?.remaining, proLimits.analyze);
       assert.equal(searchAfter?.remaining, proLimits.search);
-      console.log("OK free → pro reset", {
-        analyze: `${analyzeAfter?.remaining} restantes`,
-        search: `${searchAfter?.remaining} restantes`,
+      assert.equal(letterAfter?.remaining, proLimits.letter);
+      console.log("OK free → pro reset analyze+search+letter", {
+        analyze: `${analyzeAfter?.used}/${analyzeAfter?.limit}`,
+        search: `${searchAfter?.used}/${searchAfter?.limit}`,
+        letter: `${letterAfter?.used}/${letterAfter?.limit}`,
       });
 
-      // Consommer puis upgrade basique → pro (paid to paid)
+      // Consommer letter puis upgrade : letter aussi reset
+      await consumeQuota(userId, "letter");
+      await consumeQuota(userId, "letter");
       await consumeQuota(userId, "analyze");
       await consumeQuota(userId, "analyze");
       await applyStripeSubscription(userId, mockStripeSub("basique"), {
@@ -129,7 +142,16 @@ async function main() {
         created: Math.floor(Date.now() / 1000) + 1,
       });
       let usage = await getUserUsage(userId);
-      assert.equal(usage.analyze, 2, "downgrade ne reset pas");
+      assert.equal(usage.analyze, 2, "downgrade ne reset pas analyze");
+      assert.equal(usage.letter, 2, "downgrade ne reset pas letter");
+      status = await getQuotaStatus(userId);
+      assert.equal(status.plan, "basique");
+      const basiqueLimits = getPlanQuotas("basique");
+      assert.equal(
+        pickQuotaItem(status, "letter")?.remaining,
+        Math.max(0, basiqueLimits.letter - 2),
+        "downgrade : remaining = limite basique − used",
+      );
       await applyStripeSubscription(userId, mockStripeSub("premium"), {
         id: "evt_upgrade_premium",
         type: "customer.subscription.updated",
@@ -138,7 +160,8 @@ async function main() {
       usage = await getUserUsage(userId);
       assert.equal(usage.analyze, 0, "basique → premium reset analyze");
       assert.equal(usage.search, 0, "basique → premium reset search");
-      console.log("OK paid upgrade reset, downgrade preserved usage");
+      assert.equal(usage.letter, 0, "basique → premium reset letter");
+      console.log("OK paid upgrade reset all three, downgrade preserved usage");
 
       // Renouvellement même plan : pas de reset
       await consumeQuota(userId, "analyze");

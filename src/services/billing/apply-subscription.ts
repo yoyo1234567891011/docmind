@@ -1,12 +1,13 @@
 import type Stripe from "stripe";
 
 import {
-  areStripePaidPricesConfigured,
+  hasAnyStripePaidPriceConfigured,
   isPaidBillingPlanId,
   isPlanTierUpgrade,
   normalizeBillingPlanId,
   planIdFromStripePriceId,
 } from "@/config/billing";
+import { isDeployedEnv } from "@/lib/env-validate";
 import { trackAnalyticsEvent } from "@/services/analytics";
 import { resolveEffectivePlan } from "@/services/billing/access";
 import {
@@ -53,15 +54,17 @@ export function readSubscriptionPriceId(
 /**
  * Mappe un abonnement Stripe → plan DocMind via price_id configurés.
  * Ancien price Premium 10 € (non listé dans les 4 nouveaux) → free.
+ *
+ * Fail-closed : en déployé, ou dès qu’un STRIPE_PRICE_* est présent,
+ * jamais de trust metadata plan (évite Extra local via metadata seule).
+ * Fallback metadata uniquement en local sans aucun price configuré (tests).
  */
 export function planFromSubscription(sub: Stripe.Subscription): BillingPlanId {
   const priceId = readSubscriptionPriceId(sub);
   const fromPrice = planIdFromStripePriceId(priceId);
   if (fromPrice !== "free") return fromPrice;
 
-  // En prod (prices configurés) : le price Stripe est la seule source de vérité.
-  // Évite un plan « Extra » local alors que Stripe est resté sur Pro (metadata seule).
-  if (areStripePaidPricesConfigured()) {
+  if (isDeployedEnv() || hasAnyStripePaidPriceConfigured()) {
     return "free";
   }
 

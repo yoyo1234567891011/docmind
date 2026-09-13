@@ -207,12 +207,13 @@ export function BillingView() {
 
       {subscription.status === "past_due" ? (
         <Alert tone="info" title="Paiement en retard">
-          Votre dernier prélèvement a échoué.
+          Votre dernier prélèvement a échoué — les quotas payants sont suspendus
+          (offre Gratuite) jusqu’à régularisation.
           {upcomingInvoice.status === "open" && upcomingInvoice.amountDue != null
             ? ` Montant dû : ${upcomingInvoice.amountDue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €.`
             : null}{" "}
-          Mettez à jour votre moyen de paiement via le portail Stripe pour éviter
-          la suspension de l’abonnement.
+          Mettez à jour votre moyen de paiement via le portail Stripe ; l’accès
+          payant revient dès que le paiement réussit.
         </Alert>
       ) : null}
       {subscription.status === "unpaid" ? (
