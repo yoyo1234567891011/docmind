@@ -5,6 +5,7 @@ import type {
   PaidBillingPlanId,
 } from "@/types/billing";
 import { PAID_BILLING_PLAN_IDS } from "@/types/billing";
+import { getPlanQuotas } from "@/config/quotas";
 
 const CORE_ENTITLEMENTS: BillingEntitlement[] = [
   "analyze",
@@ -14,7 +15,7 @@ const CORE_ENTITLEMENTS: BillingEntitlement[] = [
   "documents",
 ];
 
-/** Tous les plans payants : agent courrier (quota = analyses). */
+/** Tous les plans payants : agent courrier (quota letter via getPlanQuotas). */
 const PAID_ENTITLEMENTS: BillingEntitlement[] = [
   ...CORE_ENTITLEMENTS,
   "letter_agent",
@@ -26,8 +27,32 @@ const PREMIUM_ENTITLEMENTS: BillingEntitlement[] = [
 ];
 
 /**
+ * Lignes quotas cartes / landing — source = getPlanQuotas (env inclus).
+ * letter Free = 0 ; payant sans QUOTA_*_LETTER = même plafond que analyze.
+ */
+export function getPlanQuotaFeatureLines(planId: BillingPlanId): string[] {
+  const q = getPlanQuotas(planId);
+  const analyze =
+    q.analyze < 0
+      ? "Analyses PDF illimitées"
+      : `${q.analyze} analyses PDF par mois`;
+  const search =
+    q.search < 0
+      ? "Recherches intelligentes illimitées"
+      : `${q.search} recherches intelligentes par mois`;
+  const letter =
+    q.letter <= 0
+      ? "Sans agent courrier"
+      : q.letter < 0
+        ? "Courriers IA illimités"
+        : `${q.letter} courriers IA par mois`;
+  return [analyze, search, letter];
+}
+
+/**
  * Catalogue offres DocMind (5 plans).
  * Prix Stripe : STRIPE_PRICE_BASIQUE | PRO | PREMIUM | EXTRA (price_xxx).
+ * `features` = extras marketing ; quotas via getPlanCardFeatures / withLiveQuotaFeatures.
  */
 export const BILLING_PLANS: Record<BillingPlanId, BillingPlanDefinition> = {
   free: {
@@ -38,42 +63,29 @@ export const BILLING_PLANS: Record<BillingPlanId, BillingPlanDefinition> = {
     stripe: false,
     entitlements: CORE_ENTITLEMENTS,
     features: [
-      "5 analyses PDF par mois",
       "Résumé + points à surveiller",
       "Historique de base",
       "Max 30 pages / document",
-      "Sans agent courrier",
     ],
   },
   basique: {
     id: "basique",
     name: "Basique",
-    description: "Plus d’analyses et recherche intelligente.",
+    description: "Plus d’analyses, recherche et agent courrier.",
     priceMonthlyEur: 9.99,
     stripe: true,
     entitlements: PAID_ENTITLEMENTS,
-    features: [
-      "15 analyses PDF par mois",
-      "Tout Gratuit",
-      "Recherche intelligente",
-      "Agent courrier (quota analyses)",
-      "Portail facturation Stripe",
-    ],
+    features: ["Tout Gratuit", "Portail facturation Stripe"],
   },
   pro: {
     id: "pro",
     name: "Pro",
-    description: "Meilleur rapport qualité/prix — courriers IA inclus.",
+    description: "Meilleur rapport qualité/prix — volume confortable.",
     priceMonthlyEur: 19.99,
     stripe: true,
     highlighted: true,
     entitlements: PAID_ENTITLEMENTS,
-    features: [
-      "40 analyses PDF par mois",
-      "Tout Basique",
-      "Agent courrier (résiliation, contestation…)",
-      "Meilleur rapport qualité/prix",
-    ],
+    features: ["Tout Basique", "Meilleur rapport qualité/prix"],
   },
   premium: {
     id: "premium",
@@ -83,7 +95,6 @@ export const BILLING_PLANS: Record<BillingPlanId, BillingPlanDefinition> = {
     stripe: true,
     entitlements: PREMIUM_ENTITLEMENTS,
     features: [
-      "75 analyses PDF par mois",
       "Tout Pro",
       "Support prioritaire",
       "Nouveautés en avant-première",
@@ -96,13 +107,21 @@ export const BILLING_PLANS: Record<BillingPlanId, BillingPlanDefinition> = {
     priceMonthlyEur: 59.99,
     stripe: true,
     entitlements: PREMIUM_ENTITLEMENTS,
-    features: [
-      "150 analyses PDF par mois",
-      "Tout Premium",
-      "Volume élevé",
-    ],
+    features: ["Tout Premium", "Volume élevé"],
   },
 } as const;
+
+/** Features carte : quotas live + extras marketing. */
+export function getPlanCardFeatures(planId: BillingPlanId): string[] {
+  const plan = BILLING_PLANS[planId] ?? BILLING_PLANS.free;
+  return [...getPlanQuotaFeatureLines(planId), ...plan.features];
+}
+
+export function withLiveQuotaFeatures(
+  plan: BillingPlanDefinition,
+): BillingPlanDefinition {
+  return { ...plan, features: getPlanCardFeatures(plan.id) };
+}
 
 export function getBillingPlan(planId: BillingPlanId): BillingPlanDefinition {
   return BILLING_PLANS[planId] ?? BILLING_PLANS.free;

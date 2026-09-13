@@ -4,13 +4,15 @@
 
 Catalogue : `src/config/billing.ts`.
 
-| Plan | Prix | Analyses | Entitlements clés |
-|------|------|----------|-------------------|
-| **Gratuit** | — | 5 | `analyze`, `memory`, `search`, `alerts`, `documents` |
-| **Basique** | 9,99 € / mois | 15 | idem Gratuit (sans courrier) |
-| **Pro** | 19,99 € / mois | 40 | + `letter_agent` |
-| **Premium** | 34,99 € / mois | 75 | + `priority_support` |
-| **Extra** | 59,99 € / mois | 150 | idem Premium |
+| Plan | Prix | Analyses | Recherches | Courriers | Entitlements clés |
+|------|------|----------|------------|-----------|-------------------|
+| **Gratuit** | — | 5 | 5 | 0 | `analyze`, `memory`, `search`, `alerts`, `documents` |
+| **Basique** | 9,99 € / mois | 15 | 40 | 15* | + `letter_agent` |
+| **Pro** | 19,99 € / mois | 40 | 120 | 40* | idem Basique |
+| **Premium** | 34,99 € / mois | 75 | 250 | 75* | + `priority_support` |
+| **Extra** | 59,99 € / mois | 150 | 500 | 150* | idem Premium |
+
+\*Sans `QUOTA_*_LETTER`, le plafond courrier = analyses (`getPlanQuotas`).
 
 Price IDs Stripe (mensuels EUR) :
 
@@ -21,7 +23,7 @@ STRIPE_PRICE_PREMIUM=price_…
 STRIPE_PRICE_EXTRA=price_…
 ```
 
-Un `price_…` non listé (ex. ancien Premium 10 €) → plan **free**.
+Un `price_…` non listé (ex. ancien Premium hors catalogue) → plan **free**.
 
 Limite PDF : **30 pages** / document (`MAX_PDF_PAGES`).
 
@@ -94,11 +96,13 @@ Helper création prices : `node scripts/create-stripe-plan-prices.mjs`
 |-------|------|---------|-----|---------|-------|
 | analyze | 5 | 15 | 40 | 75 | 150 |
 | upload | 10 | 30 | 80 | 150 | 300 |
-| letter | 0 | 0 | 20 | 40 | 75 |
-| search | 50 | 200 | 500 | 1 000 | 2 000 |
+| letter | 0 | 15* | 40* | 75* | 150* |
+| search | 5 | 40 | 120 | 250 | 500 |
+
+\*Payant : si `QUOTA_*_LETTER` est omis, `letter = analyze`.
 
 ## Accès
 
 - `hasPaidAccess` / `resolveEffectivePlan` — plan payant actif  
-- `letter_agent` dès **Pro**  
+- `letter_agent` dès **Basique** (tous les plans payants)  
 - `isPremium` dans l’API billing = accès payant (compat UI)

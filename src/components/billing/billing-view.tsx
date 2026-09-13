@@ -175,6 +175,7 @@ export function BillingView() {
     invoices,
     upcomingInvoice,
     plans,
+    stripeTestMode,
   } = data;
 
   const renewalLabel = subscription.cancelAtPeriodEnd
@@ -236,6 +237,11 @@ export function BillingView() {
           Ajoutez STRIPE_SECRET_KEY, STRIPE_PRICE_BASIQUE / PRO / PREMIUM /
           EXTRA et STRIPE_WEBHOOK_SECRET. En local sans Stripe, l’offre Pro
           reste ouverte pour le développement.
+        </Alert>
+      ) : null}
+      {stripeConfigured && stripeTestMode ? (
+        <Alert tone="info" title="Mode test">
+          Mode test — ne pas utiliser de vraie carte.
         </Alert>
       ) : null}
 

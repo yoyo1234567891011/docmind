@@ -15,6 +15,8 @@ const CHECKOUT_TIMEOUT_MS = 45_000;
 
 export type BillingApiResponse = BillingOverview & {
   plans: BillingPlanDefinition[];
+  /** true si Stripe configuré en sk_test_ (pas sk_live_). */
+  stripeTestMode?: boolean;
 };
 
 async function parse<T>(response: Response): Promise<T> {

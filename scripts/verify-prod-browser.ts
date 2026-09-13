@@ -70,8 +70,8 @@ async function main() {
     };
     const premiumPlan = billingJson.data?.plans?.find((p) => p.id === "premium");
     console.log("OK /api/billing premium UI price:", premiumPlan?.priceMonthlyEur, "€/mois");
-    if (premiumPlan?.priceMonthlyEur !== 10) {
-      throw new Error(`Prix UI attendu 10€, reçu ${premiumPlan?.priceMonthlyEur}`);
+    if (premiumPlan?.priceMonthlyEur !== 34.99) {
+      throw new Error(`Prix UI attendu 34.99€, reçu ${premiumPlan?.priceMonthlyEur}`);
     }
 
     const csrfRes = await page.request.get(`${BASE}/api/csrf`);
@@ -106,9 +106,9 @@ async function main() {
       throw new Error("URL checkout inattendue");
     }
 
-    console.log("\n=== Prod OK (quotas Free=20 + checkout Stripe créé) ===");
+    console.log("\n=== Prod OK (quotas Free=5 + checkout Stripe créé) ===");
     console.log(
-      "→ Ouvrez /facturation connecté et vérifiez « 10 €/mois » + paiement test carte 4242…",
+      "→ Ouvrez /facturation connecté et vérifiez Premium 34,99 €/mois + paiement test carte 4242…",
     );
   } finally {
     await browser.close();

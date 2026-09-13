@@ -15,7 +15,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Faut-il une carte bancaire pour commencer ?",
-    a: "Non. L’offre Gratuite suffit pour analyser, rechercher et recevoir des alertes. L’agent courrier est inclus dès Pro.",
+    a: "Non. L’offre Gratuite suffit pour analyser, rechercher et recevoir des alertes. L’agent courrier est inclus dès Basique.",
   },
   {
     q: "Puis-je changer ou annuler mon abonnement facilement ?",

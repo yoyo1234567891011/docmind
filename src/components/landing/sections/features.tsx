@@ -13,7 +13,7 @@ const FEATURES = [
   },
   {
     title: "Agent courrier",
-    text: "Résiliation, remboursement, contestation : un brouillon basé sur les faits extraits (dès Pro).",
+    text: "Résiliation, remboursement, contestation : un brouillon basé sur les faits extraits (dès Basique).",
   },
   {
     title: "Bibliothèque claire",

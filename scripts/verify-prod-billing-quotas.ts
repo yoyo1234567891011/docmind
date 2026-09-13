@@ -39,8 +39,8 @@ async function verifyStripePrice() {
       recurring: price.recurring?.interval,
     });
     if (!price.active) throw new Error("Price Stripe inactif");
-    if (eur !== 10) {
-      console.warn(`WARN: montant Stripe = ${eur}€ (UI affiche 10€)`);
+    if (eur !== 34.99) {
+      console.warn(`WARN: montant Stripe = ${eur}€ (catalogue Premium = 34,99€)`);
     }
   } catch (error) {
     console.error(

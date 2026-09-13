@@ -4,7 +4,7 @@
 import assert from "assert";
 import { rm } from "fs/promises";
 
-import { BILLING_PLANS, buildStripePriceToPlanMap, getBillingPlan, planIdFromStripePriceId } from "../src/config/billing";
+import { BILLING_PLANS, buildStripePriceToPlanMap, getBillingPlan, getPlanQuotaFeatureLines, planIdFromStripePriceId } from "../src/config/billing";
 import { userSubscriptionFile } from "../src/config/paths";
 import { isStripeConfigured } from "../src/lib/stripe";
 import {
@@ -31,6 +31,14 @@ async function main() {
   assert.equal(BILLING_PLANS.free.priceMonthlyEur, null);
   assert.equal(BILLING_PLANS.premium.priceMonthlyEur, 34.99);
   assert.equal(BILLING_PLANS.extra.priceMonthlyEur, 59.99);
+  const freeLines = getPlanQuotaFeatureLines("free");
+  assert.ok(freeLines.some((l) => /5 analyses/i.test(l)));
+  assert.ok(freeLines.some((l) => /5 recherches/i.test(l)));
+  assert.ok(freeLines.some((l) => /Sans agent courrier/i.test(l)));
+  const premLines = getPlanQuotaFeatureLines("premium");
+  assert.ok(premLines.some((l) => /75 analyses/i.test(l)));
+  assert.ok(premLines.some((l) => /250 recherches/i.test(l)));
+  assert.ok(premLines.some((l) => /75 courriers/i.test(l)));
   assert.ok(BILLING_PLANS.free.entitlements.includes("analyze"));
   assert.ok(!BILLING_PLANS.free.entitlements.includes("letter_agent"));
   assert.ok(BILLING_PLANS.basique.entitlements.includes("letter_agent"));

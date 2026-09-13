@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { BILLING_PLANS } from "@/config/billing";
+import { BILLING_PLANS, getPlanCardFeatures } from "@/config/billing";
 import type { BillingPlanId } from "@/types/billing";
 
 const PLAN_ORDER: BillingPlanId[] = [
@@ -56,7 +56,7 @@ export function LandingPricing() {
             Tarifs simples
           </h2>
           <p className="mt-3 text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-            Commencez gratuitement. Passez à Pro pour l’agent courrier, ou
+            Commencez gratuitement. L’agent courrier est inclus dès Basique ;
             choisissez le volume qui vous convient.
           </p>
         </div>
@@ -93,7 +93,7 @@ export function LandingPricing() {
                   {plan.description}
                 </p>
                 <ul className="mt-5 space-y-2 text-sm text-[var(--foreground)]">
-                  {plan.features.map((feature) => (
+                  {getPlanCardFeatures(id).map((feature) => (
                     <li key={feature} className="flex gap-2">
                       <span className="text-[var(--accent)]" aria-hidden>
                         —

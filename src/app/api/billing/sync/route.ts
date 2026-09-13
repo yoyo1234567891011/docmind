@@ -1,9 +1,10 @@
 import { apiFromUnknownError, apiSuccess } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth";
+import { BILLING_PLANS, withLiveQuotaFeatures } from "@/config/billing";
+import { isStripeConfigured, isStripeLiveMode } from "@/lib/stripe";
 import { getBillingOverview } from "@/services/billing";
 import { toClientBillingOverview } from "@/services/billing/public-overview";
 import { syncUserSubscriptionFromStripe } from "@/services/billing/sync";
-import { BILLING_PLANS } from "@/config/billing";
 
 export const runtime = "nodejs";
 
@@ -27,10 +28,15 @@ export async function POST(request: Request) {
       checkoutSessionId: sessionId,
     });
     const overview = await getBillingOverview(user.id);
+    const stripeConfigured = isStripeConfigured();
 
     return apiSuccess({
-      ...toClientBillingOverview(overview),
-      plans: Object.values(BILLING_PLANS),
+      ...toClientBillingOverview({
+        ...overview,
+        plan: withLiveQuotaFeatures(overview.plan),
+      }),
+      plans: Object.values(BILLING_PLANS).map(withLiveQuotaFeatures),
+      stripeTestMode: stripeConfigured && !isStripeLiveMode(),
       synced: result.synced,
       syncSource: result.source,
     });
