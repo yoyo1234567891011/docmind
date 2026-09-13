@@ -5,17 +5,19 @@ import { memo, useEffect, useState } from "react";
 
 import { AnalysisPhaseBadge } from "@/components/documents/analysis-phase-badge";
 import { FileIcon, StarFilledIcon, StarIcon, TrashIcon } from "@/components/ui/icons";
+import type { HistoryDisplayItem } from "@/lib/dashboard-display";
 import { formatDateTime, getRiskLevelLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   UNFILED_FOLDER_ID,
   type DocumentTag,
   type FolderWithCount,
-  type HistoryListItem,
 } from "@/types";
 
+import { isRedundantDocumentFileName } from "./display-utils";
+
 interface DocumentRowProps {
-  item: HistoryListItem;
+  item: HistoryDisplayItem;
   active: boolean;
   busy: boolean;
   tags: DocumentTag[];
@@ -45,6 +47,8 @@ function DocumentRowInner({
 }: DocumentRowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.title);
+  const showFileName = !isRedundantDocumentFileName(item.title, item.fileName);
+  const dupCount = item.duplicateCount;
 
   useEffect(() => {
     if (!editing) setDraft(item.title);
@@ -99,12 +103,19 @@ function DocumentRowInner({
               <span className="truncate text-sm font-medium text-[var(--foreground)]">
                 {item.title}
               </span>
+              {dupCount && dupCount > 1 ? (
+                <span className="rounded-md border border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+                  ×{dupCount}
+                </span>
+              ) : null}
               <AnalysisPhaseBadge phase={item.analysisPhase} />
             </span>
           )}
-          <span className="mt-0.5 block truncate text-[11px] text-[var(--muted)]">
-            {item.fileName}
-          </span>
+          {showFileName ? (
+            <span className="mt-0.5 block truncate text-[11px] text-[var(--muted)]">
+              {item.fileName}
+            </span>
+          ) : null}
           {item.tagIds.length > 0 ? (
             <span className="mt-1 flex flex-wrap gap-1">
               {item.tagIds.map((tagId) => {

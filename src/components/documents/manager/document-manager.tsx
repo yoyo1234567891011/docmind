@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 
 import { Alert } from "@/components/ui";
+import { collapseHistoryDuplicates } from "@/lib/dashboard-display";
 
 import { managerBreadcrumbLabel } from "./build-query";
 import { DocumentList } from "./document-list";
@@ -12,8 +14,7 @@ import { ManagerToolbar } from "./manager-toolbar";
 import { useDocumentManager } from "./use-document-manager";
 
 /**
- * Gestionnaire de documents modulaire (Drive × Notion).
- * Sidebar dossiers/tags · liste/grille · filtres/tri · aperçu PDF · actions.
+ * Gestionnaire de documents — liste d’analyses, dossiers, aperçu.
  */
 export function DocumentManager() {
   const mgr = useDocumentManager();
@@ -24,6 +25,12 @@ export function DocumentManager() {
     mgr.meta.tags,
   );
 
+  /** Regroupement visuel (×N) — les analyses restent en base. */
+  const displayItems = useMemo(
+    () => collapseHistoryDuplicates(mgr.items),
+    [mgr.items],
+  );
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3 px-1">
@@ -32,8 +39,12 @@ export function DocumentManager() {
             Documents
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
-            Bibliothèque type Drive + Notion — aperçu, dossiers, tags, favoris,
-            recherche et tri.
+            Bibliothèque de vos analyses PDF — dossiers, filtres et accès rapide
+            aux résultats.
+          </p>
+          <p className="mt-1 max-w-2xl text-xs text-[var(--muted)]">
+            Chaque ligne est une analyse. Ré-analyser le même fichier crée une
+            nouvelle entrée.
           </p>
         </div>
         <Link
@@ -68,13 +79,13 @@ export function DocumentManager() {
               filters={mgr.filters}
               viewMode={mgr.viewMode}
               breadcrumb={breadcrumb}
-              total={mgr.items.length}
+              total={displayItems.length}
               onFiltersChange={mgr.setFilters}
               onViewModeChange={mgr.setViewMode}
             />
             <div className="min-h-0 flex-1 overflow-auto">
               <DocumentList
-                items={mgr.items}
+                items={displayItems}
                 isLoading={mgr.isLoading}
                 viewMode={mgr.viewMode}
                 selectedId={mgr.selectedId}

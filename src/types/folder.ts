@@ -27,7 +27,8 @@ export const SYSTEM_FOLDER_DEFINITIONS = [
   {
     id: "personnel",
     name: "Personnel",
-    description: "Documents personnels et administratifs du quotidien",
+    description:
+      "Dossier automatique pour factures, contrats et courriers",
   },
   {
     id: "banque",

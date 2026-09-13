@@ -4,12 +4,13 @@ import Link from "next/link";
 
 import { AnalysisPhaseBadge } from "@/components/documents/analysis-phase-badge";
 import { FileIcon, StarFilledIcon, StarIcon } from "@/components/ui/icons";
+import type { HistoryDisplayItem } from "@/lib/dashboard-display";
 import { formatDateTime, getRiskLevelLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { DocumentTag, HistoryListItem } from "@/types";
+import type { DocumentTag } from "@/types";
 
 interface DocumentBoardCardProps {
-  item: HistoryListItem;
+  item: HistoryDisplayItem;
   active: boolean;
   tagMap: Map<string, DocumentTag>;
   onSelect: () => void;
@@ -23,6 +24,8 @@ export function DocumentBoardCard({
   onSelect,
   onToggleFavorite,
 }: DocumentBoardCardProps) {
+  const dupCount = item.duplicateCount;
+
   return (
     <article
       className={cn(
@@ -36,8 +39,14 @@ export function DocumentBoardCard({
         <div className="mb-3 flex h-24 items-center justify-center rounded-lg bg-[var(--background)] text-[var(--accent)]">
           <FileIcon className="h-8 w-8 opacity-80" />
         </div>
-        <p className="truncate text-sm font-medium text-[var(--foreground)]">
-          {item.title}
+        <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-[var(--foreground)]">
+          <span className="truncate">{item.title}</span>
+          {dupCount && dupCount > 1 ? (
+            <span className="shrink-0 rounded-md border border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+              ×{dupCount}
+            </span>
+          ) : null}
+          <AnalysisPhaseBadge phase={item.analysisPhase} />
         </p>
         <p className="mt-1 truncate text-[11px] text-[var(--muted)]">
           {item.categoryLabel} · {getRiskLevelLabel(item.riskLevel)}

@@ -145,30 +145,37 @@ export function ManagerSidebar({
         ) : null}
         <div className="space-y-0.5">
           {folders.map((folder) => (
-            <button
-              key={folder.id}
-              type="button"
-              className={navClass(
-                filter.type === "folder" && filter.id === folder.id,
-              )}
-              onClick={() =>
-                onFilterChange({ type: "folder", id: folder.id })
-              }
-            >
-              <span className="truncate">{folder.name}</span>
-              <span className="tabular-nums text-[11px] opacity-70">
-                {folder.documentCount}
-              </span>
-            </button>
+            <div key={folder.id}>
+              <button
+                type="button"
+                className={navClass(
+                  filter.type === "folder" && filter.id === folder.id,
+                )}
+                onClick={() =>
+                  onFilterChange({ type: "folder", id: folder.id })
+                }
+              >
+                <span className="truncate">{folder.name}</span>
+                <span className="tabular-nums text-[11px] opacity-70">
+                  {folder.documentCount}
+                </span>
+              </button>
+              {folder.id === "personnel" ? (
+                <p className="px-2.5 pb-1 text-[10px] leading-snug text-[var(--muted)]">
+                  Dossier automatique pour factures, contrats et courriers.
+                </p>
+              ) : null}
+            </div>
           ))}
         </div>
       </div>
 
+      {tags.length > 0 ? (
       <div>
         <div className="mb-1.5 flex items-center justify-between px-2.5">
           <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
             <TagIcon className="h-3 w-3" />
-            Tags
+            Tags (optionnel)
           </p>
           <button
             type="button"
@@ -197,30 +204,55 @@ export function ManagerSidebar({
           </form>
         ) : null}
         <div className="space-y-0.5">
-          {tags.length === 0 ? (
-            <p className="px-2.5 text-xs text-[var(--muted)]">Aucun tag</p>
-          ) : (
-            tags.map((tag) => (
-              <button
-                key={tag.id}
-                type="button"
-                className={navClass(
-                  filter.type === "tag" && filter.id === tag.id,
-                )}
-                onClick={() => onFilterChange({ type: "tag", id: tag.id })}
-              >
-                <span className="inline-flex min-w-0 items-center gap-2">
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: tag.color }}
-                  />
-                  <span className="truncate">{tag.name}</span>
-                </span>
-              </button>
-            ))
-          )}
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              type="button"
+              className={navClass(
+                filter.type === "tag" && filter.id === tag.id,
+              )}
+              onClick={() => onFilterChange({ type: "tag", id: tag.id })}
+            >
+              <span className="inline-flex min-w-0 items-center gap-2">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: tag.color }}
+                />
+                <span className="truncate">{tag.name}</span>
+              </span>
+            </button>
+          ))}
         </div>
       </div>
+      ) : (
+        <div className="px-1">
+          {showNewTag ? (
+            <form
+              onSubmit={(event) => void submitTag(event)}
+              className="space-y-1.5"
+            >
+              <input
+                value={tagName}
+                onChange={(event) => setTagName(event.target.value)}
+                placeholder="Nouveau tag"
+                className="h-8 w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-xs outline-none focus:border-[var(--accent)]"
+                autoFocus
+              />
+              <Button type="submit" size="sm" className="w-full">
+                Créer
+              </Button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowNewTag(true)}
+              className="w-full rounded-md px-2.5 py-1.5 text-left text-[11px] text-[var(--muted)] hover:bg-[var(--surface-elevated)] hover:text-[var(--accent)]"
+            >
+              + Tag (optionnel)
+            </button>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

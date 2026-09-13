@@ -49,12 +49,12 @@ export function DocumentPreviewPane({
         />
       </div>
 
-      {selected ? (
+      {selected && tags.length > 0 ? (
         <div className="space-y-3 border-t border-[var(--border)] px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
               <TagIcon className="h-3 w-3" />
-              Tags
+              Tags (optionnel)
             </p>
             <Link
               href={`/historique/${selected.id}`}
@@ -63,33 +63,36 @@ export function DocumentPreviewPane({
               Voir l’analyse
             </Link>
           </div>
-          {tags.length === 0 ? (
-            <p className="text-xs text-[var(--muted)]">
-              Créez un tag dans la barre latérale.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {tags.map((tag) => {
-                const active = selected.tagIds.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => onToggleTag(selected, tag.id)}
-                    className={cn(
-                      "rounded-md px-2.5 py-1 text-xs transition-colors",
-                      active
-                        ? "text-white"
-                        : "border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]",
-                    )}
-                    style={active ? { background: tag.color } : undefined}
-                  >
-                    {tag.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-1.5">
+            {tags.map((tag) => {
+              const active = selected.tagIds.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => onToggleTag(selected, tag.id)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs transition-colors",
+                    active
+                      ? "text-white"
+                      : "border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]",
+                  )}
+                  style={active ? { background: tag.color } : undefined}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : selected ? (
+        <div className="border-t border-[var(--border)] px-4 py-3">
+          <Link
+            href={`/historique/${selected.id}`}
+            className="text-xs font-medium text-[var(--accent)] hover:underline"
+          >
+            Voir l’analyse
+          </Link>
         </div>
       ) : null}
     </aside>

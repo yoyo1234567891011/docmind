@@ -1,6 +1,7 @@
 "use client";
 
 import { HistoryListSkeleton } from "@/components/ui";
+import type { HistoryDisplayItem } from "@/lib/dashboard-display";
 import type {
   DocumentTag,
   FolderWithCount,
@@ -12,7 +13,7 @@ import { DocumentRow } from "./document-row";
 import type { ManagerViewMode } from "./types";
 
 interface DocumentListProps {
-  items: HistoryListItem[];
+  items: HistoryDisplayItem[];
   isLoading: boolean;
   viewMode: ManagerViewMode;
   selectedId: string | null;
