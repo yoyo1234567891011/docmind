@@ -141,12 +141,20 @@ export function HomeUploadSection() {
   }, []);
 
   const analyzeQuota = quotas?.items.find((i) => i.metric === "analyze");
+  const uploadQuota = quotas?.items.find((i) => i.metric === "upload");
   const analyzeRemaining =
     analyzeQuota?.unlimited === true
       ? Number.POSITIVE_INFINITY
       : (analyzeQuota?.remaining ?? Number.POSITIVE_INFINITY);
+  const uploadRemaining =
+    uploadQuota?.unlimited === true
+      ? Number.POSITIVE_INFINITY
+      : (uploadQuota?.remaining ?? Number.POSITIVE_INFINITY);
   const analyzeQuotaExhausted =
     Number.isFinite(analyzeRemaining) && analyzeRemaining <= 0;
+  const uploadQuotaExhausted =
+    Number.isFinite(uploadRemaining) && uploadRemaining <= 0;
+  const importBlocked = analyzeQuotaExhausted || uploadQuotaExhausted;
 
   useEffect(() => {
     if (!backgroundPending) return;
@@ -467,13 +475,15 @@ export function HomeUploadSection() {
       {quotas ? <AnalysisQuotaBanner quotas={quotas} /> : null}
 
       <PdfDropzone
-        disabled={analyzeQuotaExhausted}
+        disabled={importBlocked}
         disabledMessage={
-          analyzeQuotaExhausted
-            ? quotas?.plan === "free"
-              ? `Vous avez utilisé vos ${analyzeQuota?.limit ?? 5} analyses du mois. Choisissez un plan pour continuer.`
-              : "Quota d’analyses atteint pour ce mois. Passez à une offre supérieure."
-            : undefined
+          uploadQuotaExhausted
+            ? `Quota d’import PDF atteint (${uploadQuota?.used ?? "?"}/${uploadQuota?.limit ?? "?"}). Passez à une offre supérieure ou réessayez le mois prochain.`
+            : analyzeQuotaExhausted
+              ? quotas?.plan === "free"
+                ? `Vous avez utilisé vos ${analyzeQuota?.limit ?? 5} analyses du mois. Choisissez un plan pour continuer.`
+                : `Quota analyses atteint (${analyzeQuota?.used ?? "?"}/${analyzeQuota?.limit ?? "?"}). Passez à une offre supérieure.`
+              : undefined
         }
         onStatusChange={setUploadStatus}
         onUploaded={(result) => {

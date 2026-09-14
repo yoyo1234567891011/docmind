@@ -119,16 +119,20 @@ async function main() {
       const analyzeAfter = pickQuotaItem(status, "analyze");
       const searchAfter = pickQuotaItem(status, "search");
       const letterAfter = pickQuotaItem(status, "letter");
+      const uploadAfter = pickQuotaItem(status, "upload");
       assert.equal(analyzeAfter?.used, 0);
       assert.equal(searchAfter?.used, 0);
       assert.equal(letterAfter?.used, 0);
+      assert.equal(uploadAfter?.used, 0);
       assert.equal(analyzeAfter?.remaining, proLimits.analyze);
       assert.equal(searchAfter?.remaining, proLimits.search);
       assert.equal(letterAfter?.remaining, proLimits.letter);
-      console.log("OK free → pro reset analyze+search+letter", {
+      assert.equal(uploadAfter?.remaining, proLimits.upload);
+      console.log("OK free → pro reset analyze+search+letter+upload", {
         analyze: `${analyzeAfter?.used}/${analyzeAfter?.limit}`,
         search: `${searchAfter?.used}/${searchAfter?.limit}`,
         letter: `${letterAfter?.used}/${letterAfter?.limit}`,
+        upload: `${uploadAfter?.used}/${uploadAfter?.limit}`,
       });
 
       // Consommer letter puis upgrade : letter aussi reset
@@ -161,7 +165,8 @@ async function main() {
       assert.equal(usage.analyze, 0, "basique → premium reset analyze");
       assert.equal(usage.search, 0, "basique → premium reset search");
       assert.equal(usage.letter, 0, "basique → premium reset letter");
-      console.log("OK paid upgrade reset all three, downgrade preserved usage");
+      assert.equal(usage.upload, 0, "basique → premium reset upload");
+      console.log("OK paid upgrade reset all four, downgrade preserved usage");
 
       // Renouvellement même plan : pas de reset
       await consumeQuota(userId, "analyze");
@@ -174,23 +179,22 @@ async function main() {
       assert.equal(usage.analyze, 1, "renewal same plan keeps usage");
       console.log("OK same-plan renewal no reset");
 
-      // Upload non reset
+      // Upload reset à l’upgrade (plus de compteur orphelin)
       await upsertSubscriptionPatch(userId, { plan: "free", status: "active" });
       for (let i = 0; i < 3; i++) {
         await consumeQuota(userId, "upload");
       }
       usage = await getUserUsage(userId);
-      const uploadUsed = usage.upload;
-      assert.ok(uploadUsed > 0);
+      assert.ok(usage.upload > 0);
       await applyStripeSubscription(userId, mockStripeSub("pro"), {
         id: "evt_upgrade_upload",
         type: "customer.subscription.updated",
         created: Math.floor(Date.now() / 1000) + 4,
       });
       usage = await getUserUsage(userId);
-      assert.equal(usage.upload, uploadUsed, "upload inchangé à l’upgrade");
+      assert.equal(usage.upload, 0, "upload remis à 0 à l’upgrade");
       assert.equal(usage.analyze, 0);
-      console.log("OK upload not reset on upgrade");
+      console.log("OK upload reset on upgrade");
     },
   );
 

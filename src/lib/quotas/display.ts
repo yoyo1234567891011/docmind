@@ -11,8 +11,16 @@ export function formatAnalyzeQuotaRemaining(item: QuotaStatusItem): string {
   return `${item.remaining} analyse${item.remaining > 1 ? "s" : ""} restante${item.remaining > 1 ? "s" : ""} ce mois`;
 }
 
-/** Ligne courte pour l’UI : « 8 courriers restants ce mois ». */
-export function formatLetterQuotaRemaining(item: QuotaStatusItem): string {
+/** Ligne courte pour l’UI : « 8 imports PDF restants ce mois ». */
+export function formatUploadQuotaRemaining(item: QuotaStatusItem): string {
+  if (item.unlimited) {
+    return `${item.used} import${item.used > 1 ? "s" : ""} PDF ce mois`;
+  }
+  if (item.remaining <= 0) {
+    return "0 import PDF restant ce mois";
+  }
+  return `${item.remaining} import${item.remaining > 1 ? "s" : ""} PDF restant${item.remaining > 1 ? "s" : ""} ce mois`;
+}
   if (item.unlimited) {
     return `${item.used} courrier${item.used > 1 ? "s" : ""} ce mois`;
   }

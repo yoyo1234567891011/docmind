@@ -56,23 +56,30 @@ export function quotaExceededMessage(
 
   if (metric === "analyze") {
     if (status.plan === "free") {
-      return `Vous avez utilisé vos ${item.limit} analyses du mois. Passez à Basique, Pro ou supérieur pour continuer.`;
+      return `Vous avez utilisé vos ${item.limit} analyses du mois (${item.used}/${item.limit}). Passez à Basique, Pro ou supérieur pour continuer.`;
     }
-    return `Quota ${planName} atteint pour ce mois (${item.limit} analyses). Passez à une offre supérieure ou réessayez le mois prochain.`;
+    return `Quota analyses ${planName} atteint (${item.used}/${item.limit}). Passez à une offre supérieure ou réessayez le mois prochain.`;
+  }
+
+  if (metric === "upload") {
+    if (status.plan === "free") {
+      return `Quota d’import PDF Free atteint (${item.used}/${item.limit}). Passez à Basique ou supérieur pour continuer.`;
+    }
+    return `Quota d’import PDF ${planName} atteint (${item.used}/${item.limit}). Passez à une offre supérieure ou réessayez le mois prochain.`;
   }
 
   if (metric === "letter") {
     if (status.plan === "free") {
       return `L’agent courrier n’est pas inclus dans le plan Free. Passez à Basique ou supérieur depuis Facturation.`;
     }
-    return `Vous avez utilisé vos ${item.limit} courriers IA du mois (plan ${planName}). Passez à une offre supérieure ou réessayez le mois prochain.`;
+    return `Vous avez utilisé vos courriers IA du mois (plan ${planName}, ${item.used}/${item.limit}). Passez à une offre supérieure ou réessayez le mois prochain.`;
   }
 
   if (metric === "search") {
     if (status.plan === "free") {
-      return `Vous avez utilisé vos ${item.limit} recherches du mois. Passez à Basique ou supérieur pour continuer.`;
+      return `Vous avez utilisé vos recherches du mois (${item.used}/${item.limit}). Passez à Basique ou supérieur pour continuer.`;
     }
-    return `Quota ${planName} atteint pour ce mois (${item.limit} recherches). Passez à une offre supérieure ou réessayez le mois prochain.`;
+    return `Quota recherches ${planName} atteint (${item.used}/${item.limit}). Passez à une offre supérieure ou réessayez le mois prochain.`;
   }
 
   return status.plan === "free"
