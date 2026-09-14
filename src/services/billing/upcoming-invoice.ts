@@ -1,5 +1,13 @@
-import { getBillingPlan, isPaidBillingPlanId } from "@/config/billing";
+import {
+  getBillingPlan,
+  isPaidBillingPlanId,
+  planIdFromStripePriceId,
+} from "@/config/billing";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import {
+  periodFromSubscription,
+  readSubscriptionPriceId,
+} from "@/services/billing/apply-subscription";
 import {
   catalogChargeMatchesInvoice,
 } from "@/services/billing/plan-change-full-price";
@@ -7,7 +15,10 @@ import {
   resolveCatalogRenewalAmountDue,
 } from "@/services/billing/renewal-catalog";
 import { getUserSubscription } from "@/services/billing/store";
-import type { BillingUpcomingInvoice } from "@/types/billing";
+import type {
+  BillingOpenInvoiceSummary,
+  BillingUpcomingInvoice,
+} from "@/types/billing";
 import type Stripe from "stripe";
 
 function toIso(unix: number | null | undefined): string | null {
@@ -18,6 +29,8 @@ function toIso(unix: number | null | undefined): string | null {
 function centsToUnits(cents: number | null | undefined): number {
   return (cents ?? 0) / 100;
 }
+
+const INTERVAL_LABEL = "mensuel";
 
 export function summarizeInvoiceLines(
   lines: Array<{ amount?: number | null; proration?: boolean | null }>,
@@ -39,10 +52,37 @@ export function summarizeInvoiceLines(
   return { hasProration, prorationAmount, recurringAmount };
 }
 
-function unavailable(note: string): BillingUpcomingInvoice {
+function baseFields(partial: {
+  catalogMonthlyEur?: number | null;
+  planName?: string | null;
+  openInvoice?: BillingOpenInvoiceSummary | null;
+}): Pick<
+  BillingUpcomingInvoice,
+  | "catalogMonthlyEur"
+  | "planName"
+  | "intervalLabel"
+  | "openInvoice"
+> {
+  return {
+    catalogMonthlyEur: partial.catalogMonthlyEur ?? null,
+    planName: partial.planName ?? null,
+    intervalLabel: INTERVAL_LABEL,
+    openInvoice: partial.openInvoice ?? null,
+  };
+}
+
+function unavailable(
+  note: string,
+  extras?: {
+    catalogMonthlyEur?: number | null;
+    planName?: string | null;
+    billingDate?: string | null;
+    openInvoice?: BillingOpenInvoiceSummary | null;
+  },
+): BillingUpcomingInvoice {
   return {
     status: "unavailable",
-    billingDate: null,
+    billingDate: extras?.billingDate ?? null,
     amountDue: null,
     currency: "EUR",
     isEstimate: false,
@@ -50,10 +90,19 @@ function unavailable(note: string): BillingUpcomingInvoice {
     prorationAmount: null,
     recurringAmount: null,
     note,
+    ...baseFields(extras ?? {}),
   };
 }
 
-function noneExpected(note: string, billingDate?: string | null): BillingUpcomingInvoice {
+function noneExpected(
+  note: string,
+  billingDate?: string | null,
+  extras?: {
+    catalogMonthlyEur?: number | null;
+    planName?: string | null;
+    openInvoice?: BillingOpenInvoiceSummary | null;
+  },
+): BillingUpcomingInvoice {
   return {
     status: "none_expected",
     billingDate: billingDate ?? null,
@@ -64,12 +113,27 @@ function noneExpected(note: string, billingDate?: string | null): BillingUpcomin
     prorationAmount: null,
     recurringAmount: null,
     note,
+    ...baseFields(extras ?? {}),
+  };
+}
+
+function toOpenSummary(invoice: Stripe.Invoice): BillingOpenInvoiceSummary {
+  return {
+    id: invoice.id,
+    amountDue: centsToUnits(invoice.amount_due),
+    currency: (invoice.currency || "eur").toUpperCase(),
+    status: invoice.status ?? "open",
+    dueDate: toIso(invoice.due_date) ?? toIso(invoice.created),
+    hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
   };
 }
 
 function fromStripeUpcoming(
   invoice: Stripe.Invoice,
   catalogMonthlyEur: number | null,
+  periodEnd: string | null,
+  planName: string | null,
+  openInvoice: BillingOpenInvoiceSummary | null,
 ): BillingUpcomingInvoice {
   const lines = invoice.lines?.data ?? [];
   const { hasProration, prorationAmount, recurringAmount } =
@@ -82,11 +146,6 @@ function fromStripeUpcoming(
     !catalogChargeMatchesInvoice(catalogMonthlyEur, stripeNetEur) &&
     catalogChargeMatchesInvoice(catalogMonthlyEur, recurringAmount);
 
-  const billingDate =
-    toIso(invoice.next_payment_attempt) ??
-    toIso(invoice.period_end) ??
-    null;
-
   const displayRecurring =
     catalogMonthlyEur != null &&
     catalogChargeMatchesInvoice(catalogMonthlyEur, amountDue)
@@ -97,7 +156,8 @@ function fromStripeUpcoming(
 
   return {
     status: "available",
-    billingDate,
+    // Toujours la fin de période abo — jamais period_end de la preview prorata.
+    billingDate: periodEnd,
     amountDue,
     currency: (invoice.currency || "eur").toUpperCase(),
     isEstimate: true,
@@ -105,22 +165,9 @@ function fromStripeUpcoming(
     prorationAmount: hasProration ? prorationAmount : null,
     recurringAmount: displayRecurring,
     note: hasResidualCredit
-      ? `Prix catalogue ${catalogMonthlyEur!.toFixed(2).replace(".", ",")} € / mois (renouvellement).`
+      ? `Montant catalogue ${catalogMonthlyEur!.toFixed(2).replace(".", ",")} € / mois (crédits prorata Stripe exclus de l’estimation).`
       : null,
-  };
-}
-
-function fromOpenInvoice(invoice: Stripe.Invoice): BillingUpcomingInvoice {
-  return {
-    status: "open",
-    billingDate: toIso(invoice.due_date) ?? toIso(invoice.created),
-    amountDue: centsToUnits(invoice.amount_due),
-    currency: (invoice.currency || "eur").toUpperCase(),
-    isEstimate: false,
-    hasProration: false,
-    prorationAmount: null,
-    recurringAmount: null,
-    note: "Facture ouverte en attente de paiement.",
+    ...baseFields({ catalogMonthlyEur, planName, openInvoice }),
   };
 }
 
@@ -136,8 +183,22 @@ function isNoUpcomingInvoiceError(error: unknown): boolean {
   );
 }
 
+async function findOpenInvoice(
+  stripe: ReturnType<typeof getStripe>,
+  customerId: string,
+): Promise<Stripe.Invoice | null> {
+  const open = await stripe.invoices.list({
+    customer: customerId,
+    status: "open",
+    limit: 5,
+  });
+  return (
+    open.data.find((inv) => (inv.amount_due ?? 0) > 0) ?? open.data[0] ?? null
+  );
+}
+
 /**
- * Prochaine facture Stripe (estimation) ou facture ouverte si impayé.
+ * Prochaine facture Stripe (estimation) + éventuelle facture ouverte.
  * Ne lève pas : renvoie `unavailable` si Stripe indisponible ou données manquantes.
  */
 export async function getUserUpcomingInvoice(
@@ -152,14 +213,41 @@ export async function getUserUpcomingInvoice(
     return unavailable("Aucun abonnement Stripe actif.");
   }
 
-  if (!isPaidBillingPlanId(sub.plan)) {
+  if (!isPaidBillingPlanId(sub.plan) && sub.status !== "past_due") {
     return unavailable("Offre gratuite — pas de facturation récurrente.");
   }
+
+  const stripe = getStripe();
+
+  let periodEnd = sub.currentPeriodEnd;
+  let billablePlanId = isPaidBillingPlanId(sub.plan) ? sub.plan : null;
+
+  try {
+    const stripeSub = await stripe.subscriptions.retrieve(
+      sub.stripeSubscriptionId,
+      { expand: ["items.data.price"] },
+    );
+    const fromStripe = periodFromSubscription(stripeSub).end;
+    if (fromStripe) periodEnd = fromStripe;
+    const pricePlan = planIdFromStripePriceId(readSubscriptionPriceId(stripeSub));
+    if (isPaidBillingPlanId(pricePlan)) {
+      billablePlanId = pricePlan;
+    }
+  } catch {
+    // garde l’état local
+  }
+
+  const catalogMonthlyEur = billablePlanId
+    ? (getBillingPlan(billablePlanId).priceMonthlyEur ?? null)
+    : null;
+  const planName = billablePlanId ? getBillingPlan(billablePlanId).name : null;
+  const planExtras = { catalogMonthlyEur, planName };
 
   if (sub.cancelAtPeriodEnd) {
     return noneExpected(
       "Renouvellement annulé — aucun nouveau prélèvement prévu.",
-      sub.currentPeriodEnd,
+      periodEnd,
+      planExtras,
     );
   }
 
@@ -168,46 +256,76 @@ export async function getUserUpcomingInvoice(
       sub.status === "unpaid"
         ? "Abonnement impayé — régularisez via le portail Stripe."
         : "Abonnement annulé.",
-      sub.currentPeriodEnd,
+      periodEnd,
+      planExtras,
     );
   }
 
-  const stripe = getStripe();
+  let openInvoice: BillingOpenInvoiceSummary | null = null;
+  try {
+    const open = await findOpenInvoice(stripe, sub.stripeCustomerId);
+    if (open) openInvoice = toOpenSummary(open);
+  } catch {
+    // ignore
+  }
 
   if (sub.status === "past_due") {
-    try {
-      const open = await stripe.invoices.list({
-        customer: sub.stripeCustomerId,
+    if (openInvoice) {
+      return {
         status: "open",
-        limit: 1,
-      });
-      const invoice = open.data[0];
-      if (invoice) return fromOpenInvoice(invoice);
-    } catch {
-      // fallback sur upcoming ci-dessous
+        billingDate: openInvoice.dueDate,
+        amountDue: openInvoice.amountDue,
+        currency: openInvoice.currency,
+        isEstimate: false,
+        hasProration: false,
+        prorationAmount: null,
+        recurringAmount: null,
+        note: "Paiement en retard — régularisez cette facture. Aucun prochain renouvellement « OK » tant que le solde n’est pas payé.",
+        ...baseFields({
+          catalogMonthlyEur,
+          planName,
+          openInvoice,
+        }),
+      };
     }
+    return unavailable(
+      "Paiement en retard — montant exact indisponible. Ouvrez le portail Stripe pour régulariser.",
+      { ...planExtras, billingDate: periodEnd },
+    );
   }
 
   try {
-    const catalogMonthlyEur = isPaidBillingPlanId(sub.plan)
-      ? (getBillingPlan(sub.plan).priceMonthlyEur ?? null)
-      : null;
-
     const upcoming = await stripe.invoices.createPreview({
       customer: sub.stripeCustomerId,
       subscription: sub.stripeSubscriptionId,
     });
 
-    return fromStripeUpcoming(upcoming, catalogMonthlyEur);
+    return fromStripeUpcoming(
+      upcoming,
+      catalogMonthlyEur,
+      periodEnd,
+      planName,
+      openInvoice && openInvoice.amountDue > 0 ? openInvoice : null,
+    );
   } catch (error) {
     if (isNoUpcomingInvoiceError(error)) {
       return noneExpected(
         "Aucune facture à venir pour cet abonnement.",
-        sub.currentPeriodEnd,
+        periodEnd,
+        {
+          ...planExtras,
+          openInvoice: openInvoice && openInvoice.amountDue > 0 ? openInvoice : null,
+        },
       );
     }
+    // Date connue même si montant Stripe KO — pas de faux chiffre.
     return unavailable(
-      "Estimation indisponible pour le moment — consultez le portail Stripe.",
+      "Montant estimé indisponible pour le moment — consultez le portail Stripe.",
+      {
+        ...planExtras,
+        billingDate: periodEnd,
+        openInvoice: openInvoice && openInvoice.amountDue > 0 ? openInvoice : null,
+      },
     );
   }
 }

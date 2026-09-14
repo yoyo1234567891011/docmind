@@ -99,6 +99,7 @@ export type {
   BillingInvoiceSummary,
   BillingUpcomingInvoice,
   BillingUpcomingInvoiceStatus,
+  BillingOpenInvoiceSummary,
   BillingImmediateInvoice,
   BillingPlanChangePreview,
   BillingOverview,

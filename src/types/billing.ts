@@ -114,18 +114,39 @@ export type BillingUpcomingInvoiceStatus =
   | "none_expected"
   | "unavailable";
 
+/** Facture ouverte / prorata en attente (distinct du prochain renouvellement). */
+export interface BillingOpenInvoiceSummary {
+  id: string;
+  amountDue: number;
+  currency: string;
+  status: string;
+  dueDate: string | null;
+  hostedInvoiceUrl: string | null;
+}
+
 export interface BillingUpcomingInvoice {
   status: BillingUpcomingInvoiceStatus;
-  /** Date estimée du prochain prélèvement (ou échéance facture ouverte). */
+  /**
+   * Date du prochain prélèvement de renouvellement =
+   * `current_period_end` Stripe (pas period_end d’une facture prorata).
+   */
   billingDate: string | null;
-  /** Montant total dû (EUR). `isEstimate` indique si c’est une projection Stripe. */
+  /** Montant total dû pour le prochain renouvellement (EUR). */
   amountDue: number | null;
   currency: string;
-  /** true pour `invoices.retrieveUpcoming` (peut varier légèrement au moment du prélèvement). */
+  /** true pour preview Stripe (peut varier légèrement au prélèvement). */
   isEstimate: boolean;
   hasProration: boolean;
   prorationAmount: number | null;
   recurringAmount: number | null;
+  /** Prix catalogue mensuel du plan facturé (affichage). */
+  catalogMonthlyEur: number | null;
+  /** Nom du plan pour le prochain renouvellement. */
+  planName: string | null;
+  /** Périodicité affichée (toujours mensuelle aujourd’hui). */
+  intervalLabel: string | null;
+  /** Facture ouverte distincte (retard / prorata 3DS). */
+  openInvoice: BillingOpenInvoiceSummary | null;
   /** Explication lisible si montant absent ou cas particulier. */
   note: string | null;
 }

@@ -1,5 +1,5 @@
 /**
- * Tests unitaires — affichage changement de plan (prorata) + helpers catalogue.
+ * Tests unitaires — affichage changement de plan (prorata) + prochains prélèvements.
  * Usage: npx tsx scripts/test-upcoming-invoice-display.ts
  */
 import assert from "node:assert/strict";
@@ -64,6 +64,10 @@ function upcoming(
     hasProration: false,
     prorationAmount: null,
     recurringAmount: 59.99,
+    catalogMonthlyEur: 59.99,
+    planName: "Extra",
+    intervalLabel: "mensuel",
+    openInvoice: null,
     note: null,
     ...overrides,
   };
@@ -230,9 +234,78 @@ assert.ok(PLAN_CHANGE_HINT.includes("prorata"));
 }
 
 {
+  const periodEnd = "2026-11-01T00:00:00.000Z";
+  const basique = getBillingPlan("basique");
+  const view = describeUpcomingInvoice(
+    upcoming({
+      amountDue: 9.99,
+      catalogMonthlyEur: 9.99,
+      planName: "Basique",
+      billingDate: periodEnd,
+      recurringAmount: 9.99,
+    }),
+    basique,
+    baseSub({ plan: "basique", currentPeriodEnd: periodEnd }),
+  );
+  assert.equal(view.title, "Prochains prélèvements");
+  assert.ok(view.rows.some((r) => r.label === "Plan" && /Basique/.test(r.value)));
+  assert.ok(view.rows.some((r) => r.label.includes("Date") && r.value.includes(formatDateTime(periodEnd).slice(0, 8))));
+  assert.ok(
+    view.rows.some(
+      (r) => r.label.includes("Montant") && /9[,.]99/.test(r.value),
+    ),
+  );
+  assert.equal(view.tone, "normal");
+}
+
+{
+  const periodEnd = "2026-11-01T00:00:00.000Z";
+  const pro = getBillingPlan("pro");
+  const view = describeUpcomingInvoice(
+    upcoming({
+      amountDue: 19.99,
+      catalogMonthlyEur: 19.99,
+      planName: "Pro",
+      billingDate: periodEnd,
+      recurringAmount: 19.99,
+    }),
+    pro,
+    baseSub({ plan: "pro", currentPeriodEnd: periodEnd }),
+  );
+  assert.ok(view.rows.some((r) => /Pro/.test(r.value) && /19[,.]99/.test(r.value)));
+  assert.ok(view.rows.some((r) => r.label.includes("Date")));
+}
+
+{
+  const free = getBillingPlan("free");
+  const view = describeUpcomingInvoice(
+    upcoming({
+      status: "open",
+      amountDue: 19.99,
+      planName: "Pro",
+      catalogMonthlyEur: 19.99,
+      openInvoice: {
+        id: "in_open",
+        amountDue: 19.99,
+        currency: "EUR",
+        status: "open",
+        dueDate: "2026-09-20T00:00:00.000Z",
+        hostedInvoiceUrl: "https://stripe.test/pay",
+      },
+    }),
+    free,
+    baseSub({ plan: "pro", status: "past_due" }),
+  );
+  assert.equal(view.tone, "warning");
+  assert.ok(view.rows.some((r) => /À payer/.test(r.value)));
+  assert.ok(!view.rows.some((r) => /renouvellement OK/i.test(r.value)));
+  assert.ok(view.showPortalHint);
+}
+
+{
   const plan = getBillingPlan("extra");
   const view = describeUpcomingInvoice(upcoming(), plan, baseSub());
-  assert.ok(view.lines.some((l) => /prorata/i.test(l)));
+  assert.ok(view.footnotes.some((l) => /prorata/i.test(l)));
 }
 
 console.log("test-upcoming-invoice-display: OK");

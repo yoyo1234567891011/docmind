@@ -13,119 +13,208 @@ export function resolveNextBillingDate(
 ): string | null {
   // Renouvellement = fin de période abonnement Stripe (pas period_end facture prorata).
   if (upcoming.status === "open") {
-    return upcoming.billingDate ?? subscription.currentPeriodEnd ?? null;
+    return (
+      upcoming.openInvoice?.dueDate ??
+      upcoming.billingDate ??
+      subscription.currentPeriodEnd ??
+      null
+    );
   }
-  return subscription.currentPeriodEnd ?? upcoming.billingDate ?? null;
+  return (
+    subscription.currentPeriodEnd ??
+    upcoming.billingDate ??
+    null
+  );
 }
 
+export type UpcomingChargesRow = {
+  label: string;
+  value: string;
+};
+
+export type UpcomingChargesView = {
+  title: string;
+  rows: UpcomingChargesRow[];
+  footnotes: string[];
+  showPortalHint: boolean;
+  tone: "normal" | "warning";
+};
+
+function planLabel(
+  upcoming: BillingUpcomingInvoice,
+  plan: BillingPlanDefinition,
+): string {
+  const name = upcoming.planName ?? plan.name;
+  const monthly =
+    upcoming.catalogMonthlyEur ?? plan.priceMonthlyEur ?? null;
+  const interval = upcoming.intervalLabel ?? "mensuel";
+  if (monthly != null) {
+    return `${name} — ${formatMoneyEur(monthly)} / mois (${interval})`;
+  }
+  return name;
+}
+
+/**
+ * Vue structurée « Prochains prélèvements » pour /facturation.
+ */
 export function describeUpcomingInvoice(
   upcoming: BillingUpcomingInvoice,
   plan: BillingPlanDefinition,
   subscription: UserSubscriptionRecord,
-): {
-  title: string;
-  lines: string[];
-  showPortalHint: boolean;
-} {
-  const billingDate = resolveNextBillingDate(upcoming, subscription);
-  const monthly =
-    plan.priceMonthlyEur != null
-      ? `${formatMoneyEur(plan.priceMonthlyEur)} / mois`
-      : null;
+): UpcomingChargesView {
+  const renewalDate = resolveNextBillingDate(upcoming, subscription);
+  const open = upcoming.openInvoice;
 
-  if (upcoming.status === "open") {
-    const lines = [
-      "Un paiement est en attente. Régularisez via le portail Stripe pour éviter la suspension.",
-    ];
-    if (billingDate) {
-      lines.unshift(`Échéance : ${formatDateTime(billingDate)}.`);
+  if (upcoming.status === "open" || subscription.status === "past_due") {
+    const rows: UpcomingChargesRow[] = [];
+    if (upcoming.planName || plan.priceMonthlyEur != null) {
+      rows.push({ label: "Plan catalogue", value: planLabel(upcoming, plan) });
     }
-    if (upcoming.amountDue != null) {
-      lines.unshift(`Montant dû : ${formatMoneyEur(upcoming.amountDue)}.`);
+    if (open || upcoming.amountDue != null) {
+      rows.push({
+        label: "Facture à payer",
+        value: formatMoneyEur(open?.amountDue ?? upcoming.amountDue ?? 0),
+      });
+      rows.push({
+        label: "Statut",
+        value: "À payer — accès payant suspendu jusqu’à régularisation",
+      });
+      const due = open?.dueDate ?? upcoming.billingDate;
+      if (due) {
+        rows.push({ label: "Échéance", value: formatDateTime(due) });
+      }
+    }
+    if (subscription.currentPeriodEnd) {
+      rows.push({
+        label: "Fin de période (référence)",
+        value: formatDateTime(subscription.currentPeriodEnd),
+      });
     }
     return {
-      title: "Paiement en retard",
-      lines,
+      title: "Prochains prélèvements",
+      rows,
+      footnotes: [
+        upcoming.note ??
+          "Régularisez via le portail Stripe. Aucun prochain renouvellement n’est promis tant que cette facture n’est pas payée.",
+      ],
       showPortalHint: true,
+      tone: "warning",
     };
   }
 
   if (subscription.cancelAtPeriodEnd) {
     return {
-      title: "Prochaine facturation",
-      lines: [
-        monthly
-          ? `Plan ${plan.name} — ${monthly} (jusqu’à la fin de période).`
-          : `Plan ${plan.name} jusqu’à la fin de période.`,
-        billingDate
-          ? `Accès payant jusqu’au ${formatDateTime(billingDate)} — aucun nouveau prélèvement prévu.`
-          : "Renouvellement annulé — aucun nouveau prélèvement prévu.",
+      title: "Prochains prélèvements",
+      rows: [
+        { label: "Plan", value: planLabel(upcoming, plan) },
+        {
+          label: "Prochain prélèvement",
+          value: "Aucun — renouvellement annulé",
+        },
+        ...(renewalDate
+          ? [
+              {
+                label: "Accès jusqu’au",
+                value: formatDateTime(renewalDate),
+              },
+            ]
+          : []),
       ],
+      footnotes: [],
       showPortalHint: false,
+      tone: "normal",
     };
   }
 
   if (upcoming.status === "none_expected") {
     return {
-      title: "Prochaine facturation",
-      lines: [
-        upcoming.note ??
-          "Aucune facture récurrente prévue pour cet abonnement.",
-        billingDate
-          ? `Date de référence : ${formatDateTime(billingDate)}.`
-          : null,
-      ].filter((line): line is string => Boolean(line)),
+      title: "Prochains prélèvements",
+      rows: [
+        ...(upcoming.planName
+          ? [{ label: "Plan", value: planLabel(upcoming, plan) }]
+          : []),
+        {
+          label: "Prochain prélèvement",
+          value: "Aucun prévu",
+        },
+        ...(renewalDate
+          ? [{ label: "Date de référence", value: formatDateTime(renewalDate) }]
+          : []),
+      ],
+      footnotes: [upcoming.note].filter((n): n is string => Boolean(n)),
       showPortalHint: false,
+      tone: "normal",
     };
+  }
+
+  const rows: UpcomingChargesRow[] = [
+    { label: "Plan", value: planLabel(upcoming, plan) },
+  ];
+
+  if (renewalDate) {
+    rows.push({
+      label: "Date du prochain prélèvement",
+      value: formatDateTime(renewalDate),
+    });
+  } else {
+    rows.push({
+      label: "Date du prochain prélèvement",
+      value: "Indisponible",
+    });
   }
 
   if (upcoming.status === "unavailable") {
-    return {
-      title: "Prochaine facturation",
-      lines: [
-        monthly
-          ? `Plan ${plan.name} — ${monthly}.`
-          : `Plan ${plan.name}.`,
-        billingDate
-          ? `Prochain renouvellement le ${formatDateTime(billingDate)}.`
-          : "Date de prochaine facturation indisponible.",
-        upcoming.note ??
-          "Montant exact indisponible pour le moment — consultez le portail Stripe.",
-      ],
-      showPortalHint: true,
-    };
+    rows.push({
+      label: "Montant estimé",
+      value: "Indisponible — consultez Stripe",
+    });
+  } else if (upcoming.amountDue != null) {
+    rows.push({
+      label: upcoming.isEstimate
+        ? "Montant estimé (renouvellement)"
+        : "Montant du renouvellement",
+      value: formatMoneyEur(upcoming.amountDue),
+    });
+  } else if (upcoming.catalogMonthlyEur != null) {
+    rows.push({
+      label: "Montant catalogue",
+      value: `${formatMoneyEur(upcoming.catalogMonthlyEur)} / mois`,
+    });
+    rows.push({
+      label: "Montant estimé Stripe",
+      value: "Indisponible pour le moment",
+    });
+  } else {
+    rows.push({
+      label: "Montant estimé",
+      value: "Indisponible — consultez Stripe",
+    });
   }
 
-  const lines: string[] = [
-    monthly
-      ? `Plan ${plan.name} — ${monthly}.`
-      : `Plan ${plan.name}.`,
-  ];
-
-  if (billingDate) {
-    lines.push(
-      `Prochain renouvellement le ${formatDateTime(billingDate)}.`,
-    );
+  if (open && open.amountDue > 0) {
+    rows.push({
+      label: "Facture ouverte (prorata / en attente)",
+      value: `${formatMoneyEur(open.amountDue)} — ${
+        open.status === "paid" ? "payée" : "à payer"
+      }`,
+    });
   }
 
-  if (upcoming.amountDue != null) {
-    lines.push(
-      upcoming.isEstimate
-        ? `Montant estimé du prochain renouvellement : ${formatMoneyEur(upcoming.amountDue)}.`
-        : `Montant du prochain renouvellement : ${formatMoneyEur(upcoming.amountDue)}.`,
-    );
-  }
-
-  if (isPremiumRecurring(subscription)) {
-    lines.push(
+  const footnotes: string[] = [];
+  if (upcoming.note) footnotes.push(upcoming.note);
+  if (isPremiumRecurring(subscription) && upcoming.status === "available") {
+    footnotes.push(
       "Un changement de plan ajuste le montant au prorata de la période restante (calcul Stripe).",
     );
   }
 
   return {
-    title: "Prochaine facturation",
-    lines,
-    showPortalHint: upcoming.amountDue == null,
+    title: "Prochains prélèvements",
+    rows,
+    footnotes,
+    showPortalHint:
+      upcoming.status === "unavailable" || upcoming.amountDue == null,
+    tone: open && open.amountDue > 0 ? "warning" : "normal",
   };
 }
 
@@ -222,10 +311,10 @@ export function describePlanChangeMessage(input: {
 
   if (billingDate && input.targetMonthlyEur != null) {
     parts.push(
-      `Prochain renouvellement : ${formatDateTime(billingDate)} — ${formatMoneyEur(input.targetMonthlyEur)} / mois.`,
+      `Prochain prélèvement : ${formatDateTime(billingDate)} — ${formatMoneyEur(input.targetMonthlyEur)} / mois.`,
     );
   } else if (billingDate) {
-    parts.push(`Prochain renouvellement : ${formatDateTime(billingDate)}.`);
+    parts.push(`Prochain prélèvement : ${formatDateTime(billingDate)}.`);
   }
 
   return parts.join(" ");

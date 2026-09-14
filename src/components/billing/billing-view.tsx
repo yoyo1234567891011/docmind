@@ -249,10 +249,14 @@ export function BillingView() {
 
   const renewalLabel = subscription.cancelAtPeriodEnd
     ? "Fin d’accès"
-    : "Prochain renouvellement";
+    : "Prochain prélèvement";
 
   const showUpcomingBilling =
-    isPremium && stripeConfigured && !entitlementsDevBypass;
+    stripeConfigured &&
+    !entitlementsDevBypass &&
+    (isPremium ||
+      subscription.status === "past_due" ||
+      Boolean(subscription.hasStripeSubscription));
   const upcomingView = showUpcomingBilling
     ? describeUpcomingInvoice(upcomingInvoice, plan, subscription)
     : null;
@@ -499,36 +503,65 @@ export function BillingView() {
         <section
           className={cn(
             "rounded-xl border p-6",
-            upcomingInvoice.status === "open"
+            upcomingView.tone === "warning" || upcomingInvoice.status === "open"
               ? "border-[var(--warning)] bg-[var(--warning-soft)]"
               : "border-[var(--border)] bg-[var(--surface)]",
           )}
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
                 {upcomingView.title}
               </p>
-              <ul className="mt-3 space-y-2 text-sm text-[var(--foreground)]">
-                {upcomingView.lines.map((line) => (
-                  <li key={line}>{line}</li>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                {upcomingView.rows.map((row) => (
+                  <div key={`${row.label}:${row.value}`}>
+                    <dt className="text-xs text-[var(--muted)]">{row.label}</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-[var(--foreground)]">
+                      {row.value}
+                    </dd>
+                  </div>
                 ))}
-              </ul>
+              </dl>
+              {upcomingView.footnotes.length > 0 ? (
+                <ul className="mt-4 space-y-1 text-xs text-[var(--muted)]">
+                  {upcomingView.footnotes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
-            {upcomingView.showPortalHint ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={Boolean(busy)}
-                onClick={() =>
-                  void run("portal-upcoming", async () => {
-                    const { url } = await openBillingPortal();
-                    window.location.href = url;
-                  })
-                }
-              >
-                Voir le détail sur Stripe
-              </Button>
+            {upcomingView.showPortalHint ||
+            upcomingInvoice.openInvoice?.hostedInvoiceUrl ? (
+              <div className="flex flex-col gap-2">
+                {upcomingInvoice.openInvoice?.hostedInvoiceUrl ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const url = upcomingInvoice.openInvoice?.hostedInvoiceUrl;
+                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    Payer la facture ouverte
+                  </Button>
+                ) : null}
+                {upcomingView.showPortalHint ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={Boolean(busy)}
+                    onClick={() =>
+                      void run("portal-upcoming", async () => {
+                        const { url } = await openBillingPortal();
+                        window.location.href = url;
+                      })
+                    }
+                  >
+                    Voir le détail sur Stripe
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </section>

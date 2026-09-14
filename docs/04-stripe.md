@@ -148,6 +148,13 @@ Les quotas non consommés **n’influencent pas** le montant Stripe.
 
 Checklist Dashboard test : `docs/04-stripe.md` section ci-dessous + `scripts/checklist-plan-change-proration.md`.
 
+Affichage `/facturation` — section **Prochains prélèvements** :
+- date = `current_period_end` Stripe (abonnement) ;
+- montant = preview Stripe / catalogue mensuel du plan actuel ;
+- facture `open` éventuelle affichée à part (à payer), surtout en `past_due`.
+
+Checklist : `scripts/checklist-upcoming-charges.md`.
+
 ## Accès
 
 - `hasPaidAccess` / `resolveEffectivePlan` — plan payant actif **uniquement** si `active` ou `trialing` (+ période non expirée)
