@@ -131,10 +131,12 @@ Affichage : toujours `Plan · used/limit` du plan **actuel** (pas un « restants
 | Paramètre | Valeur | Effet |
 |-----------|--------|--------|
 | `proration_behavior` | **`always_invoice`** | Lignes de prorata + facture immédiate |
-| `payment_behavior` | `error_if_incomplete` | Carte refusée → rollback, plan inchangé |
+| `payment_behavior` | **`pending_if_incomplete`** | Price Stripe inchangé tant que le paiement n’est pas OK ; 3DS → `pending_update` + redirect facture hébergée |
 | `billing_cycle_anchor` | *(omis)* | Période / ancre **conservées** (pas de reset `now`) |
 
-**Pourquoi `always_invoice` et pas `create_prorations` seul :** facturer tout de suite le différentiel, et laisser `error_if_incomplete` échouer proprement si le paiement rate.
+**Apply local (plan + quotas)** uniquement si : pas de `pending_update`, price cible confirmé, facture `paid` (ou `amount_due ≤ 0`). Sinon : sync ancien plan + URL `hosted_invoice_url` (ou Customer Portal). Webhooks `customer.subscription.updated` / `invoice.paid` finalisent après 3DS.
+
+**Pourquoi pas `error_if_incomplete` :** ce mode refuse le 3DS (erreur API sans PaymentIntent / URL). `pending_if_incomplete` + facture hébergée est le flux SCA compatible.
 
 Exemple **Basique → Premium → Basique** dans le même mois (cartes **test**) :
 

@@ -94,6 +94,10 @@ export async function createPlanCheckoutSession(input: {
         },
         { skipLock: true },
       );
+      // 3DS / SCA : redirect facture hébergée — plan local inchangé jusqu’au webhook.
+      if (changed.outcome === "action_required") {
+        return { mode: "redirect", url: changed.url };
+      }
       return {
         mode: "changed",
         plan: changed.plan,

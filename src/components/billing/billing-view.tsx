@@ -46,6 +46,17 @@ function isPaidPlanId(id: string): id is PaidBillingPlanId {
   return id === "basique" || id === "pro" || id === "premium" || id === "extra";
 }
 
+const PLAN_CHANGE_PENDING_KEY = "docmind_plan_change_pending";
+
+function isPaymentBusy(busy: string | null): boolean {
+  if (!busy) return false;
+  return (
+    busy.startsWith("confirm-") ||
+    busy.startsWith("checkout-") ||
+    busy === "plan-change-sync"
+  );
+}
+
 export function BillingView() {
   const searchParams = useSearchParams();
   const checkoutState = searchParams.get("checkout");
@@ -59,8 +70,11 @@ export function BillingView() {
     checkoutState === "success"
       ? "Paiement reçu. Synchronisation Stripe en cours…"
       : checkoutState === "cancel"
-        ? "Checkout annulé — aucun prélèvement."
+        ? "Checkout annulé — votre plan n’a pas changé."
         : null,
+  );
+  const [infoTone, setInfoTone] = useState<"success" | "info">(
+    checkoutState === "success" || checkoutState === "cancel" ? "info" : "success",
   );
   const [planChangeConfirm, setPlanChangeConfirm] = useState<{
     targetPlan: PaidBillingPlanId;
@@ -85,12 +99,33 @@ export function BillingView() {
     void load();
   }, [load]);
 
-  /** Après checkout : sync directe Stripe (ne dépend pas du webhook local). */
+  /**
+   * Sync après Checkout (`?checkout=success`) ou retour 3DS
+   * (sessionStorage posé avant redirect facture hébergée).
+   */
   useEffect(() => {
-    if (checkoutState !== "success") return;
+    if (typeof window === "undefined") return;
+
+    let pendingPlan: string | null = null;
+    try {
+      pendingPlan = sessionStorage.getItem(PLAN_CHANGE_PENDING_KEY);
+    } catch {
+      pendingPlan = null;
+    }
+
+    if (checkoutState !== "success" && !pendingPlan) return;
+
     let cancelled = false;
     let attempts = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const clearPending = () => {
+      try {
+        sessionStorage.removeItem(PLAN_CHANGE_PENDING_KEY);
+      } catch {
+        // ignore
+      }
+    };
 
     const scheduleRetry = () => {
       retryTimer = setTimeout(() => {
@@ -100,30 +135,57 @@ export function BillingView() {
 
     const runSync = async () => {
       attempts += 1;
+      setBusy((prev) => prev ?? "plan-change-sync");
+      setInfoTone("info");
+      setInfo(
+        "Synchronisation Stripe en cours… le nouveau plan s’affiche après confirmation du paiement.",
+      );
       try {
         const next = await syncBilling({ sessionId: checkoutSessionId });
         if (cancelled) return;
         setData(next);
-        if (next.isPremium) {
-          setInfo(
-            `Plan ${next.plan.name} activé — droits synchronisés depuis Stripe.`,
-          );
+
+        const matchedPending =
+          pendingPlan != null && next.plan.id === pendingPlan;
+        if (matchedPending || (checkoutState === "success" && next.isPremium)) {
+          clearPending();
+          setInfoTone("success");
+          setInfo(`Passage à ${next.plan.name} confirmé.`);
+          setBusy(null);
           return;
         }
-        if (attempts < 6) scheduleRetry();
-        else {
+
+        if (pendingPlan && next.plan.id !== pendingPlan && attempts >= 6) {
+          setInfoTone("info");
           setInfo(
-            "Paiement reçu. Si le plan n’apparaît pas, cliquez sur Actualiser le statut.",
+            "Le paiement n’est pas encore confirmé (3DS annulé ou en attente). Votre plan actuel reste affiché — actualisez après validation.",
           );
+          setBusy(null);
+          return;
         }
+
+        if (attempts < 6) {
+          scheduleRetry();
+          return;
+        }
+
+        clearPending();
+        setInfoTone("info");
+        setInfo(
+          "Paiement reçu. Si le plan n’apparaît pas, cliquez sur Actualiser le statut.",
+        );
+        setBusy(null);
       } catch {
         if (cancelled) return;
-        if (attempts < 6) scheduleRetry();
-        else {
-          setInfo(
-            "Synchronisation Stripe temporairement impossible. Cliquez sur Actualiser le statut — votre paiement n’est pas perdu.",
-          );
+        if (attempts < 6) {
+          scheduleRetry();
+          return;
         }
+        setInfoTone("info");
+        setInfo(
+          "Synchronisation Stripe temporairement impossible. Cliquez sur Actualiser le statut — votre paiement n’est pas perdu.",
+        );
+        setBusy(null);
       }
     };
 
@@ -134,13 +196,20 @@ export function BillingView() {
     };
   }, [checkoutState, checkoutSessionId]);
 
-  const run = async (key: string, action: () => Promise<void>) => {
+  const run = async (
+    key: string,
+    action: () => Promise<void>,
+    options?: { skipReload?: boolean },
+  ) => {
     setBusy(key);
     setError(null);
     try {
       await action();
-      await load({ silent: true });
+      if (!options?.skipReload) {
+        await load({ silent: true });
+      }
     } catch (actionError) {
+      setInfo(null);
       setError(formatClientNetworkError(actionError, "Action impossible."));
     } finally {
       setBusy(null);
@@ -223,13 +292,27 @@ export function BillingView() {
         </Alert>
       ) : null}
 
+      {isPaymentBusy(busy) ? (
+        <Alert tone="info" title="Paiement en cours">
+          <span className="inline-flex items-center gap-2">
+            <SpinnerIcon className="h-4 w-4" />
+            Communication avec Stripe… ne fermez pas cette page. Le nouveau plan
+            ne s’affiche qu’après confirmation du paiement.
+          </span>
+        </Alert>
+      ) : null}
       {info ? (
-        <Alert tone="success" title="Information">
+        <Alert
+          tone={infoTone === "info" ? "info" : "success"}
+          title={
+            infoTone === "success" ? "Passage confirmé" : "Information"
+          }
+        >
           {info}
         </Alert>
       ) : null}
       {error ? (
-        <Alert tone="error" title="Erreur">
+        <Alert tone="error" title="Échec — plan inchangé">
           {error}
         </Alert>
       ) : null}
@@ -321,11 +404,12 @@ export function BillingView() {
                 setData(next);
                 setInfo(
                   next.isPremium
-                    ? `Plan ${next.plan.name} synchronisé depuis Stripe.`
+                    ? `Passage à ${next.plan.name} confirmé.`
                     : next.synced
                       ? "Statut Stripe mis à jour."
                       : "Aucun abonnement Stripe trouvé pour ce compte.",
                 );
+                setInfoTone(next.isPremium ? "success" : "info");
               })
             }
           >
@@ -464,47 +548,83 @@ export function BillingView() {
               <li key={line}>{line}</li>
             ))}
           </ul>
+          {busy?.startsWith("confirm-") ? (
+            <p className="mt-4 inline-flex items-center gap-2 text-sm text-[var(--accent)]">
+              <SpinnerIcon className="h-4 w-4" />
+              Paiement Stripe en cours — merci de patienter…
+            </p>
+          ) : null}
           <div className="mt-6 flex flex-wrap gap-2">
             <Button
               disabled={Boolean(busy)}
               onClick={() => {
                 const targetPlan = planChangeConfirm.targetPlan;
-                void run(`confirm-${targetPlan}`, async () => {
-                  const result = await startPlanCheckout(targetPlan);
-                  setPlanChangeConfirm(null);
-                  if ("url" in result && result.url) {
-                    window.location.href = result.url;
-                    return;
-                  }
-                  if (result.changed) {
-                    const refreshed = await fetchBilling();
-                    setData(refreshed);
-                    const planName =
-                      plans.find((p) => p.id === result.plan)?.name ??
-                      result.plan;
-                    const targetMonthly =
-                      plans.find((p) => p.id === result.plan)
-                        ?.priceMonthlyEur ?? null;
+                const targetName = planChangeConfirm.preview.targetPlanName;
+                void run(
+                  `confirm-${targetPlan}`,
+                  async () => {
+                    setInfoTone("info");
                     setInfo(
-                      describePlanChangeMessage({
-                        planName,
-                        targetMonthlyEur: targetMonthly,
-                        immediateInvoice: result.immediateInvoice,
-                        upcoming: refreshed.upcomingInvoice,
-                        subscription: refreshed.subscription,
-                      }),
+                      `Paiement du passage à ${targetName} en cours…`,
                     );
-                  }
-                });
+                    const result = await startPlanCheckout(targetPlan);
+                    if ("url" in result && result.url) {
+                      try {
+                        sessionStorage.setItem(
+                          PLAN_CHANGE_PENDING_KEY,
+                          targetPlan,
+                        );
+                      } catch {
+                        // ignore
+                      }
+                      setInfoTone("info");
+                      setInfo(
+                        "Confirmation carte / 3DS requise sur Stripe. Le nouveau plan ne s’active qu’après paiement réussi — vous serez redirigé.",
+                      );
+                      window.location.href = result.url;
+                      return;
+                    }
+                    if (result.changed) {
+                      const refreshed = await syncBilling();
+                      setData(refreshed);
+                      setPlanChangeConfirm(null);
+                      const planName =
+                        refreshed.plans.find((p) => p.id === result.plan)
+                          ?.name ??
+                        plans.find((p) => p.id === result.plan)?.name ??
+                        result.plan;
+                      const targetMonthly =
+                        refreshed.plans.find((p) => p.id === result.plan)
+                          ?.priceMonthlyEur ??
+                        plans.find((p) => p.id === result.plan)
+                          ?.priceMonthlyEur ??
+                        null;
+                      setInfoTone("success");
+                      setInfo(
+                        describePlanChangeMessage({
+                          planName,
+                          targetMonthlyEur: targetMonthly,
+                          immediateInvoice: result.immediateInvoice,
+                          upcoming: refreshed.upcomingInvoice,
+                          subscription: refreshed.subscription,
+                        }),
+                      );
+                    }
+                  },
+                  { skipReload: true },
+                );
               }}
             >
               {busy?.startsWith("confirm-") ? (
                 <SpinnerIcon className="h-4 w-4" />
               ) : null}
-              Confirmer et payer
-              {planChangeConfirm.preview.immediateAmountDue != null
-                ? ` ${planChangeConfirm.preview.immediateAmountDue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €`
-                : ""}
+              {busy?.startsWith("confirm-")
+                ? "Paiement en cours…"
+                : `Confirmer et payer${
+                    planChangeConfirm.preview.immediateAmountDue != null
+                      ? ` ${planChangeConfirm.preview.immediateAmountDue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €`
+                      : ""
+                  }`}
             </Button>
             <Button
               variant="ghost"
@@ -606,10 +726,17 @@ export function BillingView() {
                     });
                   }}
                 >
-                  {busy === `checkout-${item.id}` ? (
+                  {busy === `checkout-${item.id}` ||
+                  busy === `preview-${item.id}` ? (
                     <SpinnerIcon className="h-4 w-4" />
                   ) : null}
-                  {isPremium ? `Passer à ${item.name}` : `Choisir ${item.name}`}
+                  {busy === `preview-${item.id}`
+                    ? "Calcul du prorata…"
+                    : busy === `checkout-${item.id}`
+                      ? "Redirection Stripe…"
+                      : isPremium
+                        ? `Passer à ${item.name}`
+                        : `Choisir ${item.name}`}
                 </Button>
               ) : null}
             </article>

@@ -5,11 +5,13 @@
 import assert from "node:assert/strict";
 
 import { getBillingPlan } from "../src/config/billing";
+import { formatDateTime } from "../src/lib/format";
 import {
   describePlanChangeMessage,
   describePlanChangePreview,
   describeUpcomingInvoice,
   PLAN_CHANGE_HINT,
+  resolveNextBillingDate,
 } from "../src/lib/billing/upcoming-display";
 import {
   assertFullCatalogInvoiceCharged,
@@ -105,6 +107,10 @@ function previewExtraToPremium(): BillingPlanChangePreview {
 
 assert.equal(PLAN_CHANGE_PRORATION_UPDATE.proration_behavior, "always_invoice");
 assert.equal(
+  PLAN_CHANGE_PRORATION_UPDATE.payment_behavior,
+  "pending_if_incomplete",
+);
+assert.equal(
   "billing_cycle_anchor" in PLAN_CHANGE_PRORATION_UPDATE,
   false,
 );
@@ -149,6 +155,34 @@ assert.ok(PLAN_CHANGE_HINT.includes("prorata"));
   });
   assert.ok(msg.includes("12,34"));
   assert.ok(/prorata/i.test(msg));
+  assert.ok(/^Passage à Extra confirmé/.test(msg));
+}
+
+{
+  const periodEnd = "2026-10-14T12:00:00.000Z";
+  const msg = describePlanChangeMessage({
+    planName: "Pro",
+    targetMonthlyEur: 19.99,
+    immediateInvoice: null,
+    upcoming: upcoming({
+      billingDate: "2026-09-14T12:00:00.000Z",
+    }),
+    subscription: baseSub({
+      plan: "pro",
+      currentPeriodEnd: periodEnd,
+    }),
+  });
+  assert.ok(msg.includes("Passage à Pro confirmé"));
+  assert.ok(msg.includes(formatDateTime(periodEnd)));
+}
+
+{
+  const periodEnd = "2026-10-14T12:00:00.000Z";
+  const date = resolveNextBillingDate(
+    upcoming({ billingDate: "2026-09-14T12:00:00.000Z" }),
+    baseSub({ currentPeriodEnd: periodEnd }),
+  );
+  assert.equal(date, periodEnd);
 }
 
 {

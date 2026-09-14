@@ -8,8 +8,8 @@ Mode test uniquement (`sk_test_` / bannière « Mode test »). Ne pas utiliser d
 |--------------------|-----------------|
 | `proration_behavior: none` | `proration_behavior: always_invoice` |
 | `billing_cycle_anchor: now` | *(omis — période conservée)* |
-| `payment_behavior: error_if_incomplete` | inchangé |
-| assert facture = catalogue plein | `assertProrationInvoiceSane` seulement |
+| `payment_behavior: error_if_incomplete` | `payment_behavior: pending_if_incomplete` (3DS OK) |
+| assert facture = catalogue plein | `assertProrationInvoiceSettled` (paid / due 0) |
 
 ## Script optionnel (compte déjà payant)
 
@@ -29,7 +29,8 @@ npx tsx scripts/test-plan-change-proration.ts [email] [targetPlan]
    - `amount_paid` **≠** 34,99 € plein en général (sauf jour 1 du cycle) ;
    - période d’abonnement : `current_period_end` **identique** (ou très proche) à avant le change — **pas** un reset +30 jours depuis maintenant.
 6. DocMind → downgrade **Basique** ; relire la nouvelle facture (crédits prorata).
-7. Carte refusée optionnel : `4000 0000 0000 0002` au change → plan local **inchangé**.
+7. Carte 3DS : `4000 0000 0000 3220` au change → redirect facture Stripe ; plan DocMind **inchangé** tant que 3DS non validé ; après succès + Actualiser → nouveau plan.
+8. Carte refusée : `4000 0000 0000 0002` au change → message d’échec, plan local **inchangé**.
 
 ## Ce que le client voit (Basique → Premium)
 

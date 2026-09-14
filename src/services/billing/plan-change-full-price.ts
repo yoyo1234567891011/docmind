@@ -6,16 +6,16 @@ import type Stripe from "stripe";
 /**
  * Règle produit (option B) : changement payant → payant = **prorata Stripe**.
  *
- * Choix `always_invoice` (plutôt que `create_prorations` seul) :
- * - crée les lignes de prorata ET facture immédiatement ;
- * - compatible `payment_behavior: error_if_incomplete` (carte KO = rollback) ;
- * - `create_prorations` seul laisserait le solde jusqu’à la prochaine échéance.
+ * - `proration_behavior: always_invoice` — lignes de prorata + facture immédiate
+ * - `payment_behavior: pending_if_incomplete` — le price Stripe ne bascule
+ *   qu’après paiement réussi (carte OK / 3DS). Sinon `pending_update` + ancien plan.
+ * - Pas de `billing_cycle_anchor: "now"` — période / ancre conservées.
  *
- * Pas de `billing_cycle_anchor: "now"` : on conserve la période / ancre en cours.
+ * Ne pas utiliser `error_if_incomplete` : il refuse le 3DS (erreur sans URL de confirmation).
  */
 export const PLAN_CHANGE_PRORATION_UPDATE = {
   proration_behavior: "always_invoice" as const,
-  payment_behavior: "error_if_incomplete" as const,
+  payment_behavior: "pending_if_incomplete" as const,
 };
 
 /** Alias historique — même comportement prorata. */
@@ -82,7 +82,7 @@ export async function clearCustomerBalanceBeforeFullPriceChange(
 }
 
 /**
- * Sanity check prorata : facture payée / due OK, pas de ligne d’ajustement DocMind.
+ * Sanity check prorata : pas de ligne d’ajustement DocMind.
  * Ne compare PAS au prix catalogue plein.
  */
 export function assertProrationInvoiceSane(
@@ -98,15 +98,27 @@ export function assertProrationInvoiceSane(
       );
     }
   }
+}
 
+/**
+ * Gate apply local : facture réglée (paid) ou rien à prélever (amount_due ≤ 0).
+ * Une facture `open` avec montant dû > 0 ne doit JAMAIS activer le nouveau plan.
+ */
+export function assertProrationInvoiceSettled(
+  invoice: Stripe.Invoice,
+  targetPlan: PaidBillingPlanId,
+): void {
+  assertProrationInvoiceSane(invoice, targetPlan);
+
+  const due = invoice.amount_due ?? 0;
   const status = invoice.status;
-  if (status && status !== "paid" && status !== "open" && status !== "draft") {
-    throw new AppError(
-      "INTERNAL_ERROR",
-      `Facture de changement de plan dans un état inattendu (${status}).`,
-      502,
-    );
-  }
+  if (status === "paid" || due <= 0) return;
+
+  throw new AppError(
+    "BAD_REQUEST",
+    `Le paiement du prorata n’est pas confirmé (facture ${status ?? "inconnue"}). Votre plan actuel n’a pas été modifié.`,
+    402,
+  );
 }
 
 /**

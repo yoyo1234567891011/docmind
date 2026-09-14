@@ -3,7 +3,8 @@ import type Stripe from "stripe";
 
 /**
  * Erreurs Stripe liées au paiement immédiat (changement de plan).
- * Le plan Stripe n’est pas modifié si le prélèvement échoue (`error_if_incomplete`).
+ * Avec `pending_if_incomplete`, un échec laisse l’ancien price ; le plan local
+ * n’est appliqué qu’après paiement confirmé (voir `changeSubscriptionPlan`).
  */
 export function toStripeBillingAppError(error: unknown): AppError {
   if (error instanceof AppError) return error;
@@ -40,7 +41,7 @@ export function toStripeBillingAppError(error: unknown): AppError {
   ) {
     return new AppError(
       "BAD_REQUEST",
-      "Authentification bancaire requise. Votre plan actuel n’a pas été modifié — finalisez le paiement via le portail Stripe.",
+      "Authentification bancaire (3DS) requise. Votre plan actuel n’a pas été modifié — finalisez le paiement sur la page Stripe, puis revenez à Facturation.",
       402,
     );
   }

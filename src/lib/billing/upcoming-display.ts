@@ -11,11 +11,11 @@ export function resolveNextBillingDate(
   upcoming: BillingUpcomingInvoice,
   subscription: UserSubscriptionRecord,
 ): string | null {
-  return (
-    upcoming.billingDate ??
-    subscription.currentPeriodEnd ??
-    null
-  );
+  // Renouvellement = fin de période abonnement Stripe (pas period_end facture prorata).
+  if (upcoming.status === "open") {
+    return upcoming.billingDate ?? subscription.currentPeriodEnd ?? null;
+  }
+  return subscription.currentPeriodEnd ?? upcoming.billingDate ?? null;
 }
 
 export function describeUpcomingInvoice(
@@ -87,7 +87,7 @@ export function describeUpcomingInvoice(
           ? `Plan ${plan.name} — ${monthly}.`
           : `Plan ${plan.name}.`,
         billingDate
-          ? `Prochaine échéance estimée le ${formatDateTime(billingDate)}.`
+          ? `Prochain renouvellement le ${formatDateTime(billingDate)}.`
           : "Date de prochaine facturation indisponible.",
         upcoming.note ??
           "Montant exact indisponible pour le moment — consultez le portail Stripe.",
@@ -104,7 +104,7 @@ export function describeUpcomingInvoice(
 
   if (billingDate) {
     lines.push(
-      `Prochain renouvellement estimé le ${formatDateTime(billingDate)}.`,
+      `Prochain renouvellement le ${formatDateTime(billingDate)}.`,
     );
   }
 
@@ -195,8 +195,10 @@ export function describePlanChangeMessage(input: {
   upcoming: BillingUpcomingInvoice;
   subscription: UserSubscriptionRecord;
 }): string {
-  const billingDate = resolveNextBillingDate(input.upcoming, input.subscription);
-  const parts = [`Plan ${input.planName} activé.`];
+  const billingDate =
+    input.subscription.currentPeriodEnd ??
+    resolveNextBillingDate(input.upcoming, input.subscription);
+  const parts = [`Passage à ${input.planName} confirmé.`];
 
   if (input.immediateInvoice) {
     const charged =
@@ -205,19 +207,16 @@ export function describePlanChangeMessage(input: {
         : input.immediateInvoice.amountDue;
     if (charged > 0) {
       parts.push(
-        `${formatMoneyEur(charged)} ont été prélevés (prorata) — facture ${input.immediateInvoice.number ?? input.immediateInvoice.id}.`,
+        `${formatMoneyEur(charged)} prélevés (prorata) — facture ${input.immediateInvoice.number ?? input.immediateInvoice.id}.`,
       );
     } else {
       parts.push(
-        "Aucun prélèvement immédiat sur la facture de changement (crédit / solde Stripe éventuel).",
+        "Aucun prélèvement immédiat (crédit / solde Stripe éventuel).",
       );
-    }
-    if (input.immediateInvoice.hostedInvoiceUrl) {
-      parts.push("Consultez la facture dans le portail Stripe.");
     }
   } else if (input.targetMonthlyEur != null) {
     parts.push(
-      `Plan ${input.planName} — consultez le portail Stripe pour le détail du prorata.`,
+      "Consultez le portail Stripe pour le détail du prorata.",
     );
   }
 
@@ -227,10 +226,6 @@ export function describePlanChangeMessage(input: {
     );
   } else if (billingDate) {
     parts.push(`Prochain renouvellement : ${formatDateTime(billingDate)}.`);
-  } else if (input.upcoming.status === "available" && input.upcoming.amountDue != null) {
-    parts.push(
-      `Prochain renouvellement estimé : ${formatMoneyEur(input.upcoming.amountDue)}.`,
-    );
   }
 
   return parts.join(" ");

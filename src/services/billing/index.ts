@@ -24,12 +24,14 @@ export {
   parseCheckoutPlan,
   type PlanCheckoutResult,
 } from "./checkout";
-export { changeSubscriptionPlan } from "./change-plan";
+export { changeSubscriptionPlan, classifyPlanChangePayment } from "./change-plan";
+export type { ChangeSubscriptionPlanResult } from "./change-plan";
 export { previewPlanChange } from "./plan-change-preview";
 export {
   catalogPlanMonthlyEur,
   PLAN_CHANGE_PRORATION_UPDATE,
   PLAN_CHANGE_FULL_PRICE_UPDATE,
+  assertProrationInvoiceSettled,
 } from "./plan-change-full-price";
 export { createBillingPortalSession } from "./portal";
 export {

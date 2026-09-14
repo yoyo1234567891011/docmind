@@ -83,11 +83,8 @@ async function main() {
     : null;
 
   const result = await changeSubscriptionPlan({ userId, plan: targetArg });
-  console.log("Résultat:", {
-    plan: result.plan,
-    invoice: result.immediateInvoice,
-  });
-
+  console.log("Résultat:", result);
+  assert.equal(result.outcome, "applied", "Attendu paiement immédiat settled (carte OK)");
   assert.ok(result.immediateInvoice, "Facture immédiate attendue (always_invoice)");
 
   const stripe = getStripe();

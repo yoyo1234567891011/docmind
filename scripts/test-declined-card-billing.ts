@@ -140,12 +140,18 @@ async function testPaidToPaidDeclined() {
     const stripe = getStripe();
     assert.ok(before.stripeCustomerId, "customer requis");
     // Stripe refuse d’attacher pm_card_chargeDeclined / tok_chargeDeclined via API.
-    // Retirer tout moyen de paiement → même effet : facture impayée, error_if_incomplete.
+    // Retirer tout moyen de paiement → facture impayée / pending_if_incomplete.
     await removeCustomerPaymentMethods(before.stripeCustomerId);
 
     let caught: unknown = null;
+    let actionRequired = false;
     try {
-      await changeSubscriptionPlan({ userId, plan: targetPlan });
+      const changed = await changeSubscriptionPlan({ userId, plan: targetPlan });
+      if (changed.outcome === "action_required") {
+        actionRequired = true;
+      } else if (changed.outcome === "applied") {
+        caught = new Error("applied unexpectedly");
+      }
     } catch (e) {
       caught = e;
     }
@@ -179,7 +185,7 @@ async function testPaidToPaidDeclined() {
           : String(caught ?? "");
 
     const ok =
-      Boolean(caught) &&
+      (Boolean(caught) || actionRequired) &&
       after.plan === startPlan &&
       stripePlan === startPlan &&
       stripeSub.status === "active" &&
@@ -189,8 +195,8 @@ async function testPaidToPaidDeclined() {
       scenario: "Pro → Extra payant (paiement impossible, équivalent refus carte)",
       verdict: ok ? "OK" : "KO",
       proof: ok
-        ? `erreur levée, local=${after.plan}, stripe=${stripePlan}, pas de facture Extra payée — ${errMsg.slice(0, 100)}`
-        : `error=${errMsg || "none"}, local ${before.plan}→${after.plan}, stripe=${stripePlan}, paidExtra=${paidExtra}`,
+        ? `${actionRequired ? "action_required" : "erreur"} , local=${after.plan}, stripe=${stripePlan}, pas de facture Extra payée — ${errMsg.slice(0, 100)}`
+        : `error=${errMsg || "none"}, actionRequired=${actionRequired}, local ${before.plan}→${after.plan}, stripe=${stripePlan}, paidExtra=${paidExtra}`,
     });
   } finally {
     await cleanup();
