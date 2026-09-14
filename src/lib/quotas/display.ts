@@ -21,6 +21,9 @@ export function formatUploadQuotaRemaining(item: QuotaStatusItem): string {
   }
   return `${item.remaining} import${item.remaining > 1 ? "s" : ""} PDF restant${item.remaining > 1 ? "s" : ""} ce mois`;
 }
+
+/** Ligne courte pour l’UI : « 8 courriers restants ce mois ». */
+export function formatLetterQuotaRemaining(item: QuotaStatusItem): string {
   if (item.unlimited) {
     return `${item.used} courrier${item.used > 1 ? "s" : ""} ce mois`;
   }
