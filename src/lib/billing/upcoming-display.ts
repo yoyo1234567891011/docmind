@@ -173,7 +173,7 @@ export function describePlanChangePreview(
 
   if (preview.nextBillingDate && preview.nextMonthlyEur != null) {
     lines.push(
-      `Ensuite, renouvellement à ${formatMoneyEur(preview.nextMonthlyEur)} / mois vers le ${formatDateTime(preview.nextBillingDate)}.`,
+      `Prochain renouvellement (fin de période actuelle) : ${formatDateTime(preview.nextBillingDate)} — puis ${formatMoneyEur(preview.nextMonthlyEur)} / mois.`,
     );
   } else if (preview.nextMonthlyEur != null) {
     lines.push(

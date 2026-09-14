@@ -2,6 +2,7 @@ import { getBillingPlan, getStripePriceIdForPlan } from "@/config/billing";
 import { AppError } from "@/lib/errors";
 import { getStripe, requireStripeConfigured } from "@/lib/stripe";
 import { resolveEffectivePlan } from "@/services/billing/access";
+import { periodFromSubscription } from "@/services/billing/apply-subscription";
 import { resolveBillableSubscriptionItem } from "@/services/billing/change-plan";
 import { PLAN_CHANGE_PREVIEW_SUBSCRIPTION_DETAILS } from "@/services/billing/plan-change-full-price";
 import { getUserSubscription } from "@/services/billing/store";
@@ -9,11 +10,6 @@ import type {
   BillingPlanChangePreview,
   PaidBillingPlanId,
 } from "@/types/billing";
-
-function toIso(unix: number | null | undefined): string | null {
-  if (!unix) return null;
-  return new Date(unix * 1000).toISOString();
-}
 
 function unavailablePreview(
   currentPlanId: BillingPlanChangePreview["currentPlan"],
@@ -41,6 +37,7 @@ function unavailablePreview(
 
 /**
  * Aperçu avant changement payant → payant : montant = prorata Stripe (preview invoice).
+ * nextBillingDate = fin de période **abonnement** (pas invoice.period_end du prorata).
  */
 export async function previewPlanChange(
   userId: string,
@@ -80,6 +77,7 @@ export async function previewPlanChange(
     (targetDef.priceMonthlyEur ?? 0) > (currentDef.priceMonthlyEur ?? 0);
 
   let immediateAmountDue: number | null = null;
+  // Vérité renouvellement = période abo (page Facturation), jamais la fenêtre prorata.
   let nextBillingDate = sub.currentPeriodEnd;
 
   try {
@@ -88,6 +86,9 @@ export async function previewPlanChange(
       sub.stripeSubscriptionId,
       { expand: ["items.data.price"] },
     );
+    const period = periodFromSubscription(stripeSub);
+    if (period.end) nextBillingDate = period.end;
+
     const item = resolveBillableSubscriptionItem(stripeSub, sub.stripePriceId);
     const preview = await stripe.invoices.createPreview({
       customer: sub.stripeCustomerId,
@@ -98,10 +99,8 @@ export async function previewPlanChange(
       },
     });
     immediateAmountDue = Math.max(0, (preview.amount_due ?? 0) / 100);
-    nextBillingDate =
-      toIso(preview.period_end) ??
-      sub.currentPeriodEnd ??
-      nextBillingDate;
+    // Ne pas utiliser preview.period_end : c’est la fenêtre des lignes de prorata
+    // (souvent « aujourd’hui »), pas current_period_end de l’abonnement.
   } catch {
     // garde une preview sans montant exact — UI explique le prorata Stripe
   }

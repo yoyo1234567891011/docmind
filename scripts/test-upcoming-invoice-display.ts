@@ -119,6 +119,7 @@ assert.ok(PLAN_CHANGE_HINT.includes("prorata"));
   const lines = describePlanChangePreview(previewPremiumToExtra());
   assert.ok(lines.some((l) => /prorata/i.test(l)));
   assert.ok(lines.some((l) => l.includes("12,34")));
+  assert.ok(lines.some((l) => /fin de période actuelle/i.test(l)));
   assert.ok(!lines.some((l) => /prix mensuel complet/i.test(l)));
 }
 
