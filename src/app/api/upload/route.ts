@@ -4,7 +4,7 @@ import { assertValidPdfUpload } from "@/lib/document-validation";
 import { AppError } from "@/lib/errors";
 import { checkRateLimitAsync, pruneRateLimitBuckets } from "@/lib/rate-limit";
 import { uploadPdfDocument } from "@/services/documents";
-import { consumeQuota, refundQuota } from "@/services/quotas/enforce";
+import { assertQuotaAvailable } from "@/services/quotas/enforce";
 
 export const runtime = "nodejs";
 
@@ -13,8 +13,9 @@ export const runtime = "nodejs";
  * Accepts multipart/form-data with field "file" (PDF),
  * stores the file, extracts text, and returns both.
  *
- * Quota : réservé avant persist ; remboursé si S3/PG/extraction échoue
- * (consommation définitive uniquement en cas de succès).
+ * Quota produit = **analyze** uniquement (même vérité que les cartes / bannière).
+ * Préflight : refuse si analyses du mois déjà épuisées.
+ * Débit analyze à l’appel `/api/analyze` (pas ici) — évite un plafond upload fantôme.
  */
 export async function POST(request: Request) {
   try {
@@ -43,19 +44,9 @@ export async function POST(request: Request) {
     }
 
     await assertValidPdfUpload(file);
-    await consumeQuota(user.id, "upload");
-    try {
-      const result = await uploadPdfDocument(user.id, file);
-      return apiSuccess(result, 201);
-    } catch (error) {
-      await refundQuota(user.id, "upload").catch((refundError) => {
-        console.error(
-          `[upload] refundQuota failed userId=${user.id}`,
-          refundError,
-        );
-      });
-      throw error;
-    }
+    await assertQuotaAvailable(user.id, "analyze");
+    const result = await uploadPdfDocument(user.id, file);
+    return apiSuccess(result, 201);
   } catch (error) {
     return apiFromUnknownError(error);
   }

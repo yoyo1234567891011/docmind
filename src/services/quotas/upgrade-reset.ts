@@ -11,9 +11,9 @@ const UPGRADE_RESET_METRICS: QuotaMetric[] = [
 
 /**
  * Donne le quota complet du nouveau plan après upgrade
- * (analyze + search + letter + upload).
- * Ne s’applique pas aux downgrades ni aux renouvellements mensuels :
- * l’usage du mois est conservé, la limite = plan effectif actuel.
+ * (analyze + search + letter + upload compteur legacy).
+ * Ne s’applique pas aux downgrades ni aux renouvellements mensuels.
+ * Produit : import PDF = plafond analyze (l’API upload ne débite plus `upload`).
  */
 export async function resetQuotasOnPlanUpgrade(userId: string): Promise<void> {
   await resetUserUsageMetrics(userId, UPGRADE_RESET_METRICS);

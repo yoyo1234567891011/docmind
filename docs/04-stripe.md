@@ -95,31 +95,32 @@ Helper création prices : `node scripts/create-stripe-plan-prices.mjs`
 | Quota | Free | Basique | Pro | Premium | Extra |
 |-------|------|---------|-----|---------|-------|
 | analyze | 5 | 15 | 40 | 75 | 150 |
-| upload | 10 | 30 | 80 | 150 | 300 |
+| upload | = analyze | = analyze | = analyze | = analyze | = analyze |
 | letter | 0 | 15* | 40* | 75* | 150* |
 | search | 5 | 40 | 120 | 250 | 500 |
 
-\*Payant : si `QUOTA_*_LETTER` est omis, `letter = analyze`.
+\*Payant : si `QUOTA_*_LETTER` est omis, `letter = analyze`.  
+**Import PDF** : pas de plafond séparé — préflight sur **analyze** ; débit analyze à l’analyse.
 
-### Source de vérité (analyze / search / letter / upload)
+### Source de vérité (analyze / search / letter)
 
 | Champ | Source |
 |-------|--------|
-| `plan` | `resolveEffectivePlan(subscription)` — un seul plan pour toutes les métriques |
-| `used` | compteur mensuel (`usage.json` / PG) par métrique |
-| `limit` | `getPlanQuotas(plan)[metric]` |
+| `plan` | `resolveEffectivePlan(subscription)` — un seul plan |
+| `used` | compteur mensuel par métrique |
+| `limit` | `getPlanQuotas(plan)[metric]` (`upload` = `analyze`) |
 | `remaining` | `max(0, limit - used)` |
 
-`GET /api/quotas` et l’agent courrier utilisent le **même** `getQuotaStatus` (avec reconcile Stripe côté quotas).  
-Page Analyser : bannière **analyses + imports PDF** (l’upload consomme `upload`, pas `analyze`).
+`GET /api/quotas` et l’agent courrier utilisent le **même** `getQuotaStatus`.  
+Page Analyser / `/api/upload` : vérité = **analyses** (pas de blocage sur un compteur upload fantôme).
 
 ### Changement de plan
 
 | Événement | Usage du mois | Limites |
 |-----------|---------------|---------|
-| **Upgrade** de palier (ex. Basique→Pro) | `analyze` + `search` + `letter` + `upload` remis à **0** | nouveau plan |
-| **Downgrade** / même plan / renouvellement | **conservé** | plan effectif actuel (`remaining = max(0, limit − used)`) |
-| `past_due` | conservé | plan effectif = **free** (limites Free) |
+| **Upgrade** de palier | `analyze` + `search` + `letter` + `upload` → **0** | nouveau plan |
+| **Downgrade** / renew | **conservé** | plan actuel |
+| `past_due` | conservé | effective = **free** |
 
 Affichage : toujours `Plan · used/limit` du plan **actuel** (pas un « restants » orphelin d’un autre plafond).
 

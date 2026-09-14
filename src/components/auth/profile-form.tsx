@@ -181,6 +181,7 @@ export function ProfileForm({ email, fullName: initialName }: ProfileFormProps) 
           </p>
           <ul className="mt-4 space-y-2">
             {[...quotas.items]
+              .filter((item) => item.metric !== "upload")
               .sort((a, b) =>
                 a.metric === "analyze" ? -1 : b.metric === "analyze" ? 1 : 0,
               )

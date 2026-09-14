@@ -25,13 +25,13 @@ function envInt(key: string, fallback: number): number {
   return Number.isFinite(n) ? Math.trunc(n) : fallback;
 }
 
-/** letter = 0 sur Free ; plafonds payants indépendants d’analyze (défaut = même plafond). */
+/** letter = 0 sur Free ; upload = analyze (une seule vérité produit). */
 const DEFAULTS: Record<BillingPlanId, PlanQuotaLimits> = {
-  free: { analyze: 5, upload: 10, letter: 0, search: 5 },
-  basique: { analyze: 15, upload: 30, letter: 15, search: 40 },
-  pro: { analyze: 40, upload: 80, letter: 40, search: 120 },
-  premium: { analyze: 75, upload: 150, letter: 75, search: 250 },
-  extra: { analyze: 150, upload: 300, letter: 150, search: 500 },
+  free: { analyze: 5, upload: 5, letter: 0, search: 5 },
+  basique: { analyze: 15, upload: 15, letter: 15, search: 40 },
+  pro: { analyze: 40, upload: 40, letter: 40, search: 120 },
+  premium: { analyze: 75, upload: 75, letter: 75, search: 250 },
+  extra: { analyze: 150, upload: 150, letter: 150, search: 500 },
 };
 
 const ENV_PREFIX: Record<BillingPlanId, string> = {
@@ -53,9 +53,11 @@ export function getPlanQuotas(plan: BillingPlanId): PlanQuotaLimits {
       : letterEnv && Number.isFinite(Number(letterEnv))
         ? Math.trunc(Number(letterEnv))
         : analyze;
+  // Upload n’est plus un plafond produit distinct : même limite que analyze.
+  // (Le compteur `upload` peut encore exister en base ; l’API upload ne le débite plus.)
   return {
     analyze,
-    upload: envInt(`${prefix}_UPLOAD`, base.upload),
+    upload: analyze,
     letter,
     search: envInt(`${prefix}_SEARCH`, base.search),
   };

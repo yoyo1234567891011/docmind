@@ -4,10 +4,7 @@ import Link from "next/link";
 
 import { BILLING_PLANS } from "@/config/billing";
 import type { QuotaStatus } from "@/lib/client/quotas";
-import {
-  formatAnalyzeQuotaRemaining,
-  formatUploadQuotaRemaining,
-} from "@/lib/quotas/display";
+import { formatAnalyzeQuotaRemaining } from "@/lib/quotas/display";
 import { cn } from "@/lib/utils";
 import type { BillingPlanId } from "@/types/billing";
 
@@ -21,25 +18,17 @@ function planLabel(plan: string): string {
   return BILLING_PLANS[id]?.name ?? plan;
 }
 
-/**
- * Bannière analyser : analyses + imports PDF (même getQuotaStatus / plan).
- * L’upload consomme le plafond `upload`, distinct d’`analyze`.
- */
+/** Bannière analyser — plafond analyses (= vérité import / cartes). */
 export function AnalysisQuotaBanner({
   quotas,
   className,
 }: AnalysisQuotaBannerProps) {
   const analyze = quotas.items.find((i) => i.metric === "analyze");
-  const upload = quotas.items.find((i) => i.metric === "upload");
-  if ((!analyze || analyze.unlimited) && (!upload || upload.unlimited)) {
-    return null;
-  }
+  if (!analyze || analyze.unlimited) return null;
 
-  const analyzeExhausted = Boolean(analyze && !analyze.unlimited && analyze.remaining <= 0);
-  const uploadExhausted = Boolean(upload && !upload.unlimited && upload.remaining <= 0);
-  const exhausted = analyzeExhausted || uploadExhausted;
+  const exhausted = analyze.remaining <= 0;
+  const line = formatAnalyzeQuotaRemaining(analyze);
   const canUpgrade = quotas.plan !== "extra";
-  const plan = planLabel(quotas.plan);
 
   return (
     <div
@@ -51,47 +40,13 @@ export function AnalysisQuotaBanner({
         className,
       )}
     >
-      {analyze && !analyze.unlimited ? (
-        <p
-          className={
-            analyzeExhausted
-              ? "text-[var(--warning)]"
-              : "text-[var(--foreground)]"
-          }
-        >
-          {analyzeExhausted
-            ? quotas.plan === "free"
-              ? `Vous avez utilisé vos ${analyze.limit} analyses du mois.`
-              : `Quota analyses ${plan} atteint (${analyze.used}/${analyze.limit}).`
-            : formatAnalyzeQuotaRemaining(analyze)}
-        </p>
-      ) : null}
-      {analyze && !analyze.unlimited && !analyzeExhausted ? (
-        <p className="mt-1 text-xs text-[var(--muted)]">
-          Plan {plan} · {analyze.used}/{analyze.limit} analyses
-        </p>
-      ) : null}
-
-      {upload && !upload.unlimited ? (
-        <p
-          className={cn(
-            analyze && !analyze.unlimited ? "mt-2" : "",
-            uploadExhausted
-              ? "text-[var(--warning)]"
-              : "text-[var(--foreground)]",
-          )}
-        >
-          {uploadExhausted
-            ? `Quota d’import PDF ${plan} atteint (${upload.used}/${upload.limit}).`
-            : formatUploadQuotaRemaining(upload)}
-        </p>
-      ) : null}
-      {upload && !upload.unlimited && !uploadExhausted ? (
-        <p className="mt-1 text-xs text-[var(--muted)]">
-          Plan {plan} · {upload.used}/{upload.limit} imports PDF
-        </p>
-      ) : null}
-
+      <p className={exhausted ? "text-[var(--warning)]" : "text-[var(--foreground)]"}>
+        {exhausted
+          ? quotas.plan === "free"
+            ? `Vous avez utilisé vos ${analyze.limit} analyses du mois.`
+            : `Quota analyses ${planLabel(quotas.plan)} atteint (${analyze.used}/${analyze.limit}).`
+          : line}
+      </p>
       {exhausted && canUpgrade ? (
         <Link
           href="/facturation"
@@ -101,6 +56,12 @@ export function AnalysisQuotaBanner({
             ? "Choisir un plan pour continuer"
             : "Passer à une offre supérieure"}
         </Link>
+      ) : null}
+      {!exhausted ? (
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Plan {planLabel(quotas.plan)} · {analyze.used}/{analyze.limit}{" "}
+          analyses
+        </p>
       ) : null}
     </div>
   );
