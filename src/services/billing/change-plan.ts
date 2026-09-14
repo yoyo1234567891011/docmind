@@ -17,10 +17,8 @@ import { getUserSubscription } from "@/services/billing/store";
 import { syncUserSubscriptionFromStripe } from "@/services/billing/sync";
 import { toStripeBillingAppError } from "@/services/billing/stripe-payment-errors";
 import {
-  assertFullCatalogInvoiceCharged,
-  catalogPlanMonthlyEur,
-  clearCustomerBalanceBeforeFullPriceChange,
-  PLAN_CHANGE_FULL_PRICE_UPDATE,
+  assertProrationInvoiceSane,
+  PLAN_CHANGE_PRORATION_UPDATE,
 } from "@/services/billing/plan-change-full-price";
 import { clearPendingDocmindAdjustmentItems } from "@/services/billing/renewal-catalog";
 import type {
@@ -110,7 +108,7 @@ function toImmediateInvoice(
 
 /**
  * Change le price Stripe d’un abonnement existant (upgrade / downgrade).
- * Facture le prix catalogue PLEIN du plan cible immédiatement (pas de prorata variable).
+ * Prorata Stripe immédiat (`always_invoice`) — période / ancre conservées.
  * Si le paiement échoue, Stripe annule la mise à jour — le plan local n’est pas modifié.
  */
 export async function changeSubscriptionPlan(
@@ -169,8 +167,6 @@ export async function changeSubscriptionPlan(
       sub.stripePriceId,
     );
 
-    const expectedCatalogCharge = catalogPlanMonthlyEur(targetPlan);
-
     let verified: Stripe.Subscription;
     let immediateInvoice: BillingImmediateInvoice | null = null;
 
@@ -185,14 +181,9 @@ export async function changeSubscriptionPlan(
 
       await clearPendingDocmindAdjustmentItems(stripe, sub.stripeCustomerId);
 
-      await clearCustomerBalanceBeforeFullPriceChange(
-        stripe,
-        sub.stripeCustomerId,
-      );
-
       await stripe.subscriptions.update(sub.stripeSubscriptionId, {
         items: [{ id: item.id, price: priceId }],
-        ...PLAN_CHANGE_FULL_PRICE_UPDATE,
+        ...PLAN_CHANGE_PRORATION_UPDATE,
         cancel_at_period_end: false,
         metadata: {
           ...stripeSub.metadata,
@@ -216,11 +207,7 @@ export async function changeSubscriptionPlan(
           typeof latestRaw === "object" && latestRaw && "amount_due" in latestRaw
             ? latestRaw
             : await stripe.invoices.retrieve(latestId);
-        assertFullCatalogInvoiceCharged(
-          invoice,
-          expectedCatalogCharge,
-          targetPlan,
-        );
+        assertProrationInvoiceSane(invoice, targetPlan);
         immediateInvoice = toImmediateInvoice(invoice);
       }
     } catch (error) {

@@ -118,7 +118,7 @@ export function describeUpcomingInvoice(
 
   if (isPremiumRecurring(subscription)) {
     lines.push(
-      "Un changement de plan facture immédiatement le prix mensuel complet du nouveau plan choisi.",
+      "Un changement de plan ajuste le montant au prorata de la période restante (calcul Stripe).",
     );
   }
 
@@ -151,16 +151,23 @@ export function describePlanChangePreview(
         ? ` (${formatMoneyEur(preview.targetMonthlyEur)} / mois)`
         : ""
     }.`,
+    "Le montant sera ajusté au prorata de la période restante (calcul Stripe).",
   ];
 
   if (preview.immediateAmountDue != null && preview.immediateAmountDue > 0) {
     lines.push(
-      `Vous serez débité de ${formatMoneyEur(preview.immediateAmountDue)} maintenant — prix mensuel complet du plan ${preview.targetPlanName}.`,
+      `Estimation du prélèvement immédiat : ${formatMoneyEur(preview.immediateAmountDue)} (prorata).`,
+    );
+  } else if (preview.immediateAmountDue === 0) {
+    lines.push(
+      preview.isUpgrade
+        ? "Aucun prélèvement immédiat estimé (vérifiez la facture Stripe après confirmation)."
+        : "Downgrade : crédit / solde Stripe possible — aucun plein tarif du plan inférieur.",
     );
   } else {
     lines.push(
       preview.note ??
-        `Vous serez débité du prix mensuel complet du plan ${preview.targetPlanName} à la confirmation.`,
+        "Le montant exact apparaît sur la facture Stripe après confirmation.",
     );
   }
 
@@ -170,7 +177,7 @@ export function describePlanChangePreview(
     );
   } else if (preview.nextMonthlyEur != null) {
     lines.push(
-      `Ensuite, renouvellement à ${formatMoneyEur(preview.nextMonthlyEur)} / mois.`,
+      `Ensuite, renouvellement à ${formatMoneyEur(preview.nextMonthlyEur)} / mois (même cycle de facturation).`,
     );
   }
 
@@ -198,11 +205,11 @@ export function describePlanChangeMessage(input: {
         : input.immediateInvoice.amountDue;
     if (charged > 0) {
       parts.push(
-        `${formatMoneyEur(charged)} ont été prélevés maintenant — prix du plan ${input.planName} (facture ${input.immediateInvoice.number ?? input.immediateInvoice.id}).`,
+        `${formatMoneyEur(charged)} ont été prélevés (prorata) — facture ${input.immediateInvoice.number ?? input.immediateInvoice.id}.`,
       );
     } else {
       parts.push(
-        "Aucun prélèvement sur la facture de changement de plan.",
+        "Aucun prélèvement immédiat sur la facture de changement (crédit / solde Stripe éventuel).",
       );
     }
     if (input.immediateInvoice.hostedInvoiceUrl) {
@@ -210,7 +217,7 @@ export function describePlanChangeMessage(input: {
     }
   } else if (input.targetMonthlyEur != null) {
     parts.push(
-      `Le prix du plan ${input.planName} (${formatMoneyEur(input.targetMonthlyEur)}) a été facturé — consultez le portail Stripe pour le détail.`,
+      `Plan ${input.planName} — consultez le portail Stripe pour le détail du prorata.`,
     );
   }
 
@@ -230,4 +237,4 @@ export function describePlanChangeMessage(input: {
 }
 
 export const PLAN_CHANGE_HINT =
-  "Changement de plan : débit immédiat du prix mensuel complet du nouveau plan (ex. Extra = 59,99 €).";
+  "Changement de plan : montant ajusté au prorata de la période restante (calcul Stripe).";

@@ -200,8 +200,8 @@ export function BillingView() {
           Facturation
         </h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Plan synchronisé avec Stripe. Un changement de plan payant facture
-          immédiatement le prix mensuel complet du nouveau plan choisi.
+          Plan synchronisé avec Stripe. Un changement de plan payant ajuste le
+          montant au prorata de la période restante (calcul Stripe).
         </p>
       </header>
 

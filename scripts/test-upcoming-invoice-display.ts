@@ -1,5 +1,5 @@
 /**
- * Tests unitaires — prix catalogue complet au changement de plan.
+ * Tests unitaires — affichage changement de plan (prorata) + helpers catalogue.
  * Usage: npx tsx scripts/test-upcoming-invoice-display.ts
  */
 import assert from "node:assert/strict";
@@ -9,14 +9,16 @@ import {
   describePlanChangeMessage,
   describePlanChangePreview,
   describeUpcomingInvoice,
+  PLAN_CHANGE_HINT,
 } from "../src/lib/billing/upcoming-display";
 import {
   assertFullCatalogInvoiceCharged,
+  assertProrationInvoiceSane,
   catalogChargeMatchesInvoice,
   catalogPlanMonthlyEur,
+  PLAN_CHANGE_PRORATION_UPDATE,
 } from "../src/services/billing/plan-change-full-price";
 import { resolveCatalogRenewalAmountDue } from "../src/services/billing/renewal-catalog";
-import { summarizeInvoiceLines } from "../src/services/billing/upcoming-invoice";
 import type {
   BillingImmediateInvoice,
   BillingPlanChangePreview,
@@ -73,7 +75,7 @@ function previewPremiumToExtra(): BillingPlanChangePreview {
     targetPlanName: "Extra",
     currentMonthlyEur: 34.99,
     targetMonthlyEur: 59.99,
-    immediateAmountDue: 59.99,
+    immediateAmountDue: 12.34,
     currency: "EUR",
     isUpgrade: true,
     nextBillingDate: "2026-09-29T00:00:00.000Z",
@@ -91,7 +93,7 @@ function previewExtraToPremium(): BillingPlanChangePreview {
     targetPlanName: "Premium",
     currentMonthlyEur: 59.99,
     targetMonthlyEur: 34.99,
-    immediateAmountDue: 34.99,
+    immediateAmountDue: 0,
     currency: "EUR",
     isUpgrade: false,
     nextBillingDate: "2026-09-29T00:00:00.000Z",
@@ -101,34 +103,38 @@ function previewExtraToPremium(): BillingPlanChangePreview {
   };
 }
 
-// Prix catalogue
+assert.equal(PLAN_CHANGE_PRORATION_UPDATE.proration_behavior, "always_invoice");
+assert.equal(
+  "billing_cycle_anchor" in PLAN_CHANGE_PRORATION_UPDATE,
+  false,
+);
+assert.ok(PLAN_CHANGE_HINT.includes("prorata"));
+
 {
   assert.equal(catalogPlanMonthlyEur("extra"), 59.99);
   assert.equal(catalogPlanMonthlyEur("premium"), 34.99);
-  assert.equal(catalogPlanMonthlyEur("pro"), 19.99);
 }
 
-// Aperçu Premium → Extra : 59,99 € plein
 {
   const lines = describePlanChangePreview(previewPremiumToExtra());
-  assert.ok(lines.some((l) => l.includes("59,99")));
-  assert.ok(lines.some((l) => l.includes("prix mensuel complet")));
+  assert.ok(lines.some((l) => /prorata/i.test(l)));
+  assert.ok(lines.some((l) => l.includes("12,34")));
+  assert.ok(!lines.some((l) => /prix mensuel complet/i.test(l)));
 }
 
-// Downgrade Extra → Premium : 34,99 € plein (pas crédit)
 {
   const lines = describePlanChangePreview(previewExtraToPremium());
-  assert.ok(lines.some((l) => l.includes("34,99")));
+  assert.ok(lines.some((l) => /prorata/i.test(l)));
+  assert.ok(lines.some((l) => /Downgrade|crédit/i.test(l)));
 }
 
-// Message après succès
 {
   const immediate: BillingImmediateInvoice = {
     id: "in_1",
     number: "ABC-001",
     status: "paid",
-    amountDue: 59.99,
-    amountPaid: 59.99,
+    amountDue: 12.34,
+    amountPaid: 12.34,
     currency: "EUR",
     createdAt: new Date().toISOString(),
     hostedInvoiceUrl: "https://stripe.test/invoice",
@@ -140,35 +146,21 @@ function previewExtraToPremium(): BillingPlanChangePreview {
     upcoming: upcoming(),
     subscription: baseSub({ plan: "extra" }),
   });
-  assert.ok(msg.includes("59,99"));
-  assert.ok(msg.includes("prix du plan Extra"));
+  assert.ok(msg.includes("12,34"));
+  assert.ok(/prorata/i.test(msg));
 }
 
-// Validation montant facture
 {
   assert.ok(catalogChargeMatchesInvoice(59.99, 59.99));
-  assert.ok(!catalogChargeMatchesInvoice(59.99, 39.97));
-  assert.throws(() =>
-    assertFullCatalogInvoiceCharged(
+  assert.doesNotThrow(() =>
+    assertProrationInvoiceSane(
       {
-        total: 3605,
-        subtotal: 3605,
-        starting_balance: 0,
-        amount_paid: 3605,
-        amount_due: 3605,
         status: "paid",
-        lines: {
-          data: [
-            {
-              amount: 106,
-              metadata: { docmind_renewal_offset: "true" },
-            },
-            { amount: 3499 },
-          ],
-        },
+        amount_paid: 1234,
+        amount_due: 0,
+        lines: { data: [{ amount: 1234, proration: true }] },
       } as never,
-      34.99,
-      "premium",
+      "extra",
     ),
   );
   assert.doesNotThrow(() =>
@@ -186,7 +178,6 @@ function previewExtraToPremium(): BillingPlanChangePreview {
   );
 }
 
-// Prochaine facturation : net Stripe 58,93 € → affichage catalogue 59,99 €
 {
   const resolved = resolveCatalogRenewalAmountDue(
     {
@@ -203,11 +194,10 @@ function previewExtraToPremium(): BillingPlanChangePreview {
   assert.equal(resolved, 59.99);
 }
 
-// Prochaine facturation UI
 {
   const plan = getBillingPlan("extra");
   const view = describeUpcomingInvoice(upcoming(), plan, baseSub());
-  assert.ok(view.lines.some((l) => l.includes("prix mensuel complet")));
+  assert.ok(view.lines.some((l) => /prorata/i.test(l)));
 }
 
 console.log("test-upcoming-invoice-display: OK");

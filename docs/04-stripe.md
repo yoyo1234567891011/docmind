@@ -122,6 +122,28 @@ Helper création prices : `node scripts/create-stripe-plan-prices.mjs`
 
 Affichage : toujours `Plan · used/limit` du plan **actuel** (pas un « restants » orphelin d’un autre plafond).
 
+### Facturation mid-cycle (prorata)
+
+`changeSubscriptionPlan` utilise `PLAN_CHANGE_PRORATION_UPDATE` :
+
+| Paramètre | Valeur | Effet |
+|-----------|--------|--------|
+| `proration_behavior` | **`always_invoice`** | Lignes de prorata + facture immédiate |
+| `payment_behavior` | `error_if_incomplete` | Carte refusée → rollback, plan inchangé |
+| `billing_cycle_anchor` | *(omis)* | Période / ancre **conservées** (pas de reset `now`) |
+
+**Pourquoi `always_invoice` et pas `create_prorations` seul :** facturer tout de suite le différentiel, et laisser `error_if_incomplete` échouer proprement si le paiement rate.
+
+Exemple **Basique → Premium → Basique** dans le même mois (cartes **test**) :
+
+1. Checkout Basique : facture catalogue ~9,99 €, période commence.
+2. Upgrade Premium : facture avec lignes de **prorata** (crédit temps non utilisé Basique + débit temps Premium restant). Montant **&lt;** 34,99 € en général (selon jours restants). **Pas** de nouveau cycle `now`.
+3. Downgrade Basique : nouvelle facture prorata (crédit Premium restant / débit Basique). Souvent montant dû faible ou 0 + crédit solde client pour la suite.
+
+Les quotas non consommés **n’influencent pas** le montant Stripe.
+
+Checklist Dashboard test : `docs/04-stripe.md` section ci-dessous + `scripts/checklist-plan-change-proration.md`.
+
 ## Accès
 
 - `hasPaidAccess` / `resolveEffectivePlan` — plan payant actif **uniquement** si `active` ou `trialing` (+ période non expirée)

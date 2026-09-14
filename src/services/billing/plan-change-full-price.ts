@@ -4,27 +4,25 @@ import type { PaidBillingPlanId } from "@/types/billing";
 import type Stripe from "stripe";
 
 /**
- * Règle produit : changement payant → payant = prix catalogue PLEIN du plan cible.
+ * Règle produit (option B) : changement payant → payant = **prorata Stripe**.
  *
- * Approche Stripe :
- * - `proration_behavior: "none"` → pas de crédit/débit au prorata des jours restants
- * - `billing_cycle_anchor: "now"` → nouvelle période mensuelle qui démarre aujourd’hui
- * - `payment_behavior: "error_if_incomplete"` → échec carte = pas de changement d’abo
- * - solde client remis à zéro avant update → un crédit prorata résiduel ne réduit pas
- *   le prélèvement carte (sinon 59,99 € − 24,97 € crédit = 35,02 € malgré la ligne plein tarif)
+ * Choix `always_invoice` (plutôt que `create_prorations` seul) :
+ * - crée les lignes de prorata ET facture immédiatement ;
+ * - compatible `payment_behavior: error_if_incomplete` (carte KO = rollback) ;
+ * - `create_prorations` seul laisserait le solde jusqu’à la prochaine échéance.
  *
- * Stripe facture immédiatement le montant récurrent complet du nouveau price (ex. 59,99 €
- * pour Extra), et la carte est débitée de ce montant exact.
+ * Pas de `billing_cycle_anchor: "now"` : on conserve la période / ancre en cours.
  */
-export const PLAN_CHANGE_FULL_PRICE_UPDATE = {
-  proration_behavior: "none" as const,
-  billing_cycle_anchor: "now" as const,
+export const PLAN_CHANGE_PRORATION_UPDATE = {
+  proration_behavior: "always_invoice" as const,
   payment_behavior: "error_if_incomplete" as const,
 };
 
+/** Alias historique — même comportement prorata. */
+export const PLAN_CHANGE_FULL_PRICE_UPDATE = PLAN_CHANGE_PRORATION_UPDATE;
+
 export const PLAN_CHANGE_PREVIEW_SUBSCRIPTION_DETAILS = {
-  proration_behavior: "none" as const,
-  billing_cycle_anchor: "now" as const,
+  proration_behavior: "always_invoice" as const,
 };
 
 export function catalogPlanMonthlyEur(plan: PaidBillingPlanId): number {
@@ -35,7 +33,7 @@ export function catalogPlanMonthlyEur(plan: PaidBillingPlanId): number {
   return monthly;
 }
 
-/** Tolérance centimes (arrondis Stripe) — 1 centime max pour catalogue strict. */
+/** Tolérance centimes (arrondis Stripe) — renouvellements catalogue. */
 export function catalogChargeMatchesInvoice(
   catalogEur: number,
   invoiceEur: number,
@@ -53,8 +51,8 @@ export function invoiceCardPaidEur(invoice: Stripe.Invoice): number {
 }
 
 /**
- * Remet le solde client Stripe à 0 avant changement de plan.
- * Un crédit négatif (ex. −24,97 € de prorata) serait sinon déduit de la facture.
+ * @deprecated Réservé aux tests / renouvellements catalogue.
+ * Ne plus utiliser pour les changements de plan (prorata).
  */
 export async function clearCustomerBalanceBeforeFullPriceChange(
   stripe: Stripe,
@@ -74,7 +72,7 @@ export async function clearCustomerBalanceBeforeFullPriceChange(
     amount: -balanceCents,
     currency: (customer.currency ?? "eur").toLowerCase(),
     description:
-      "Réinitialisation solde avant changement de plan DocMind (prix catalogue plein)",
+      "Réinitialisation solde client (legacy full-price — ne plus appeler en prorata)",
   });
 
   return {
@@ -83,7 +81,38 @@ export async function clearCustomerBalanceBeforeFullPriceChange(
   };
 }
 
-/** Vérifie que la carte a été débitée du prix catalogue, pas d’un net après crédit. */
+/**
+ * Sanity check prorata : facture payée / due OK, pas de ligne d’ajustement DocMind.
+ * Ne compare PAS au prix catalogue plein.
+ */
+export function assertProrationInvoiceSane(
+  invoice: Stripe.Invoice,
+  targetPlan: PaidBillingPlanId,
+): void {
+  for (const line of invoice.lines?.data ?? []) {
+    if (line.metadata?.docmind_renewal_offset === "true") {
+      throw new AppError(
+        "INTERNAL_ERROR",
+        `Ligne d'ajustement DocMind interdite sur une facture de changement de plan (${targetPlan}).`,
+        502,
+      );
+    }
+  }
+
+  const status = invoice.status;
+  if (status && status !== "paid" && status !== "open" && status !== "draft") {
+    throw new AppError(
+      "INTERNAL_ERROR",
+      `Facture de changement de plan dans un état inattendu (${status}).`,
+      502,
+    );
+  }
+}
+
+/**
+ * @deprecated Ne plus utiliser pour les changements de plan (casse le prorata).
+ * Conservé pour tests / renouvellements catalogue.
+ */
 export function assertFullCatalogInvoiceCharged(
   invoice: Stripe.Invoice,
   catalogEur: number,

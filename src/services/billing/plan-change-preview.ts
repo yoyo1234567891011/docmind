@@ -3,10 +3,7 @@ import { AppError } from "@/lib/errors";
 import { getStripe, requireStripeConfigured } from "@/lib/stripe";
 import { resolveEffectivePlan } from "@/services/billing/access";
 import { resolveBillableSubscriptionItem } from "@/services/billing/change-plan";
-import {
-  catalogPlanMonthlyEur,
-  PLAN_CHANGE_PREVIEW_SUBSCRIPTION_DETAILS,
-} from "@/services/billing/plan-change-full-price";
+import { PLAN_CHANGE_PREVIEW_SUBSCRIPTION_DETAILS } from "@/services/billing/plan-change-full-price";
 import { getUserSubscription } from "@/services/billing/store";
 import type {
   BillingPlanChangePreview,
@@ -16,12 +13,6 @@ import type {
 function toIso(unix: number | null | undefined): string | null {
   if (!unix) return null;
   return new Date(unix * 1000).toISOString();
-}
-
-function estimateNextBillingDate(): string {
-  const next = new Date();
-  next.setUTCMonth(next.getUTCMonth() + 1);
-  return next.toISOString();
 }
 
 function unavailablePreview(
@@ -49,7 +40,7 @@ function unavailablePreview(
 }
 
 /**
- * Aperçu avant changement payant → payant : montant = prix catalogue du plan cible.
+ * Aperçu avant changement payant → payant : montant = prorata Stripe (preview invoice).
  */
 export async function previewPlanChange(
   userId: string,
@@ -85,11 +76,11 @@ export async function previewPlanChange(
 
   const currentDef = getBillingPlan(currentPlan);
   const targetDef = getBillingPlan(targetPlan);
-  const catalogCharge = catalogPlanMonthlyEur(targetPlan);
   const isUpgrade =
     (targetDef.priceMonthlyEur ?? 0) > (currentDef.priceMonthlyEur ?? 0);
 
-  let nextBillingDate = estimateNextBillingDate();
+  let immediateAmountDue: number | null = null;
+  let nextBillingDate = sub.currentPeriodEnd;
 
   try {
     const stripe = getStripe();
@@ -106,9 +97,13 @@ export async function previewPlanChange(
         ...PLAN_CHANGE_PREVIEW_SUBSCRIPTION_DETAILS,
       },
     });
-    nextBillingDate = toIso(preview.period_end) ?? nextBillingDate;
+    immediateAmountDue = Math.max(0, (preview.amount_due ?? 0) / 100);
+    nextBillingDate =
+      toIso(preview.period_end) ??
+      sub.currentPeriodEnd ??
+      nextBillingDate;
   } catch {
-    // garde l’estimation catalogue + date +1 mois
+    // garde une preview sans montant exact — UI explique le prorata Stripe
   }
 
   return {
@@ -118,7 +113,7 @@ export async function previewPlanChange(
     targetPlanName: targetDef.name,
     currentMonthlyEur: currentDef.priceMonthlyEur,
     targetMonthlyEur: targetDef.priceMonthlyEur,
-    immediateAmountDue: catalogCharge,
+    immediateAmountDue,
     currency: "EUR",
     isUpgrade,
     nextBillingDate,

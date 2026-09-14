@@ -28,6 +28,7 @@ export { changeSubscriptionPlan } from "./change-plan";
 export { previewPlanChange } from "./plan-change-preview";
 export {
   catalogPlanMonthlyEur,
+  PLAN_CHANGE_PRORATION_UPDATE,
   PLAN_CHANGE_FULL_PRICE_UPDATE,
 } from "./plan-change-full-price";
 export { createBillingPortalSession } from "./portal";
