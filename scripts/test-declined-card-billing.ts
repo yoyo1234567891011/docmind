@@ -139,18 +139,19 @@ async function testPaidToPaidDeclined() {
 
     const stripe = getStripe();
     assert.ok(before.stripeCustomerId, "customer requis");
-    // Stripe refuse d’attacher pm_card_chargeDeclined / tok_chargeDeclined via API.
-    // Retirer tout moyen de paiement → facture impayée / pending_if_incomplete.
+    // Sans PM : le change ouvre quand même le Portal (pas d’apply local).
     await removeCustomerPaymentMethods(before.stripeCustomerId);
 
     let caught: unknown = null;
     let actionRequired = false;
+    let portalUrl: string | null = null;
     try {
       const changed = await changeSubscriptionPlan({ userId, plan: targetPlan });
       if (changed.outcome === "action_required") {
         actionRequired = true;
+        portalUrl = changed.url;
       } else if (changed.outcome === "applied") {
-        caught = new Error("applied unexpectedly");
+        caught = new Error("applied unexpectedly — prélèvement silencieux interdit");
       }
     } catch (e) {
       caught = e;
@@ -185,17 +186,19 @@ async function testPaidToPaidDeclined() {
           : String(caught ?? "");
 
     const ok =
-      (Boolean(caught) || actionRequired) &&
+      actionRequired &&
+      Boolean(portalUrl) &&
       after.plan === startPlan &&
       stripePlan === startPlan &&
       stripeSub.status === "active" &&
-      !paidExtra;
+      !paidExtra &&
+      !caught;
 
     log({
-      scenario: "Pro → Extra payant (paiement impossible, équivalent refus carte)",
+      scenario: "Pro → Extra : redirect Portal, plan inchangé (pas de charge silencieuse)",
       verdict: ok ? "OK" : "KO",
       proof: ok
-        ? `${actionRequired ? "action_required" : "erreur"} , local=${after.plan}, stripe=${stripePlan}, pas de facture Extra payée — ${errMsg.slice(0, 100)}`
+        ? `action_required url=${portalUrl!.slice(0, 48)}… local=${after.plan} stripe=${stripePlan}`
         : `error=${errMsg || "none"}, actionRequired=${actionRequired}, local ${before.plan}→${after.plan}, stripe=${stripePlan}, paidExtra=${paidExtra}`,
     });
   } finally {

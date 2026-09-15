@@ -34,6 +34,7 @@ export {
   assertProrationInvoiceSettled,
 } from "./plan-change-full-price";
 export { createBillingPortalSession } from "./portal";
+export { createPlanChangePortalSession } from "./portal-plan-change";
 export {
   cancelPremiumSubscription,
   resumePremiumSubscription,

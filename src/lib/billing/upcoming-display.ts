@@ -271,7 +271,10 @@ export function describePlanChangePreview(
   }
 
   lines.push(
-    "Si le paiement est refusé, votre plan actuel reste inchangé.",
+    "La confirmation et le paiement (carte / 3DS) se font sur une page Stripe — pas de prélèvement silencieux dans DocMind.",
+  );
+  lines.push(
+    "Si vous refusez ou abandonnez la page Stripe, votre plan actuel reste inchangé.",
   );
 
   return lines;

@@ -1,38 +1,25 @@
-# Checklist — changement de plan en prorata (Stripe **test**)
+# Checklist — changement de plan via page Stripe (Portal)
 
-Mode test uniquement (`sk_test_` / bannière « Mode test »). Ne pas utiliser de vraie carte.
+Mode test (`sk_test_`). Confirm in-app → **toujours** redirect Customer Portal
+(`subscription_update_confirm`), jamais de charge silencieuse de la carte enregistrée.
 
-## Params attendus (code)
+## Params
 
-| Avant (full price) | Après (prorata) |
-|--------------------|-----------------|
-| `proration_behavior: none` | `proration_behavior: always_invoice` |
-| `billing_cycle_anchor: now` | *(omis — période conservée)* |
-| `payment_behavior: error_if_incomplete` | `payment_behavior: pending_if_incomplete` (3DS OK) |
-| assert facture = catalogue plein | `assertProrationInvoiceSettled` (paid / due 0) |
+| Règle | Valeur |
+|-------|--------|
+| Flux | Portal `flow_data.type=subscription_update_confirm` |
+| Prorata Portal | `always_invoice` (config `docmind_plan_change`) |
+| Apply local | après retour / webhook seulement |
 
-## Script optionnel (compte déjà payant)
+## Étapes
 
-```bash
-npx tsx scripts/test-plan-change-proration.ts [email] [targetPlan]
-```
+1. Compte Basique actif → Facturation → Passer à Pro → **Confirmer sur Stripe**.
+2. Vérifier redirection `billing.stripe.com` (détail prorata + carte).
+3. **4242** : payer → retour DocMind → « Passage à Pro confirmé », plan Pro.
+4. Recommencer avec carte **3220** : 3DS sur Stripe → plan OK après succès.
+5. Carte **0002** : échec sur Stripe → revenir / abandonner → plan **inchangé**.
+6. Ouvrir Portal puis fermer sans payer → plan **inchangé**.
 
-## Étapes Dashboard Stripe (numérotées)
+## UI bouton
 
-1. Ouvrir [Dashboard Stripe Test](https://dashboard.stripe.com/test/dashboard) — mode **Test**.
-2. Compte Free DocMind → Facturation → souscrire **Basique** (carte `4242…`).
-3. Dans Stripe → **Customers** → le client → abonnement Basique actif ; noter `current_period_end`.
-4. Dans DocMind → passer à **Premium** (confirm : texte prorata).
-5. Stripe → **Invoices** (dernière facture) :
-   - statut **Paid** (ou Open puis Paid) ;
-   - **au moins une ligne** avec prorata / « unused time » / « remaining time » ;
-   - `amount_paid` **≠** 34,99 € plein en général (sauf jour 1 du cycle) ;
-   - période d’abonnement : `current_period_end` **identique** (ou très proche) à avant le change — **pas** un reset +30 jours depuis maintenant.
-6. DocMind → downgrade **Basique** ; relire la nouvelle facture (crédits prorata).
-7. Carte 3DS : `4000 0000 0000 3220` au change → redirect facture Stripe ; plan DocMind **inchangé** tant que 3DS non validé ; après succès + Actualiser → nouveau plan.
-8. Carte refusée : `4000 0000 0000 0002` au change → message d’échec, plan local **inchangé**.
-
-## Ce que le client voit (Basique → Premium)
-
-- UI : « Le montant sera ajusté au prorata… » + estimation si preview OK.
-- Facture Stripe : lignes négatives (unused Basique) + positives (remaining Premium) ; total = différentiel prorata.
+Libellé : « Confirmer sur Stripe · X,XX € » → spinner « Redirection Stripe… ».

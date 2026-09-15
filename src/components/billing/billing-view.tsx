@@ -584,7 +584,7 @@ export function BillingView() {
           {busy?.startsWith("confirm-") ? (
             <p className="mt-4 inline-flex items-center gap-2 text-sm text-[var(--accent)]">
               <SpinnerIcon className="h-4 w-4" />
-              Paiement Stripe en cours — merci de patienter…
+              Ouverture de la page Stripe (carte / 3DS)…
             </p>
           ) : null}
           <div className="mt-6 flex flex-wrap gap-2">
@@ -598,7 +598,7 @@ export function BillingView() {
                   async () => {
                     setInfoTone("info");
                     setInfo(
-                      `Paiement du passage à ${targetName} en cours…`,
+                      `Redirection vers Stripe pour confirmer le passage à ${targetName} (carte / 3DS)…`,
                     );
                     const result = await startPlanCheckout(targetPlan);
                     if ("url" in result && result.url) {
@@ -612,7 +612,7 @@ export function BillingView() {
                       }
                       setInfoTone("info");
                       setInfo(
-                        "Confirmation carte / 3DS requise sur Stripe. Le nouveau plan ne s’active qu’après paiement réussi — vous serez redirigé.",
+                        "Confirmation sur Stripe… Le nouveau plan ne s’active qu’après paiement réussi. Si vous abandonnez la page Stripe, votre plan actuel reste inchangé.",
                       );
                       window.location.href = result.url;
                       return;
@@ -642,6 +642,10 @@ export function BillingView() {
                           subscription: refreshed.subscription,
                         }),
                       );
+                    } else {
+                      throw new Error(
+                        "Stripe n’a pas renvoyé de page de confirmation. Réessayez.",
+                      );
                     }
                   },
                   { skipReload: true },
@@ -652,10 +656,10 @@ export function BillingView() {
                 <SpinnerIcon className="h-4 w-4" />
               ) : null}
               {busy?.startsWith("confirm-")
-                ? "Paiement en cours…"
-                : `Confirmer et payer${
+                ? "Redirection Stripe…"
+                : `Confirmer sur Stripe${
                     planChangeConfirm.preview.immediateAmountDue != null
-                      ? ` ${planChangeConfirm.preview.immediateAmountDue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €`
+                      ? ` · ${planChangeConfirm.preview.immediateAmountDue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €`
                       : ""
                   }`}
             </Button>

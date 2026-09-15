@@ -126,17 +126,21 @@ Affichage : toujours `Plan · used/limit` du plan **actuel** (pas un « restants
 
 ### Facturation mid-cycle (prorata)
 
-`changeSubscriptionPlan` utilise `PLAN_CHANGE_PRORATION_UPDATE` :
+`changeSubscriptionPlan` ouvre une session **Customer Portal**
+`subscription_update_confirm` (page Stripe : carte / 3DS). Aucun
+`subscriptions.update` ni prélèvement silencieux côté app.
 
-| Paramètre | Valeur | Effet |
-|-----------|--------|--------|
-| `proration_behavior` | **`always_invoice`** | Lignes de prorata + facture immédiate |
-| `payment_behavior` | **`pending_if_incomplete`** | Price Stripe inchangé tant que le paiement n’est pas OK ; 3DS → `pending_update` + redirect facture hébergée |
-| `billing_cycle_anchor` | *(omis)* | Période / ancre **conservées** (pas de reset `now`) |
+Config Portal DocMind (`metadata.docmind_plan_change`) :
+`subscription_update.proration_behavior = always_invoice`.
 
-**Apply local (plan + quotas)** uniquement si : pas de `pending_update`, price cible confirmé, facture `paid` (ou `amount_due ≤ 0`). Sinon : sync ancien plan + URL `hosted_invoice_url` (ou Customer Portal). Webhooks `customer.subscription.updated` / `invoice.paid` finalisent après 3DS.
+| Étape | Effet |
+|-------|--------|
+| Confirm in-app | Redirect URL Portal |
+| Paiement / 3DS sur Stripe | Price bascule seulement si OK |
+| Retour `/facturation?checkout=success` + webhook | Apply local plan + quotas |
+| Abandon / refus | Plan local inchangé |
 
-**Pourquoi pas `error_if_incomplete` :** ce mode refuse le 3DS (erreur API sans PaymentIntent / URL). `pending_if_incomplete` + facture hébergée est le flux SCA compatible.
+`PLAN_CHANGE_PRORATION_UPDATE` (`pending_if_incomplete` + `always_invoice`) reste la règle métier de référence pour sync / docs ; le prélèvement utilisateur passe par le Portal.
 
 Exemple **Basique → Premium → Basique** dans le même mois (cartes **test**) :
 

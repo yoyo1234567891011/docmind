@@ -84,49 +84,31 @@ async function main() {
 
   const result = await changeSubscriptionPlan({ userId, plan: targetArg });
   console.log("Résultat:", result);
-  assert.equal(result.outcome, "applied", "Attendu paiement immédiat settled (carte OK)");
-  assert.ok(result.immediateInvoice, "Facture immédiate attendue (always_invoice)");
-
-  const stripe = getStripe();
-  const invoice = await stripe.invoices.retrieve(result.immediateInvoice.id, {
-    expand: ["lines.data"],
-  });
-  const amountPaid = (invoice.amount_paid ?? 0) / 100;
-  const catalog = catalogPlanMonthlyEur(targetArg);
-  const lines = invoice.lines?.data ?? [];
-  const hasProrationLine = lines.some(
-    (l) =>
-      l.proration === true ||
-      /unused|remaining|Unused|proration/i.test(l.description ?? ""),
+  assert.equal(
+    result.outcome,
+    "action_required",
+    "Attendu redirect Portal Stripe (pas de prélèvement silencieux)",
   );
-
-  console.log("Facture Stripe:", {
-    id: invoice.id,
-    status: invoice.status,
-    amount_paid: amountPaid,
-    catalogTarget: catalog,
-    lineCount: lines.length,
-    hasProrationLine,
-    lines: lines.map((l) => ({
-      amount: (l.amount ?? 0) / 100,
-      proration: l.proration,
-      description: l.description,
-    })),
-  });
+  assert.ok(result.url, "URL Portal Stripe requise");
+  assert.ok(
+    /billing\.stripe\.com|stripe\.com/i.test(result.url),
+    `URL Portal inattendue: ${result.url}`,
+  );
 
   const after = await getUserSubscription(userId);
-  console.log("Après:", {
+  console.log("Après (avant paiement Portal):", {
     plan: after.plan,
     currentPeriodEnd: after.currentPeriodEnd,
+    portalUrl: result.url.slice(0, 80) + "…",
   });
 
-  assert.equal(after.plan, targetArg, "Plan local aligné");
-  assert.ok(
-    invoice.status === "paid" || invoice.amount_due === 0,
-    `Facture non réglée: ${invoice.status}`,
+  assert.equal(
+    after.plan,
+    before.plan,
+    "Plan local inchangé tant que Portal non confirmé",
   );
 
-  // Période conservée (tolérance 2 jours — pas un reset +30j depuis now)
+  // Période conservée côté abo (pas encore modifié)
   if (periodEndBefore && after.currentPeriodEnd) {
     const periodEndAfter = Date.parse(after.currentPeriodEnd);
     const deltaDays = Math.abs(periodEndAfter - periodEndBefore) / 86_400_000;
@@ -136,17 +118,10 @@ async function main() {
     );
   }
 
-  // Sur un upgrade mid-cycle, le plein catalogue est rare (sauf quasi jour 1)
-  if (hasProrationLine && amountPaid > 0) {
-    console.log(
-      `OK prorata : prélèvement ${amountPaid} € (catalogue cible ${catalog} €)`,
-    );
-  } else if (!hasProrationLine) {
-    console.warn(
-      "WARN: aucune ligne proration détectée — vérifier le Dashboard (jour 1 du cycle ?).",
-    );
-  }
-
+  console.log(
+    "OK : session Portal créée. Finaliser manuellement sur Stripe (4242 / 3220 / abandon).",
+  );
+  console.log("Preview prorata UI:", preview.immediateAmountDue);
   console.log("test-plan-change-proration: OK");
   console.log("Checklist Dashboard: scripts/checklist-plan-change-proration.md");
 }
