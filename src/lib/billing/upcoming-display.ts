@@ -240,8 +240,32 @@ export function describePlanChangePreview(
         ? ` (${formatMoneyEur(preview.targetMonthlyEur)} / mois)`
         : ""
     }.`,
-    "Le montant sera ajusté au prorata de la période restante (calcul Stripe).",
   ];
+
+  if (preview.deferredToPeriodEnd) {
+    if (preview.nextBillingDate) {
+      lines.push(
+        `Passage à ${preview.targetPlanName} le ${formatDateTime(preview.nextBillingDate)}. Jusqu’à cette date vous restez sur ${preview.currentPlanName}.`,
+      );
+    } else {
+      lines.push(
+        `Passage à ${preview.targetPlanName} en fin de période. Jusqu’à cette date vous restez sur ${preview.currentPlanName}.`,
+      );
+    }
+    lines.push(
+      "Aucun prélèvement immédiat attendu (montant souvent 0 €) — le plan bas ne s’applique pas tout de suite.",
+    );
+    if (preview.nextMonthlyEur != null) {
+      lines.push(
+        `Ensuite : ${formatMoneyEur(preview.nextMonthlyEur)} / mois.`,
+      );
+    }
+    return lines;
+  }
+
+  lines.push(
+    "Le montant sera ajusté au prorata de la période restante (calcul Stripe).",
+  );
 
   if (preview.immediateAmountDue != null && preview.immediateAmountDue > 0) {
     lines.push(
@@ -249,9 +273,7 @@ export function describePlanChangePreview(
     );
   } else if (preview.immediateAmountDue === 0) {
     lines.push(
-      preview.isUpgrade
-        ? "Aucun prélèvement immédiat estimé (vérifiez la facture Stripe après confirmation)."
-        : "Downgrade : crédit / solde Stripe possible — aucun plein tarif du plan inférieur.",
+      "Aucun prélèvement immédiat estimé (vérifiez la facture Stripe après confirmation).",
     );
   } else {
     lines.push(

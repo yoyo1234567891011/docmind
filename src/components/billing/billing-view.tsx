@@ -278,6 +278,16 @@ export function BillingView() {
         </p>
       </header>
 
+      {subscription.pendingPlan && subscription.pendingPlanEffectiveAt ? (
+        <Alert tone="info" title="Changement programmé">
+          Passage à{" "}
+          {plans.find((p) => p.id === subscription.pendingPlan)?.name ??
+            subscription.pendingPlan}{" "}
+          le {formatDateTime(subscription.pendingPlanEffectiveAt)}. Jusqu’à
+          cette date vous restez sur {plan.name}.
+        </Alert>
+      ) : null}
+
       {subscription.status === "past_due" ? (
         <Alert tone="info" title="Paiement en retard">
           Votre dernier prélèvement a échoué — les quotas payants sont suspendus
@@ -617,7 +627,23 @@ export function BillingView() {
                       window.location.href = result.url;
                       return;
                     }
-                    if (result.changed) {
+                    if ("scheduled" in result && result.scheduled) {
+                      const refreshed = await syncBilling();
+                      setData(refreshed);
+                      setPlanChangeConfirm(null);
+                      const pendingName =
+                        refreshed.plans.find((p) => p.id === result.pendingPlan)
+                          ?.name ?? result.pendingPlan;
+                      const currentName =
+                        refreshed.plans.find((p) => p.id === result.currentPlan)
+                          ?.name ?? result.currentPlan;
+                      setInfoTone("success");
+                      setInfo(
+                        `Passage à ${pendingName} le ${formatDateTime(result.effectiveAt)}. Jusqu’à cette date vous restez sur ${currentName}.`,
+                      );
+                      return;
+                    }
+                    if ("changed" in result && result.changed) {
                       const refreshed = await syncBilling();
                       setData(refreshed);
                       setPlanChangeConfirm(null);
@@ -656,12 +682,22 @@ export function BillingView() {
                 <SpinnerIcon className="h-4 w-4" />
               ) : null}
               {busy?.startsWith("confirm-")
-                ? "Redirection Stripe…"
-                : `Confirmer sur Stripe${
-                    planChangeConfirm.preview.immediateAmountDue != null
-                      ? ` · ${planChangeConfirm.preview.immediateAmountDue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €`
-                      : ""
-                  }`}
+                ? planChangeConfirm.preview.deferredToPeriodEnd
+                  ? "Programmation…"
+                  : "Redirection Stripe…"
+                : planChangeConfirm.preview.deferredToPeriodEnd
+                  ? `Confirmer le passage au ${
+                      planChangeConfirm.preview.nextBillingDate
+                        ? formatDateTime(
+                            planChangeConfirm.preview.nextBillingDate,
+                          )
+                        : "fin de période"
+                    }`
+                  : `Confirmer sur Stripe${
+                      planChangeConfirm.preview.immediateAmountDue != null
+                        ? ` · ${planChangeConfirm.preview.immediateAmountDue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €`
+                        : ""
+                    }`}
             </Button>
             <Button
               variant="ghost"

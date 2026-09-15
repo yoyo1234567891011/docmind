@@ -84,6 +84,7 @@ function previewPremiumToExtra(): BillingPlanChangePreview {
     immediateAmountDue: 12.34,
     currency: "EUR",
     isUpgrade: true,
+    deferredToPeriodEnd: false,
     nextBillingDate: "2026-09-29T00:00:00.000Z",
     nextMonthlyEur: 59.99,
     available: true,
@@ -102,6 +103,7 @@ function previewExtraToPremium(): BillingPlanChangePreview {
     immediateAmountDue: 0,
     currency: "EUR",
     isUpgrade: false,
+    deferredToPeriodEnd: true,
     nextBillingDate: "2026-09-29T00:00:00.000Z",
     nextMonthlyEur: 34.99,
     available: true,
@@ -135,8 +137,9 @@ assert.ok(PLAN_CHANGE_HINT.includes("prorata"));
 
 {
   const lines = describePlanChangePreview(previewExtraToPremium());
-  assert.ok(lines.some((l) => /prorata/i.test(l)));
-  assert.ok(lines.some((l) => /Downgrade|crédit/i.test(l)));
+  assert.ok(lines.some((l) => /Passage à Premium le/i.test(l)));
+  assert.ok(lines.some((l) => /restez sur Extra/i.test(l)));
+  assert.ok(!lines.some((l) => /Confirmer sur Stripe/i.test(l)));
 }
 
 {

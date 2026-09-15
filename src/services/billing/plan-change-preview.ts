@@ -1,4 +1,4 @@
-import { getBillingPlan, getStripePriceIdForPlan } from "@/config/billing";
+import { getBillingPlan, getStripePriceIdForPlan, isPlanTierUpgrade } from "@/config/billing";
 import { AppError } from "@/lib/errors";
 import { getStripe, requireStripeConfigured } from "@/lib/stripe";
 import { resolveEffectivePlan } from "@/services/billing/access";
@@ -28,6 +28,7 @@ function unavailablePreview(
     immediateAmountDue: null,
     currency: "EUR",
     isUpgrade: (target.priceMonthlyEur ?? 0) > (current.priceMonthlyEur ?? 0),
+    deferredToPeriodEnd: false,
     nextBillingDate: null,
     nextMonthlyEur: target.priceMonthlyEur,
     available: false,
@@ -73,8 +74,8 @@ export async function previewPlanChange(
 
   const currentDef = getBillingPlan(currentPlan);
   const targetDef = getBillingPlan(targetPlan);
-  const isUpgrade =
-    (targetDef.priceMonthlyEur ?? 0) > (currentDef.priceMonthlyEur ?? 0);
+  const isUpgrade = isPlanTierUpgrade(currentPlan, targetPlan);
+  const deferredToPeriodEnd = !isUpgrade;
 
   let immediateAmountDue: number | null = null;
   // Vérité renouvellement = période abo (page Facturation), jamais la fenêtre prorata.
@@ -89,20 +90,22 @@ export async function previewPlanChange(
     const period = periodFromSubscription(stripeSub);
     if (period.end) nextBillingDate = period.end;
 
-    const item = resolveBillableSubscriptionItem(stripeSub, sub.stripePriceId);
-    const preview = await stripe.invoices.createPreview({
-      customer: sub.stripeCustomerId,
-      subscription: sub.stripeSubscriptionId,
-      subscription_details: {
-        items: [{ id: item.id, price: priceId }],
-        ...PLAN_CHANGE_PREVIEW_SUBSCRIPTION_DETAILS,
-      },
-    });
-    immediateAmountDue = Math.max(0, (preview.amount_due ?? 0) / 100);
-    // Ne pas utiliser preview.period_end : c’est la fenêtre des lignes de prorata
-    // (souvent « aujourd’hui »), pas current_period_end de l’abonnement.
+    if (isUpgrade) {
+      const item = resolveBillableSubscriptionItem(stripeSub, sub.stripePriceId);
+      const preview = await stripe.invoices.createPreview({
+        customer: sub.stripeCustomerId,
+        subscription: sub.stripeSubscriptionId,
+        subscription_details: {
+          items: [{ id: item.id, price: priceId }],
+          ...PLAN_CHANGE_PREVIEW_SUBSCRIPTION_DETAILS,
+        },
+      });
+      immediateAmountDue = Math.max(0, (preview.amount_due ?? 0) / 100);
+    } else {
+      immediateAmountDue = 0;
+    }
   } catch {
-    // garde une preview sans montant exact — UI explique le prorata Stripe
+    if (deferredToPeriodEnd) immediateAmountDue = 0;
   }
 
   return {
@@ -115,9 +118,12 @@ export async function previewPlanChange(
     immediateAmountDue,
     currency: "EUR",
     isUpgrade,
+    deferredToPeriodEnd,
     nextBillingDate,
     nextMonthlyEur: targetDef.priceMonthlyEur,
     available: true,
-    note: null,
+    note: deferredToPeriodEnd
+      ? `Le passage à ${targetDef.name} prend effet à la fin de période — jusqu’à cette date vous restez sur ${currentDef.name}.`
+      : null,
   };
 }

@@ -47,6 +47,8 @@ function normalize(record: UserSubscriptionRecord): UserSubscriptionRecord {
     currentPeriodStart: record.currentPeriodStart ?? null,
     currentPeriodEnd: record.currentPeriodEnd ?? null,
     canceledAt: record.canceledAt ?? null,
+    pendingPlan: record.pendingPlan ?? null,
+    pendingPlanEffectiveAt: record.pendingPlanEffectiveAt ?? null,
     lastWebhookEventId: record.lastWebhookEventId ?? null,
     lastWebhookEventType: record.lastWebhookEventType ?? null,
     lastWebhookAt: record.lastWebhookAt ?? null,

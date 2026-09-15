@@ -62,6 +62,12 @@ export async function startPlanCheckout(
       immediateInvoice: BillingImmediateInvoice | null;
       url?: undefined;
     }
+  | {
+      scheduled: true;
+      currentPlan: PaidBillingPlanId;
+      pendingPlan: PaidBillingPlanId;
+      effectiveAt: string;
+    }
 > {
   let response: Response;
   try {
@@ -87,8 +93,27 @@ export async function startPlanCheckout(
         plan: PaidBillingPlanId;
         immediateInvoice?: BillingImmediateInvoice | null;
       }
+    | {
+        scheduled: true;
+        currentPlan: PaidBillingPlanId;
+        pendingPlan: PaidBillingPlanId;
+        effectiveAt: string;
+      }
     | { mode: "changed"; plan: PaidBillingPlanId }
   >(response);
+  if (
+    data &&
+    typeof data === "object" &&
+    "scheduled" in data &&
+    data.scheduled === true
+  ) {
+    return {
+      scheduled: true as const,
+      currentPlan: data.currentPlan,
+      pendingPlan: data.pendingPlan,
+      effectiveAt: data.effectiveAt,
+    };
+  }
   if (
     data &&
     typeof data === "object" &&

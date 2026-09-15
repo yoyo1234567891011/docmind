@@ -126,21 +126,11 @@ Affichage : toujours `Plan · used/limit` du plan **actuel** (pas un « restants
 
 ### Facturation mid-cycle (prorata)
 
-`changeSubscriptionPlan` ouvre une session **Customer Portal**
-`subscription_update_confirm` (page Stripe : carte / 3DS). Aucun
-`subscriptions.update` ni prélèvement silencieux côté app.
+`changeSubscriptionPlan` :
+- **Upgrade** → Customer Portal `subscription_update_confirm` (page Stripe, prorata `always_invoice`). Apply local après paid / webhook. Quotas : `used` **conservé**, nouvelles `limit`.
+- **Downgrade** → Subscription Schedule à `current_period_end` (souvent 0 €). Plan + avantages hauts jusqu’à la date ; UI « Passage à {bas} le {date}… ».
 
-Config Portal DocMind (`metadata.docmind_plan_change`) :
-`subscription_update.proration_behavior = always_invoice`.
-
-| Étape | Effet |
-|-------|--------|
-| Confirm in-app | Redirect URL Portal |
-| Paiement / 3DS sur Stripe | Price bascule seulement si OK |
-| Retour `/facturation?checkout=success` + webhook | Apply local plan + quotas |
-| Abandon / refus | Plan local inchangé |
-
-`PLAN_CHANGE_PRORATION_UPDATE` (`pending_if_incomplete` + `always_invoice`) reste la règle métier de référence pour sync / docs ; le prélèvement utilisateur passe par le Portal.
+Checklist : `scripts/checklist-upgrade-downgrade.md`.
 
 Exemple **Basique → Premium → Basique** dans le même mois (cartes **test**) :
 

@@ -1,6 +1,8 @@
 import {
   getStripePriceIdForPlan,
   isPaidBillingPlanId,
+  isPlanTierDowngrade,
+  isPlanTierUpgrade,
 } from "@/config/billing";
 import { AppError } from "@/lib/errors";
 import { withKeyedLock } from "@/lib/keyed-lock";
@@ -8,6 +10,10 @@ import { getStripe, requireStripeConfigured } from "@/lib/stripe";
 import { resolveEffectivePlan } from "@/services/billing/access";
 import { createPlanChangePortalSession } from "@/services/billing/portal-plan-change";
 import { clearPendingDocmindAdjustmentItems } from "@/services/billing/renewal-catalog";
+import {
+  clearPendingDowngrade,
+  schedulePlanDowngrade,
+} from "@/services/billing/schedule-downgrade";
 import { getUserSubscription } from "@/services/billing/store";
 import { toStripeBillingAppError } from "@/services/billing/stripe-payment-errors";
 import type {
@@ -29,6 +35,12 @@ export type ChangeSubscriptionPlanResult =
       url: string;
       targetPlan: PaidBillingPlanId;
       immediateInvoice: BillingImmediateInvoice | null;
+    }
+  | {
+      outcome: "scheduled";
+      currentPlan: PaidBillingPlanId;
+      pendingPlan: PaidBillingPlanId;
+      effectiveAt: string;
     };
 
 export function resolveBillableSubscriptionItem(
@@ -66,8 +78,6 @@ export function resolveBillableSubscriptionItem(
 
 /**
  * Classifie un état Stripe post-paiement (webhook / sync).
- * Conservé pour tests et retrieve settled — le change in-app ne charge plus
- * la carte en silence.
  */
 export function classifyPlanChangePayment(input: {
   subscription: Stripe.Subscription;
@@ -111,13 +121,8 @@ export function classifyPlanChangePayment(input: {
 }
 
 /**
- * Changement payant → payant : **toujours** via page Stripe
- * (Customer Portal `subscription_update_confirm`).
- *
- * - Prorata : `always_invoice` (config Portal DocMind)
- * - Aucun `subscriptions.update` / prélèvement silencieux côté app
- * - Plan local + quotas : uniquement après retour / webhook (payment gate)
- * - Abandon ou refus sur Stripe → plan inchangé
+ * Upgrade : Portal Stripe (paiement / 3DS) — apply local après paid.
+ * Downgrade : Subscription Schedule à period_end — plan haut jusqu’à la date.
  */
 export async function changeSubscriptionPlan(
   input: {
@@ -171,6 +176,38 @@ export async function changeSubscriptionPlan(
 
     try {
       await clearPendingDocmindAdjustmentItems(stripe, sub.stripeCustomerId);
+
+      if (isPlanTierDowngrade(currentPlan, targetPlan)) {
+        const scheduled = await schedulePlanDowngrade({
+          userId: input.userId,
+          subscriptionId: sub.stripeSubscriptionId,
+          targetPlan,
+        });
+        return {
+          outcome: "scheduled",
+          currentPlan: scheduled.currentPlan,
+          pendingPlan: targetPlan,
+          effectiveAt: scheduled.effectiveAt,
+        };
+      }
+
+      if (!isPlanTierUpgrade(currentPlan, targetPlan)) {
+        throw new AppError(
+          "BAD_REQUEST",
+          "Changement de plan non supporté.",
+          400,
+        );
+      }
+
+      // Upgrade immédiat après paiement : annule un downgrade programmé éventuel.
+      try {
+        await clearPendingDowngrade({
+          userId: input.userId,
+          subscriptionId: sub.stripeSubscriptionId,
+        });
+      } catch {
+        // ignore
+      }
 
       const stripeSub = await stripe.subscriptions.retrieve(
         sub.stripeSubscriptionId,

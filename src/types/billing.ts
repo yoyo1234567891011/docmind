@@ -85,6 +85,9 @@ export interface UserSubscriptionRecord {
   cancelAtPeriodEnd: boolean;
   /** Date de fin / annulation effective si connue. */
   canceledAt: string | null;
+  /** Downgrade programmé (effet à pendingPlanEffectiveAt / period_end). */
+  pendingPlan?: PaidBillingPlanId | null;
+  pendingPlanEffectiveAt?: string | null;
   /** Dernier événement webhook appliqué (audit). */
   lastWebhookEventId: string | null;
   lastWebhookEventType: string | null;
@@ -175,6 +178,8 @@ export interface BillingPlanChangePreview {
   immediateAmountDue: number | null;
   currency: string;
   isUpgrade: boolean;
+  /** Downgrade : effet uniquement à nextBillingDate (period_end). */
+  deferredToPeriodEnd: boolean;
   nextBillingDate: string | null;
   /** Tarif mensuel du nouveau plan à la prochaine échéance. */
   nextMonthlyEur: number | null;
@@ -215,6 +220,8 @@ export const EMPTY_FREE_SUBSCRIPTION = (
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
   canceledAt: null,
+  pendingPlan: null,
+  pendingPlanEffectiveAt: null,
   lastWebhookEventId: null,
   lastWebhookEventType: null,
   lastWebhookAt: null,

@@ -36,6 +36,10 @@ export {
 export { createBillingPortalSession } from "./portal";
 export { createPlanChangePortalSession } from "./portal-plan-change";
 export {
+  schedulePlanDowngrade,
+  clearPendingDowngrade,
+} from "./schedule-downgrade";
+export {
   cancelPremiumSubscription,
   resumePremiumSubscription,
 } from "./cancel";

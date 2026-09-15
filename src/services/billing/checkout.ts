@@ -57,6 +57,12 @@ export type PlanCheckoutResult =
       mode: "changed";
       plan: PaidBillingPlanId;
       immediateInvoice: BillingImmediateInvoice | null;
+    }
+  | {
+      mode: "scheduled";
+      currentPlan: PaidBillingPlanId;
+      pendingPlan: PaidBillingPlanId;
+      effectiveAt: string;
     };
 
 export async function createPlanCheckoutSession(input: {
@@ -97,6 +103,14 @@ export async function createPlanCheckoutSession(input: {
       // 3DS / SCA : redirect facture hébergée — plan local inchangé jusqu’au webhook.
       if (changed.outcome === "action_required") {
         return { mode: "redirect", url: changed.url };
+      }
+      if (changed.outcome === "scheduled") {
+        return {
+          mode: "scheduled",
+          currentPlan: changed.currentPlan,
+          pendingPlan: changed.pendingPlan,
+          effectiveAt: changed.effectiveAt,
+        };
       }
       return {
         mode: "changed",

@@ -38,6 +38,14 @@ export async function POST(request: Request) {
         immediateInvoice: session.immediateInvoice,
       });
     }
+    if (session.mode === "scheduled") {
+      return apiSuccess({
+        scheduled: true as const,
+        currentPlan: session.currentPlan,
+        pendingPlan: session.pendingPlan,
+        effectiveAt: session.effectiveAt,
+      });
+    }
     return apiSuccess({ url: session.url });
   } catch (error) {
     return apiFromUnknownError(error);

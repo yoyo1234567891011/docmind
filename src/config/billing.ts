@@ -160,6 +160,14 @@ export function isPlanTierUpgrade(
   return planTierRank(toPlan) > planTierRank(fromPlan);
 }
 
+/** Vrai si le plan effectif descend d’un palier. */
+export function isPlanTierDowngrade(
+  fromPlan: BillingPlanId,
+  toPlan: BillingPlanId,
+): boolean {
+  return planTierRank(toPlan) < planTierRank(fromPlan);
+}
+
 function trimEnv(name: string): string | undefined {
   const v = process.env[name]?.trim();
   return v || undefined;

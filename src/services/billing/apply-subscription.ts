@@ -3,21 +3,20 @@ import type Stripe from "stripe";
 import {
   hasAnyStripePaidPriceConfigured,
   isPaidBillingPlanId,
-  isPlanTierUpgrade,
   normalizeBillingPlanId,
   planIdFromStripePriceId,
+  planTierRank,
 } from "@/config/billing";
 import { isDeployedEnv } from "@/lib/env-validate";
 import { trackAnalyticsEvent } from "@/services/analytics";
-import { resolveEffectivePlan } from "@/services/billing/access";
 import {
   getUserSubscription,
   upsertSubscriptionPatch,
 } from "@/services/billing/store";
-import { resetQuotasOnPlanUpgrade } from "@/services/quotas/upgrade-reset";
 import type {
   BillingPlanId,
   BillingSubscriptionStatus,
+  PaidBillingPlanId,
 } from "@/types/billing";
 
 export function toIso(unix: number | null | undefined): string | null {
@@ -97,6 +96,47 @@ export function isCancelScheduled(sub: Stripe.Subscription): boolean {
 }
 
 /**
+ * Downgrade programmé : metadata Stripe + schedule.
+ * Tant que le price courant ≠ pending, on expose pendingPlan pour l’UI.
+ */
+export function resolvePendingDowngrade(
+  sub: Stripe.Subscription,
+  currentPlan: BillingPlanId,
+  periodEnd: string | null,
+): {
+  pendingPlan: PaidBillingPlanId | null;
+  pendingPlanEffectiveAt: string | null;
+} {
+  const raw =
+    sub.metadata?.docmind_pending_plan?.trim() ||
+    sub.metadata?.pending_plan?.trim() ||
+    "";
+  const pending = normalizeBillingPlanId(raw);
+  if (!isPaidBillingPlanId(pending)) {
+    return { pendingPlan: null, pendingPlanEffectiveAt: null };
+  }
+  // Déjà basculé sur le plan bas (phase schedule terminée).
+  if (currentPlan === pending) {
+    return { pendingPlan: null, pendingPlanEffectiveAt: null };
+  }
+  // Pending n’a de sens que si inférieur au plan actuel.
+  if (planTierRank(pending) >= planTierRank(currentPlan)) {
+    return { pendingPlan: null, pendingPlanEffectiveAt: null };
+  }
+  const atRaw = sub.metadata?.docmind_pending_plan_at?.trim() || "";
+  let effectiveAt: string | null = periodEnd;
+  if (atRaw) {
+    const asNum = Number(atRaw);
+    if (Number.isFinite(asNum) && asNum > 1_000_000_000) {
+      effectiveAt = toIso(asNum);
+    } else if (!Number.isNaN(Date.parse(atRaw))) {
+      effectiveAt = new Date(atRaw).toISOString();
+    }
+  }
+  return { pendingPlan: pending, pendingPlanEffectiveAt: effectiveAt };
+}
+
+/**
  * Applique l’état d’un abonnement Stripe dans la base locale (source de vérité).
  * L’ordre des événements est garanti sous le mutex `billing:sub:{userId}`.
  */
@@ -125,6 +165,8 @@ export async function applyStripeSubscription(
     period.end ||
     (typeof sub.cancel_at === "number" ? toIso(sub.cancel_at) : null);
 
+  const pending = resolvePendingDowngrade(sub, nextPlan, periodEnd);
+
   const applied = await upsertSubscriptionPatch(
     userId,
     {
@@ -139,6 +181,8 @@ export async function applyStripeSubscription(
       currentPeriodStart: period.start,
       currentPeriodEnd: periodEnd,
       cancelAtPeriodEnd: cancelScheduled,
+      pendingPlan: pending.pendingPlan,
+      pendingPlanEffectiveAt: pending.pendingPlanEffectiveAt,
       canceledAt: cancelScheduled
         ? toIso(sub.canceled_at) || new Date().toISOString()
         : status === "canceled"
@@ -160,17 +204,7 @@ export async function applyStripeSubscription(
 
   if (!applied) return;
 
-  const previousEffective = previous
-    ? resolveEffectivePlan(previous.plan, previous.status, {
-        currentPeriodEnd: previous.currentPeriodEnd,
-      })
-    : "free";
-  const nextEffective = resolveEffectivePlan(nextPlan, status, {
-    currentPeriodEnd: periodEnd,
-  });
-  if (isPlanTierUpgrade(previousEffective, nextEffective)) {
-    await resetQuotasOnPlanUpgrade(userId);
-  }
+  // Upgrade / downgrade : jamais de reset `used` — seules les limit du plan changent.
 
   const wasPaid =
     previous != null &&
