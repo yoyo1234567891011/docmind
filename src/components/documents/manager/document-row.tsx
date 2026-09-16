@@ -20,10 +20,12 @@ interface DocumentRowProps {
   item: HistoryDisplayItem;
   active: boolean;
   busy: boolean;
+  checked: boolean;
   tags: DocumentTag[];
   folders: FolderWithCount[];
   tagMap: Map<string, DocumentTag>;
   onSelect: () => void;
+  onToggleCheck: () => void;
   onToggleFavorite: () => void;
   onRename: (name: string) => void;
   onMove: (folderId: string) => void;
@@ -35,10 +37,12 @@ function DocumentRowInner({
   item,
   active,
   busy,
+  checked,
   tags,
   folders,
   tagMap,
   onSelect,
+  onToggleCheck,
   onToggleFavorite,
   onRename,
   onMove,
@@ -64,12 +68,24 @@ function DocumentRowInner({
   return (
     <div
       className={cn(
-        "group grid grid-cols-1 gap-2 border-b border-[var(--border)] px-3 py-2.5 transition-colors md:grid-cols-[minmax(0,1.6fr)_110px_100px_140px_auto] md:items-center",
+        "group grid grid-cols-1 gap-2 border-b border-[var(--border)] px-3 py-2.5 transition-colors md:grid-cols-[40px_minmax(0,1.6fr)_110px_100px_140px_auto] md:items-center",
         active
           ? "bg-[color-mix(in_oklab,var(--accent)_10%,transparent)]"
           : "hover:bg-[var(--surface-elevated)]",
+        checked && "bg-[color-mix(in_oklab,var(--accent)_6%,transparent)]",
       )}
     >
+      <div className="flex items-center md:justify-center">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={busy}
+          onChange={onToggleCheck}
+          onClick={(event) => event.stopPropagation()}
+          className="h-5 w-5 cursor-pointer rounded border-[var(--border-strong)] accent-[var(--accent)]"
+          aria-label={`Sélectionner ${item.title}`}
+        />
+      </div>
       <button
         type="button"
         onClick={onSelect}

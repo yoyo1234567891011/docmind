@@ -1,3 +1,5 @@
+import { createClient } from "@supabase/supabase-js";
+
 import { getLlmProviderConfig } from "@/ai/models/llm-provider";
 import { usePersistentStorage } from "@/config/persistence";
 import { getDatabaseUrl, query } from "@/lib/db/pool";
@@ -7,21 +9,18 @@ import { getDrainStatus } from "@/services/admin/ops-status";
 import type { AdminOverviewAlert } from "@/types/admin-ops";
 import type { AdminPlatformOverview } from "@/types/admin-platform";
 
-/** Tokens moyens par analyse P2 (mesuré sur gpt-oss-120b). */
-const ESTIMATED_TOKENS_PER_ANALYSIS = 4_000;
-
 /**
- * Seuil anti-faux métriques : certains chemins salvage écrivent totalTokens=1
- * pour passer la validation publish — à exclure des sommes admin.
+ * Seuil anti-faux métriques : ancien salvage totalTokens=1 —
+ * exclu des sommes (un job P2 Groq réel est typiquement 2–5k+).
  */
 const MIN_REAL_JOB_TOKENS = 100;
 
-/** Plafond catalogue Groq free TPD (gpt-oss-*) — pas l’API quota live. */
+/** Plafond catalogue Groq free TPD (gpt-oss-*) — hardcodé, pas l’API quota live. */
 const GROQ_FREE_DAILY_TOKENS = 200_000;
 
 /** Groq TPD (tokens/jour) se réinitialise à minuit UTC. */
 function nextGroqDailyTokenResetAt(now = new Date()): Date {
-  const next = new Date(
+  return new Date(
     Date.UTC(
       now.getUTCFullYear(),
       now.getUTCMonth(),
@@ -32,7 +31,6 @@ function nextGroqDailyTokenResetAt(now = new Date()): Date {
       0,
     ),
   );
-  return next;
 }
 
 function detectProviderLabel(): AdminPlatformOverview["llm"]["provider"] {
@@ -45,9 +43,36 @@ function detectProviderLabel(): AdminPlatformOverview["llm"]["provider"] {
 }
 
 function groqDailyTokenLimit(model: string): number {
-  if (/gpt-oss-120b/i.test(model)) return GROQ_FREE_DAILY_TOKENS;
-  if (/gpt-oss-20b/i.test(model)) return GROQ_FREE_DAILY_TOKENS;
+  void model;
   return GROQ_FREE_DAILY_TOKENS;
+}
+
+/** Comptes Auth Supabase (pagination). null si service role indisponible. */
+async function countAuthUsers(): Promise<number | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !service) return null;
+  try {
+    const admin = createClient(url, service, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    let page = 1;
+    let total = 0;
+    for (;;) {
+      const { data, error } = await admin.auth.admin.listUsers({
+        page,
+        perPage: 200,
+      });
+      if (error) return null;
+      total += data.users.length;
+      if (data.users.length < 200) break;
+      page += 1;
+      if (page > 50) break;
+    }
+    return total;
+  } catch {
+    return null;
+  }
 }
 
 export async function buildAdminPlatformOverview(): Promise<AdminPlatformOverview> {
@@ -62,6 +87,7 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
 
   const [
     userStats,
+    authCount,
     jobStats,
     todayTokens,
     monthTokens,
@@ -70,6 +96,7 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
     drain,
   ] = await Promise.all([
     queryUserStats(),
+    countAuthUsers(),
     queryJobStats(),
     queryTokensUsed("utc_day"),
     queryTokensUsed("rolling_30d"),
@@ -125,7 +152,6 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
       message: `${stuckCount} job(s) stuck > 10 min (pending/processing).`,
     });
   }
-  // Taux d’échec sur 7j seulement (les failed historiques ne doivent pas alerter).
   const recentDenom = jobStats.completed7d + jobStats.failed7d;
   if (jobStats.failed7d > 0 && recentDenom > 0) {
     const failRate = jobStats.failed7d / recentDenom;
@@ -148,29 +174,32 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
     });
   }
 
+  // Exact only — jamais jobs×avg.
+  const usedToday = todayTokens.fromMetrics;
+  const usedMonth = monthTokens.fromMetrics;
+  const jobsUnmeasuredToday = Math.max(
+    0,
+    todayTokens.jobsCompleted - todayTokens.jobsWithRealMetrics,
+  );
+  const jobsUnmeasuredMonth = Math.max(
+    0,
+    monthTokens.jobsCompleted - monthTokens.jobsWithRealMetrics,
+  );
   const avgPerAnalysis =
     monthTokens.jobsWithRealMetrics > 0
       ? Math.round(monthTokens.fromMetrics / monthTokens.jobsWithRealMetrics)
-      : ESTIMATED_TOKENS_PER_ANALYSIS;
-
-  // Jour UTC (= fenêtre Groq TPD). totalTokens < MIN exclus (souvent placeholders =1).
-  const usedToday =
-    todayTokens.fromMetrics > 0
-      ? todayTokens.fromMetrics
-      : todayTokens.jobsCompleted * avgPerAnalysis;
-  const usedMonth =
-    monthTokens.fromMetrics > 0
-      ? monthTokens.fromMetrics
-      : monthTokens.jobsCompleted * avgPerAnalysis;
+      : null;
 
   const limitPerDay = cloudEnabled ? groqDailyTokenLimit(model) : 0;
-  const remaining =
-    limitPerDay > 0
-      ? Math.max(
-          0,
-          Math.floor((limitPerDay - usedToday) / Math.max(avgPerAnalysis, 1)),
-        )
-      : 0;
+  const estimatedAnalysesRemainingToday =
+    limitPerDay > 0 && avgPerAnalysis != null && avgPerAnalysis > 0
+      ? Math.max(0, Math.floor((limitPerDay - usedToday) / avgPerAnalysis))
+      : null;
+
+  const totalEver =
+    authCount != null ? authCount : userStats.unionEver;
+  const totalEverSource: AdminPlatformOverview["users"]["totalEverSource"] =
+    authCount != null ? "auth" : "app_union";
 
   const avgAnalysesPerUser =
     userStats.withAnalyses === 0
@@ -188,21 +217,30 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
     tokens: {
       usedToday,
       usedMonth,
-      limitPerDay,
+      jobsMeasuredToday: todayTokens.jobsWithRealMetrics,
+      jobsUnmeasuredToday,
+      jobsMeasuredMonth: monthTokens.jobsWithRealMetrics,
+      jobsUnmeasuredMonth,
       avgPerAnalysis,
-      estimatedAnalysesRemainingToday: remaining,
-      source: todayTokens.fromMetrics > 0 ? "metrics" : "estimate",
+      estimatedAnalysesRemainingToday,
+      source:
+        todayTokens.jobsWithRealMetrics > 0 || monthTokens.jobsWithRealMetrics > 0
+          ? "metrics"
+          : "none",
+      limitPerDay,
+      limitSource: cloudEnabled ? "configured_groq_free" : "none",
       resetsAt: nextGroqDailyTokenResetAt().toISOString(),
       resetTimezone: "UTC",
     },
     users: {
-      totalEver: userStats.totalEver,
+      totalEver,
+      totalEverSource,
       active24h: userStats.active24h,
       active7d: userStats.active7d,
       active30d: userStats.active30d,
       withAnalyses: userStats.withAnalyses,
       premiumActive: billing.premiumActive,
-      avgAnalysesPerUser: avgAnalysesPerUser,
+      avgAnalysesPerUser,
     },
     analyses: {
       total: jobStats.total,
@@ -210,7 +248,7 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
       failed: jobStats.failed,
       pending: jobStats.pending,
       processing: jobStats.processing,
-      today: jobStats.today,
+      todayUtc: jobStats.todayUtc,
       avgDurationSec: jobStats.avgDurationSec,
     },
     jobs: {
@@ -232,7 +270,7 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
 }
 
 async function queryUserStats(): Promise<{
-  totalEver: number;
+  unionEver: number;
   active24h: number;
   active7d: number;
   active30d: number;
@@ -240,7 +278,7 @@ async function queryUserStats(): Promise<{
 }> {
   try {
     const { rows } = await query<{
-      total_ever: string;
+      union_ever: string;
       active_24h: string;
       active_7d: string;
       active_30d: string;
@@ -261,7 +299,7 @@ async function queryUserStats(): Promise<{
         group by user_id
       )
       select
-        (select count(distinct user_id) from all_users)::text as total_ever,
+        (select count(distinct user_id) from all_users)::text as union_ever,
         (select count(*) from history_activity
           where last_active >= timezone('utc', now()) - interval '24 hours')::text as active_24h,
         (select count(*) from history_activity
@@ -272,7 +310,7 @@ async function queryUserStats(): Promise<{
     `);
     const r = rows[0];
     return {
-      totalEver: Number(r?.total_ever ?? 0),
+      unionEver: Number(r?.union_ever ?? 0),
       active24h: Number(r?.active_24h ?? 0),
       active7d: Number(r?.active_7d ?? 0),
       active30d: Number(r?.active_30d ?? 0),
@@ -280,7 +318,7 @@ async function queryUserStats(): Promise<{
     };
   } catch {
     return {
-      totalEver: 0,
+      unionEver: 0,
       active24h: 0,
       active7d: 0,
       active30d: 0,
@@ -295,11 +333,9 @@ async function queryJobStats(): Promise<{
   failed: number;
   pending: number;
   processing: number;
-  today: number;
-  completedToday: number;
+  todayUtc: number;
   completed7d: number;
   failed7d: number;
-  completedWithMetrics: number;
   avgDurationSec: number;
   reclaimedStale: number;
 }> {
@@ -310,11 +346,9 @@ async function queryJobStats(): Promise<{
       failed: string;
       pending: string;
       processing: string;
-      today: string;
-      completed_today: string;
+      today_utc: string;
       completed_7d: string;
       failed_7d: string;
-      completed_with_metrics: string;
       avg_duration_sec: string;
       reclaimed_stale: string;
     }>(`
@@ -324,17 +358,13 @@ async function queryJobStats(): Promise<{
         count(*) filter (where status = 'failed')::text as failed,
         count(*) filter (where status = 'pending')::text as pending,
         count(*) filter (where status = 'processing')::text as processing,
-        count(*) filter (where created_at >= timezone('utc', now()) - interval '24 hours')::text as today,
-        count(*) filter (where status = 'completed'
-          and created_at >= timezone('utc', now()) - interval '24 hours')::text as completed_today,
+        count(*) filter (
+          where created_at >= date_trunc('day', timezone('utc', now()))
+        )::text as today_utc,
         count(*) filter (where status = 'completed'
           and created_at >= timezone('utc', now()) - interval '7 days')::text as completed_7d,
         count(*) filter (where status = 'failed'
           and created_at >= timezone('utc', now()) - interval '7 days')::text as failed_7d,
-        count(*) filter (where status = 'completed'
-          and metrics ? 'totalTokens')::text as completed_with_metrics,
-        -- Durée P2 réelle : metrics.totalMs (ms→s), fenêtre 7j, hors outliers >10 min.
-        -- Ancien calcul wall-clock all-time (updated_at-created_at) gonflait à des heures.
         coalesce(
           round(avg(
             case
@@ -362,11 +392,9 @@ async function queryJobStats(): Promise<{
       failed: Number(r?.failed ?? 0),
       pending: Number(r?.pending ?? 0),
       processing: Number(r?.processing ?? 0),
-      today: Number(r?.today ?? 0),
-      completedToday: Number(r?.completed_today ?? 0),
+      todayUtc: Number(r?.today_utc ?? 0),
       completed7d: Number(r?.completed_7d ?? 0),
       failed7d: Number(r?.failed_7d ?? 0),
-      completedWithMetrics: Number(r?.completed_with_metrics ?? 0),
       avgDurationSec: Number(r?.avg_duration_sec ?? 0),
       reclaimedStale: Number(r?.reclaimed_stale ?? 0),
     };
@@ -377,11 +405,9 @@ async function queryJobStats(): Promise<{
       failed: 0,
       pending: 0,
       processing: 0,
-      today: 0,
-      completedToday: 0,
+      todayUtc: 0,
       completed7d: 0,
       failed7d: 0,
-      completedWithMetrics: 0,
       avgDurationSec: 0,
       reclaimedStale: 0,
     };

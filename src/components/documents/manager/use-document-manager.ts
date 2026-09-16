@@ -7,6 +7,7 @@ import {
   createFolder,
   createTag,
   deleteHistoryItem,
+  deleteHistoryItemsBulk,
   fetchFolders,
   fetchHistory,
   fetchTags,
@@ -54,6 +55,8 @@ export function useDocumentManager() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const selected = useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
@@ -171,10 +174,55 @@ export function useDocumentManager() {
         await deleteHistoryItem(item.id);
         setItems((prev) => prev.filter((row) => row.id !== item.id));
         if (selectedId === item.id) setSelectedId(null);
+        setSuccessMessage("1 document supprimé");
         await loadMeta();
       },
       "Suppression impossible.",
     );
+
+  const removeMany = async (ids: string[]) => {
+    if (ids.length === 0) return { deleted: 0, failed: [] as { id: string; reason: string }[] };
+    setBulkBusy(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const result = await deleteHistoryItemsBulk(ids);
+      if (result.deleted > 0) {
+        const deletedSet = new Set(
+          ids.filter((id) => !result.failed.some((f) => f.id === id)),
+        );
+        // Si partial: retirer ceux qui ne sont pas dans failed
+        const failedSet = new Set(result.failed.map((f) => f.id));
+        setItems((prev) =>
+          prev.filter((row) => !ids.includes(row.id) || failedSet.has(row.id)),
+        );
+        if (selectedId && deletedSet.has(selectedId)) setSelectedId(null);
+        setSuccessMessage(
+          `${result.deleted} document${result.deleted > 1 ? "s" : ""} supprimé${result.deleted > 1 ? "s" : ""}`,
+        );
+        await loadMeta();
+      }
+      if (result.failed.length > 0 && result.deleted === 0) {
+        setError(
+          result.failed.map((f) => `${f.id.slice(0, 8)}… : ${f.reason}`).join(" · "),
+        );
+      } else if (result.failed.length > 0) {
+        setError(
+          `${result.failed.length} échec(s) : ${result.failed.map((f) => f.reason).join(" · ")}`,
+        );
+      }
+      return result;
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Suppression groupée impossible.",
+      );
+      return { deleted: 0, failed: [] as { id: string; reason: string }[] };
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const moveToFolder = (item: HistoryListItem, folderId: string) =>
     withBusy(
@@ -229,11 +277,15 @@ export function useDocumentManager() {
     isLoading,
     error,
     setError,
+    successMessage,
+    setSuccessMessage,
     busyId,
+    bulkBusy,
     tagMap,
     toggleFavorite,
     rename,
     remove,
+    removeMany,
     moveToFolder,
     toggleTag,
     createNewFolder,

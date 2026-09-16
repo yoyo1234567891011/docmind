@@ -9,6 +9,7 @@ export {
   fetchHistory,
   fetchHistoryRecord,
   deleteHistoryItem,
+  deleteHistoryItemsBulk,
   patchHistoryItem,
   moveHistoryToFolder,
   fetchFolders,
@@ -18,6 +19,7 @@ export {
   deleteTag,
   documentPdfUrl,
 } from "./history";
+export type { HistoryBulkDeleteClientResult } from "./history";
 export { smartSearch } from "./search";
 export {
   readRecentSearches,

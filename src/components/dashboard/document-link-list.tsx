@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { useMemo } from "react";
 
@@ -21,6 +23,9 @@ interface DocumentLinkListProps {
   emptyLabel: string;
   viewAllHref?: string;
   showActions?: boolean;
+  checkedIds?: Set<string>;
+  bulkBusy?: boolean;
+  onToggleCheck?: (id: string) => void;
 }
 
 function DupBadge({ count }: { count?: number }) {
@@ -39,11 +44,15 @@ export function DocumentLinkList({
   emptyLabel,
   viewAllHref,
   showActions = false,
+  checkedIds,
+  bulkBusy = false,
+  onToggleCheck,
 }: DocumentLinkListProps) {
   const displayItems: HistoryDisplayItem[] = useMemo(
     () => collapseHistoryDuplicates(items),
     [items],
   );
+  const selectable = Boolean(onToggleCheck);
 
   return (
     <DashboardPanel
@@ -66,10 +75,27 @@ export function DocumentLinkList({
       ) : (
         <ul className="divide-y divide-[var(--border)]">
           {displayItems.map((item) => (
-            <li key={item.id}>
+            <li
+              key={item.id}
+              className={cn(
+                "flex items-start gap-2 py-3 first:pt-0 last:pb-0",
+                checkedIds?.has(item.id) &&
+                  "rounded-md bg-[color-mix(in_oklab,var(--accent)_6%,transparent)]",
+              )}
+            >
+              {selectable ? (
+                <input
+                  type="checkbox"
+                  checked={checkedIds?.has(item.id) ?? false}
+                  disabled={bulkBusy}
+                  onChange={() => onToggleCheck?.(item.id)}
+                  className="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded accent-[var(--accent)]"
+                  aria-label={`Sélectionner ${item.title}`}
+                />
+              ) : null}
               <Link
                 href={`/historique/${item.id}`}
-                className="group flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0 transition-colors"
+                className="group flex min-w-0 flex-1 items-start justify-between gap-3 transition-colors"
               >
                 <div className="min-w-0 text-left">
                   <p className="truncate font-medium text-[var(--foreground)] group-hover:text-[var(--accent)]">

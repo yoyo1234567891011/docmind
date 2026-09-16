@@ -258,14 +258,14 @@ export function ProductionDashboardPanel() {
 
       <Section title="Infra">
         <Gauge
-          label="GPU usage"
+          label="GPU usage (host local)"
           value={data.host.gpuPercent ?? data.ollama.gpuProxyPercent}
           display={
             data.host.gpuPercent != null
               ? `${data.host.gpuPercent}%`
               : data.ollama.gpuProxyPercent != null
-                ? `${data.ollama.gpuProxyPercent}%*`
-                : "n/a"
+                ? `${data.ollama.gpuProxyPercent}% (proxy Ollama)`
+                : "non mesuré"
           }
           tone={resourceTone(
             data.host.gpuPercent ?? data.ollama.gpuProxyPercent,
@@ -277,7 +277,7 @@ export function ProductionDashboardPanel() {
           display={
             data.host.vramUsedMb != null && data.host.vramTotalMb != null
               ? `${data.host.vramUsedMb}/${data.host.vramTotalMb} Mo`
-              : "n/a"
+              : "non mesuré"
           }
           tone={resourceTone(data.host.vramPercent)}
         />
@@ -285,7 +285,9 @@ export function ProductionDashboardPanel() {
           label="CPU"
           value={data.host.cpuPercent}
           display={
-            data.host.cpuPercent == null ? "…" : `${data.host.cpuPercent}%`
+            data.host.cpuPercent == null
+              ? "non mesuré"
+              : `${data.host.cpuPercent}%`
           }
           tone={resourceTone(data.host.cpuPercent)}
         />
@@ -300,10 +302,9 @@ export function ProductionDashboardPanel() {
       <p className="text-[11px] text-[var(--muted)]">
         Ollama {data.ollama.up ? "up" : "down"}
         {data.ollama.model ? ` · ${data.ollama.model}` : ""}
-        {data.host.gpuPercent == null && data.ollama.gpuProxyPercent != null
-          ? " · * proxy Ollama /api/ps (installez nvidia-smi pour le GPU réel)"
-          : ` · host ${data.host.source}`}
-        {" · "}GPU/CPU/RAM = machine locale (N/A utile sur Groq cloud Vercel)
+        {" · "}host {data.host.source}
+        {" · "}GPU/CPU = machine locale uniquement (non mesuré sur Groq cloud
+        Vercel — jamais affiché comme 0%)
       </p>
 
       <Section title="Business">
@@ -324,19 +325,43 @@ export function ProductionDashboardPanel() {
           }
         />
         <Stat
-          label="Utilisateurs actifs"
+          label="Actifs analyse (24h)"
           value={String(data.users.active24h)}
-          hint={`${data.users.active7d} / 7j · ${data.users.signups30d} inscriptions / 30j`}
+          hint={
+            data.users.activeSource === "app_history"
+              ? `≥1 update app_history · ${data.users.active7d} / 7j`
+              : data.users.activeSource === "analytics_ephemeral"
+                ? `Analytics éphémère · ${data.users.active7d} / 7j`
+                : "non mesuré"
+          }
         />
         <Stat
-          label="Revenus (30j est.)"
-          value={fmtEur(data.revenue.estimatedRevenue30dEur)}
-          hint={`${data.funnel.converted} conversions · ${data.funnel.renewed} renouvellements`}
+          label="Revenus (30j)"
+          value={
+            data.revenue.estimatedRevenue30dEur != null
+              ? fmtEur(data.revenue.estimatedRevenue30dEur)
+              : "non mesuré"
+          }
+          hint={
+            data.revenue.revenueVisible
+              ? `${data.funnel.converted} conversions · ${data.funnel.renewed} renouvellements (catalogue)`
+              : "Masqué hors Stripe LIVE"
+          }
         />
         <Stat
           label="MRR"
-          value={fmtEur(data.revenue.mrrEur)}
-          hint={`${data.users.premiumActive} payants active/trialing · ARPU ${fmtEur(data.revenue.arpuEur)}`}
+          value={
+            data.revenue.mrrEur != null ? fmtEur(data.revenue.mrrEur) : "non mesuré"
+          }
+          hint={
+            data.revenue.revenueVisible
+              ? `${data.users.premiumActive} payants active/trialing · ARPU ${
+                  data.revenue.arpuEur != null
+                    ? fmtEur(data.revenue.arpuEur)
+                    : "—"
+                }`
+              : "Masqué hors Stripe LIVE"
+          }
         />
         <Stat
           label="Churn"

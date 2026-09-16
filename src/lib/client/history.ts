@@ -95,6 +95,35 @@ export async function deleteHistoryItem(id: string): Promise<void> {
   markDashboardStale("delete");
 }
 
+export type HistoryBulkDeleteClientResult = {
+  deleted: number;
+  failed: { id: string; reason: string }[];
+};
+
+/** Suppression groupée — max 50 ids (history ids du user connecté). */
+export async function deleteHistoryItemsBulk(
+  ids: string[],
+): Promise<HistoryBulkDeleteClientResult> {
+  const response = await fetch("/api/history/bulk-delete", {
+    method: "POST",
+    headers: await csrfHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ids }),
+    credentials: "same-origin",
+  });
+
+  const payload = (await response.json()) as ApiResponse<HistoryBulkDeleteClientResult>;
+
+  if (!payload.success) {
+    throw new Error(payload.error.message);
+  }
+
+  if (payload.data.deleted > 0) {
+    markDashboardStale("delete");
+  }
+
+  return payload.data;
+}
+
 export async function patchHistoryItem(
   id: string,
   patch: PatchHistoryInput,

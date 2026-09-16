@@ -12,16 +12,22 @@ import type { DocumentTag } from "@/types";
 interface DocumentBoardCardProps {
   item: HistoryDisplayItem;
   active: boolean;
+  checked: boolean;
+  busy: boolean;
   tagMap: Map<string, DocumentTag>;
   onSelect: () => void;
+  onToggleCheck: () => void;
   onToggleFavorite: () => void;
 }
 
 export function DocumentBoardCard({
   item,
   active,
+  checked,
+  busy,
   tagMap,
   onSelect,
+  onToggleCheck,
   onToggleFavorite,
 }: DocumentBoardCardProps) {
   const dupCount = item.duplicateCount;
@@ -29,12 +35,24 @@ export function DocumentBoardCard({
   return (
     <article
       className={cn(
-        "rounded-xl border bg-[var(--surface)] p-3 transition-colors",
+        "relative rounded-xl border bg-[var(--surface)] p-3 transition-colors",
         active
           ? "border-[var(--accent)] shadow-[0_0_0_1px_var(--accent)]"
           : "border-[var(--border)] hover:border-[var(--border-strong)]",
+        checked && "border-[var(--accent)]",
       )}
     >
+      <div className="absolute left-3 top-3 z-10">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={busy}
+          onChange={onToggleCheck}
+          onClick={(event) => event.stopPropagation()}
+          className="h-5 w-5 cursor-pointer rounded accent-[var(--accent)]"
+          aria-label={`Sélectionner ${item.title}`}
+        />
+      </div>
       <button type="button" onClick={onSelect} className="w-full text-left">
         <div className="mb-3 flex h-24 items-center justify-center rounded-lg bg-[var(--background)] text-[var(--accent)]">
           <FileIcon className="h-8 w-8 opacity-80" />
@@ -75,6 +93,7 @@ export function DocumentBoardCard({
       <div className="mt-3 flex items-center justify-between">
         <button
           type="button"
+          disabled={busy}
           onClick={onToggleFavorite}
           className="rounded p-1 text-[var(--muted)] hover:text-[var(--warning)]"
         >

@@ -11,24 +11,40 @@ export type AdminPlatformOverview = {
   at: string;
   llm: AdminLlmRuntime;
   tokens: {
+    /** Somme metrics.totalTokens ≥100, jour calendaire UTC. 0 si rien de mesuré. */
     usedToday: number;
+    /** Somme metrics.totalTokens ≥100, 30 j glissants. */
     usedMonth: number;
+    jobsMeasuredToday: number;
+    jobsUnmeasuredToday: number;
+    jobsMeasuredMonth: number;
+    jobsUnmeasuredMonth: number;
+    /** null si aucun job mesuré sur 30 j. */
+    avgPerAnalysis: number | null;
+    /**
+     * null si pas assez de mesure pour estimer.
+     * Sinon floor((limit - usedToday) / avg) avec avg mesuré.
+     */
+    estimatedAnalysesRemainingToday: number | null;
+    source: "metrics" | "none";
     limitPerDay: number;
-    avgPerAnalysis: number;
-    estimatedAnalysesRemainingToday: number;
-    source: "metrics" | "estimate";
-    /** Prochain reset du quota journalier Groq (ISO UTC). */
+    /** Origine du plafond affiché (jamais une réponse API Groq). */
+    limitSource: "configured_groq_free" | "none";
     resetsAt: string;
-    /** Fuseau du compteur Groq (TPD). */
     resetTimezone: "UTC";
   };
   users: {
+    /** Comptes Auth Supabase si dispo, sinon union usage+subs+history. */
     totalEver: number;
+    totalEverSource: "auth" | "app_union";
+    /** Users avec ≥1 update app_history dans la fenêtre. */
     active24h: number;
     active7d: number;
     active30d: number;
     withAnalyses: number;
+    /** active|trialing payants (hors past_due). */
     premiumActive: number;
+    /** completed all-time / withAnalyses. */
     avgAnalysesPerUser: number;
   };
   analyses: {
@@ -37,7 +53,8 @@ export type AdminPlatformOverview = {
     failed: number;
     pending: number;
     processing: number;
-    today: number;
+    /** Jobs créés durant le jour calendaire UTC. */
+    todayUtc: number;
     avgDurationSec: number;
   };
   jobs: {

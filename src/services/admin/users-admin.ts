@@ -75,6 +75,47 @@ async function resolveEmailMap(
   return map;
 }
 
+async function listAuthUserIds(limit: number): Promise<
+  { id: string; email: string | null; createdAt: string | null }[] | null
+> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !service) return null;
+  try {
+    const admin = createClient(url, service, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const out: { id: string; email: string | null; createdAt: string | null }[] =
+      [];
+    let page = 1;
+    for (;;) {
+      const { data, error } = await admin.auth.admin.listUsers({
+        page,
+        perPage: 200,
+      });
+      if (error) return null;
+      for (const u of data.users) {
+        out.push({
+          id: u.id,
+          email: u.email?.trim().toLowerCase() ?? null,
+          createdAt: u.created_at ?? null,
+        });
+      }
+      if (data.users.length < 200) break;
+      page += 1;
+      if (page > 50) break;
+    }
+    out.sort((a, b) => {
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return tb - ta;
+    });
+    return out.slice(0, limit);
+  } catch {
+    return null;
+  }
+}
+
 async function listKnownUserIds(limit: number): Promise<string[]> {
   if (usePersistentStorage()) {
     try {
@@ -140,7 +181,25 @@ async function buildUserItem(
 export async function listAdminUsers(
   limit = 50,
 ): Promise<AdminUsersListResult> {
-  const ids = await listKnownUserIds(Math.min(Math.max(limit, 1), 200));
+  const capped = Math.min(Math.max(limit, 1), 200);
+  const authUsers = await listAuthUserIds(capped);
+  if (authUsers && authUsers.length > 0) {
+    const users: AdminUserListItem[] = [];
+    for (const u of authUsers) {
+      try {
+        users.push(await buildUserItem(u.id, u.email));
+      } catch {
+        /* skip */
+      }
+    }
+    return {
+      at: new Date().toISOString(),
+      total: users.length,
+      users,
+    };
+  }
+
+  const ids = await listKnownUserIds(capped);
   const emails = await resolveEmailMap(ids);
   const users: AdminUserListItem[] = [];
   for (const id of ids) {

@@ -882,16 +882,15 @@ export function AdminPanel() {
                   label="GPU"
                   value={
                     monitoring.snapshot.gpu.utilizationPercent == null
-                      ? monitoring.snapshot.workers.ollamaUp
-                        ? "OK"
-                        : "DOWN"
+                      ? "non mesuré"
                       : `${monitoring.snapshot.gpu.utilizationPercent}%`
                   }
                 />
               </div>
               <p className="text-[11px] text-[var(--muted)]">
                 Compteurs issus du store monitoring (éphémère sur Vercel sans FS) ·
-                GPU souvent N/A en mode Groq cloud.
+                GPU = nvidia-smi local uniquement (N/A sur Groq cloud Vercel) —
+                jamais affiché comme 0/OK à la place d&apos;une mesure.
               </p>
               <p className="text-xs text-[var(--muted)]">
                 LLM {data?.llmRuntime?.cloudEnabled ? "cloud" : "Ollama"}{" "}
@@ -1056,7 +1055,11 @@ export function AdminPanel() {
                 />
                 <Stat
                   label="Coût moyen / analyse"
-                  value={`${data.productAnalytics.cost.avgPerAnalysisEur.toFixed(4)} €`}
+                  value={
+                    data.productAnalytics.cost.analysesWithCost > 0
+                      ? `${data.productAnalytics.cost.avgPerAnalysisEur.toFixed(4)} €`
+                      : "non mesuré"
+                  }
                 />
                 <Stat
                   label="Extractions"

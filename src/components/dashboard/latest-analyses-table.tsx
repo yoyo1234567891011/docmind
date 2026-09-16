@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { useMemo } from "react";
 
@@ -16,6 +18,11 @@ import type { HistoryListItem } from "@/types";
 
 interface LatestAnalysesTableProps {
   items: HistoryListItem[];
+  checkedIds?: Set<string>;
+  allVisibleSelected?: boolean;
+  bulkBusy?: boolean;
+  onToggleCheck?: (id: string) => void;
+  onToggleSelectAll?: () => void;
 }
 
 function DupBadge({ count }: { count?: number }) {
@@ -27,11 +34,19 @@ function DupBadge({ count }: { count?: number }) {
   );
 }
 
-export function LatestAnalysesTable({ items }: LatestAnalysesTableProps) {
+export function LatestAnalysesTable({
+  items,
+  checkedIds,
+  allVisibleSelected = false,
+  bulkBusy = false,
+  onToggleCheck,
+  onToggleSelectAll,
+}: LatestAnalysesTableProps) {
   const displayItems: HistoryDisplayItem[] = useMemo(
     () => collapseHistoryDuplicates(items),
     [items],
   );
+  const selectable = Boolean(onToggleCheck);
 
   return (
     <DashboardPanel
@@ -56,6 +71,18 @@ export function LatestAnalysesTable({ items }: LatestAnalysesTableProps) {
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+                {selectable ? (
+                  <th className="w-10 px-2 pb-3">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      disabled={bulkBusy}
+                      onChange={onToggleSelectAll}
+                      className="h-4 w-4 cursor-pointer rounded accent-[var(--accent)]"
+                      aria-label="Tout sélectionner (tableau visible)"
+                    />
+                  </th>
+                ) : null}
                 <th className="px-2 pb-3 font-medium">Document</th>
                 <th className="px-2 pb-3 font-medium">Type</th>
                 <th className="px-2 pb-3 font-medium">Risque</th>
@@ -68,8 +95,24 @@ export function LatestAnalysesTable({ items }: LatestAnalysesTableProps) {
               {displayItems.map((item) => (
                 <tr
                   key={item.id}
-                  className="border-b border-[var(--border)] last:border-0"
+                  className={cn(
+                    "border-b border-[var(--border)] last:border-0",
+                    checkedIds?.has(item.id) &&
+                      "bg-[color-mix(in_oklab,var(--accent)_6%,transparent)]",
+                  )}
                 >
+                  {selectable ? (
+                    <td className="px-2 py-3">
+                      <input
+                        type="checkbox"
+                        checked={checkedIds?.has(item.id) ?? false}
+                        disabled={bulkBusy}
+                        onChange={() => onToggleCheck?.(item.id)}
+                        className="h-5 w-5 cursor-pointer rounded accent-[var(--accent)]"
+                        aria-label={`Sélectionner ${item.title}`}
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-2 py-3">
                     <p className="max-w-[220px] truncate font-medium text-[var(--foreground)]">
                       {item.title}

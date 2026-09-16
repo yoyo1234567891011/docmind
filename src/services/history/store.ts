@@ -11,7 +11,7 @@ import {
 } from "@/config/paths";
 import { assertOwnedByUser } from "@/lib/auth/ownership";
 import { chaosGate } from "@/lib/chaos";
-import { AppError } from "@/lib/errors";
+import { AppError, isAppError } from "@/lib/errors";
 import { deletePdfObject } from "@/lib/storage/s3";
 import {
   pgDeleteHistoryRecord,
@@ -491,6 +491,80 @@ export async function deleteHistoryRecord(
       `[history-delete] userId=${userId} historyId=${id} operation=skip_doc_assets reason=missing_documentId`,
     );
   }
+}
+
+/** Plafond ids par requête bulk delete. */
+export const HISTORY_BULK_DELETE_MAX = 50;
+
+export type HistoryBulkDeleteFailure = {
+  id: string;
+  reason: string;
+};
+
+export type HistoryBulkDeleteResult = {
+  deleted: number;
+  failed: HistoryBulkDeleteFailure[];
+};
+
+/**
+ * Suppression multiple : réutilise deleteHistoryRecord (même cascade).
+ * Règle jobs P2 : identique à l’unitaire — les jobs linked (pending/processing
+ * inclus) sont retirés via deleteAnalysisJobsForHistory, pas de blocage séparé.
+ * Ids hors scope user / inconnus → failed[] (pas d’exception globale).
+ */
+export async function deleteHistoryRecordsBulk(
+  userId: string,
+  ids: unknown[],
+): Promise<HistoryBulkDeleteResult> {
+  const cleaned: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of ids) {
+    if (typeof raw !== "string") continue;
+    const id = raw.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    cleaned.push(id);
+  }
+
+  if (cleaned.length === 0) {
+    throw new AppError(
+      "BAD_REQUEST",
+      "Aucun identifiant valide à supprimer.",
+    );
+  }
+  if (cleaned.length > HISTORY_BULK_DELETE_MAX) {
+    throw new AppError(
+      "BAD_REQUEST",
+      `Maximum ${HISTORY_BULK_DELETE_MAX} documents par suppression groupée.`,
+    );
+  }
+
+  const failed: HistoryBulkDeleteFailure[] = [];
+  let deleted = 0;
+
+  for (const id of cleaned) {
+    try {
+      await deleteHistoryRecord(userId, id);
+      deleted += 1;
+    } catch (error) {
+      if (isAppError(error) && error.code === "NOT_FOUND") {
+        failed.push({
+          id,
+          reason: "Introuvable ou non autorisé",
+        });
+      } else {
+        failed.push({
+          id,
+          reason:
+            error instanceof Error
+              ? error.message
+              : "Échec de suppression",
+        });
+      }
+    }
+  }
+
+  return { deleted, failed };
 }
 
 export async function updateHistoryFolder(

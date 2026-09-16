@@ -88,7 +88,12 @@ export type AdminBillingDetail = {
   cancelAtPeriodEnd: number;
   paidActiveEffective: number;
   freeEffective: number;
-  mrrEur: number;
+  /**
+   * Somme prix catalogue des plans effectifs payants.
+   * null en mode Stripe test / unconfigured (pas de MRR inventé).
+   */
+  mrrEur: number | null;
+  mrrSource: "catalog_live" | "hidden_test" | "hidden_unconfigured";
 };
 
 export type AdminOverviewAlert = {

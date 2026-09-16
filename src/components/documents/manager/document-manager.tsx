@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import { HistoryBulkActionBar } from "@/components/history/history-bulk-action-bar";
+import { useHistoryBulkSelection } from "@/components/history/use-history-bulk-selection";
 import { Alert } from "@/components/ui";
 import { collapseHistoryDuplicates } from "@/lib/dashboard-display";
 
@@ -31,8 +33,37 @@ export function DocumentManager() {
     [mgr.items],
   );
 
+  const visibleIds = useMemo(
+    () => displayItems.map((item) => item.id),
+    [displayItems],
+  );
+
+  const bulk = useHistoryBulkSelection(visibleIds);
+  const [localBulkBusy, setLocalBulkBusy] = useState(false);
+
+  const handleBulkDelete = useCallback(async () => {
+    const n = bulk.selectedCount;
+    if (n < 1) return;
+    if (
+      !window.confirm(
+        `Supprimer ${n} document${n > 1 ? "s" : ""} ? Irréversible.`,
+      )
+    ) {
+      return;
+    }
+    setLocalBulkBusy(true);
+    try {
+      const result = await mgr.removeMany(bulk.selectedList);
+      if (result.deleted > 0) bulk.clearSelection();
+    } finally {
+      setLocalBulkBusy(false);
+    }
+  }, [bulk, mgr]);
+
+  const busy = localBulkBusy || mgr.bulkBusy;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20 md:pb-4">
       <header className="flex flex-wrap items-end justify-between gap-3 px-1">
         <div className="text-left">
           <h1 className="font-display text-3xl tracking-tight text-[var(--foreground)] sm:text-4xl">
@@ -60,6 +91,18 @@ export function DocumentManager() {
           {mgr.error}
         </Alert>
       ) : null}
+      {mgr.successMessage ? (
+        <Alert tone="success" title="OK">
+          {mgr.successMessage}
+        </Alert>
+      ) : null}
+
+      <HistoryBulkActionBar
+        selectedCount={bulk.selectedCount}
+        busy={busy}
+        onDelete={() => void handleBulkDelete()}
+        onCancel={bulk.clearSelection}
+      />
 
       <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_0_rgba(0,0,0,0.03)]">
         <div className="grid min-h-[50vh] md:min-h-[70vh] lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_340px]">
@@ -90,10 +133,15 @@ export function DocumentManager() {
                 viewMode={mgr.viewMode}
                 selectedId={mgr.selectedId}
                 busyId={mgr.busyId}
+                bulkBusy={busy}
+                checkedIds={bulk.selectedIds}
+                allVisibleSelected={bulk.allVisibleSelected}
                 tags={mgr.meta.tags}
                 folders={mgr.meta.folders}
                 tagMap={mgr.tagMap}
                 onSelect={mgr.setSelectedId}
+                onToggleCheck={bulk.toggle}
+                onToggleSelectAll={bulk.toggleSelectAllVisible}
                 onToggleFavorite={mgr.toggleFavorite}
                 onRename={mgr.rename}
                 onMove={mgr.moveToFolder}
@@ -113,7 +161,6 @@ export function DocumentManager() {
         </div>
       </div>
 
-      {/* Aperçu sous la liste sur écrans < xl */}
       <div className="xl:hidden">
         <DocumentPreviewPane
           selected={mgr.selected}

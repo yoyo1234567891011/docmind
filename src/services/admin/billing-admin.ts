@@ -73,7 +73,7 @@ export async function collectAdminBillingDetail(): Promise<AdminBillingDetail> {
   let cancelAtPeriodEnd = 0;
   let paidActiveEffective = 0;
   let freeEffective = 0;
-  let mrrEur = 0;
+  let mrrCatalogEur = 0;
 
   for (const sub of subs) {
     const stored = byPlanMap.get(sub.plan) ?? { count: 0, pastDue: 0 };
@@ -91,7 +91,7 @@ export async function collectAdminBillingDetail(): Promise<AdminBillingDetail> {
     });
     if (isPaidBillingPlanId(effective)) {
       paidActiveEffective += 1;
-      mrrEur += BILLING_PLANS[effective].priceMonthlyEur ?? 0;
+      mrrCatalogEur += BILLING_PLANS[effective].priceMonthlyEur ?? 0;
     } else {
       freeEffective += 1;
     }
@@ -106,9 +106,18 @@ export async function collectAdminBillingDetail(): Promise<AdminBillingDetail> {
     };
   });
 
+  const mode = stripeMode();
+  // Pas de MRR inventé en test / non configuré (0 invoice Stripe réel).
+  const mrrSource =
+    mode === "live"
+      ? ("catalog_live" as const)
+      : mode === "test"
+        ? ("hidden_test" as const)
+        : ("hidden_unconfigured" as const);
+
   return {
     at: new Date().toISOString(),
-    stripeMode: stripeMode(),
+    stripeMode: mode,
     webhookConfigured: Boolean(getStripeWebhookSecret()),
     source,
     byPlan,
@@ -116,6 +125,10 @@ export async function collectAdminBillingDetail(): Promise<AdminBillingDetail> {
     cancelAtPeriodEnd,
     paidActiveEffective,
     freeEffective,
-    mrrEur: Math.round(mrrEur * 100) / 100,
+    mrrEur:
+      mrrSource === "catalog_live"
+        ? Math.round(mrrCatalogEur * 100) / 100
+        : null,
+    mrrSource,
   };
 }

@@ -222,15 +222,17 @@ async function generateCoreBundleOutcome(
         Boolean(lastGeneration.text?.trim()))
         ? {
             ...lastGeneration,
-            // Garantit assertPublishableLlmAnalysis (tokens ≥ 1).
-            totalTokens: Math.max(1, lastGeneration.totalTokens ?? 0),
+            // Ne jamais forcer totalTokens=1 (pollue les métriques admin Groq).
+            totalTokens: Math.max(0, lastGeneration.totalTokens ?? 0),
+            promptTokens: Math.max(0, lastGeneration.promptTokens ?? 0),
+            completionTokens: Math.max(0, lastGeneration.completionTokens ?? 0),
           }
         : {
             text: `[partial-local-fallback:${lastOutcome.reason}]`,
             model: lastGeneration?.model ?? "partial-local",
-            promptTokens: lastGeneration?.promptTokens ?? 0,
-            completionTokens: lastGeneration?.completionTokens ?? 0,
-            totalTokens: 1,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
             durationMs: Math.max(50, lastGeneration?.durationMs ?? 50),
             finishReason: lastGeneration?.finishReason,
           };

@@ -232,7 +232,8 @@ async function defaultRunP2(
     full = {
       ...full,
       resultSource: "agents",
-      totalTokens: Math.max(1, full.totalTokens ?? 0),
+      // Conserver l’usage Groq réel (0 si non mesuré) — jamais forcer 1.
+      totalTokens: Math.max(0, full.totalTokens ?? 0),
       analysis: {
         ...full.analysis,
         summary: full.analysis.summary?.startsWith("Analyse de secours")

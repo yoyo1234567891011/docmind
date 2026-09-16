@@ -13,9 +13,16 @@ import { RelationAlertsList } from "@/components/dashboard/relation-alerts-list"
 import { CounterpartiesPanel } from "@/components/dashboard/counterparties-panel";
 import { PremiumMemoryPanel } from "@/components/insights/premium-memory-panel";
 import { SubscriptionCard } from "@/components/dashboard/subscription-card";
+import { HistoryBulkActionBar } from "@/components/history/history-bulk-action-bar";
+import { useHistoryBulkSelection } from "@/components/history/use-history-bulk-selection";
 import { Alert, AnalysisSkeleton, Button } from "@/components/ui";
 import { siteConfig } from "@/config/site";
-import { fetchAlerts, fetchHistory, fetchMe } from "@/lib/client";
+import {
+  deleteHistoryItemsBulk,
+  fetchAlerts,
+  fetchHistory,
+  fetchMe,
+} from "@/lib/client";
 import {
   consumeDashboardStale,
   isDashboardStale,
@@ -26,6 +33,7 @@ import {
   readRecentSearches,
   type RecentSearch,
 } from "@/lib/client/recent-searches";
+import { collapseHistoryDuplicates } from "@/lib/dashboard-display";
 import {
   computeDashboardStats,
   countUpcomingDeadlineAlerts,
@@ -42,6 +50,8 @@ export function DashboardView() {
   const [searches, setSearches] = useState<RecentSearch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   /** Incrémente pour forcer le refetch des panneaux enfants. */
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -157,8 +167,88 @@ export function DashboardView() {
     [items, deadlineTotal],
   );
 
+  const latestVisibleIds = useMemo(
+    () => collapseHistoryDuplicates(stats.latestAnalyses).map((i) => i.id),
+    [stats.latestAnalyses],
+  );
+
+  const allPanelVisibleIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const list of [
+      stats.recentDocuments,
+      stats.atRiskDocuments,
+      stats.latestAnalyses,
+    ]) {
+      for (const item of collapseHistoryDuplicates(list)) {
+        ids.add(item.id);
+      }
+    }
+    return [...ids];
+  }, [stats.recentDocuments, stats.atRiskDocuments, stats.latestAnalyses]);
+
+  const bulk = useHistoryBulkSelection(allPanelVisibleIds);
+
+  const tableAllSelected =
+    latestVisibleIds.length > 0 &&
+    latestVisibleIds.every((id) => bulk.selectedIds.has(id));
+
+  const toggleSelectAllTable = useCallback(() => {
+    bulk.setMany(latestVisibleIds, !tableAllSelected);
+  }, [bulk, latestVisibleIds, tableAllSelected]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const n = bulk.selectedCount;
+    if (n < 1) return;
+    if (
+      !window.confirm(
+        `Supprimer ${n} document${n > 1 ? "s" : ""} ? Irréversible.`,
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const selected = bulk.selectedList;
+      const result = await deleteHistoryItemsBulk(selected);
+      const failedSet = new Set(result.failed.map((f) => f.id));
+      if (result.deleted > 0) {
+        setItems((prev) =>
+          prev.filter(
+            (row) => !selected.includes(row.id) || failedSet.has(row.id),
+          ),
+        );
+        setSuccessMessage(
+          `${result.deleted} document${result.deleted > 1 ? "s" : ""} supprimé${result.deleted > 1 ? "s" : ""}`,
+        );
+        bulk.clearSelection();
+        setRefreshKey((k) => k + 1);
+      }
+      if (result.failed.length > 0 && result.deleted === 0) {
+        setError(
+          result.failed
+            .map((f) => `${f.id.slice(0, 8)}… : ${f.reason}`)
+            .join(" · "),
+        );
+      } else if (result.failed.length > 0) {
+        setError(
+          `${result.failed.length} échec(s) : ${result.failed
+            .map((f) => f.reason)
+            .join(" · ")}`,
+        );
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Suppression groupée impossible.",
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [bulk]);
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-20 md:pb-8">
       <header className="relative overflow-hidden rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)]">
         <div
           aria-hidden
@@ -208,10 +298,22 @@ export function DashboardView() {
       </header>
 
       {error ? (
-        <Alert tone="error" title="Erreur de chargement">
+        <Alert tone="error" title="Erreur">
           {error}
         </Alert>
       ) : null}
+      {successMessage ? (
+        <Alert tone="success" title="OK">
+          {successMessage}
+        </Alert>
+      ) : null}
+
+      <HistoryBulkActionBar
+        selectedCount={bulk.selectedCount}
+        busy={bulkBusy}
+        onDelete={() => void handleBulkDelete()}
+        onCancel={bulk.clearSelection}
+      />
 
       <SubscriptionCard refreshKey={refreshKey} />
 
@@ -266,6 +368,9 @@ export function DashboardView() {
                     items={stats.recentDocuments}
                     emptyLabel="Aucun document récent."
                     viewAllHref="/historique"
+                    checkedIds={bulk.selectedIds}
+                    bulkBusy={bulkBusy}
+                    onToggleCheck={bulk.toggle}
                   />
                 </div>
                 <div className="lg:col-span-5">
@@ -276,6 +381,9 @@ export function DashboardView() {
                     emptyLabel="Aucun document à risque élevé."
                     viewAllHref="/historique?riskLevel=eleve"
                     showActions
+                    checkedIds={bulk.selectedIds}
+                    bulkBusy={bulkBusy}
+                    onToggleCheck={bulk.toggle}
                   />
                 </div>
               </div>
@@ -312,7 +420,14 @@ export function DashboardView() {
                 </div>
               </section>
 
-              <LatestAnalysesTable items={stats.latestAnalyses} />
+              <LatestAnalysesTable
+                items={stats.latestAnalyses}
+                checkedIds={bulk.selectedIds}
+                allVisibleSelected={tableAllSelected}
+                bulkBusy={bulkBusy}
+                onToggleCheck={bulk.toggle}
+                onToggleSelectAll={toggleSelectAllTable}
+              />
             </>
           )}
         </>

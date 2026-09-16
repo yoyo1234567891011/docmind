@@ -1,14 +1,17 @@
 import { getOllamaGenerateLockState } from "@/ai/models/generate-lock";
+import { usePersistentStorage } from "@/config/persistence";
+import { query } from "@/lib/db/pool";
+import {
+  getStripeWebhookSecret,
+  isStripeConfigured,
+  isStripeLiveMode,
+} from "@/lib/stripe/env";
 import { readAnalyticsFile } from "@/services/analytics/store";
 import { summarizeProductAnalytics } from "@/services/analytics/summarize";
 import { collectBillingAdminRollup } from "@/services/billing/admin-metrics";
 import { buildMonitoringSnapshot } from "@/services/monitoring/collect";
 import { listMonitoringEvents } from "@/services/monitoring/store";
 import { sampleHostMetrics } from "@/services/ops/host-metrics";
-import {
-  getStripeWebhookSecret,
-  isStripeConfigured,
-} from "@/lib/stripe/env";
 import type { ProductionDashboard } from "@/types/production";
 
 function percentile(sorted: number[], p: number): number {
@@ -32,6 +35,35 @@ function distinctUsers(
     if (e.userId) ids.add(e.userId);
   }
   return ids.size;
+}
+
+async function queryHistoryActives(): Promise<{
+  active24h: number;
+  active7d: number;
+} | null> {
+  if (!usePersistentStorage()) return null;
+  try {
+    const { rows } = await query<{ active_24h: string; active_7d: string }>(`
+      with history_activity as (
+        select user_id, max(updated_at) as last_active
+        from public.app_history
+        group by user_id
+      )
+      select
+        (select count(*) from history_activity
+          where last_active >= timezone('utc', now()) - interval '24 hours')::text as active_24h,
+        (select count(*) from history_activity
+          where last_active >= timezone('utc', now()) - interval '7 days')::text as active_7d
+    `);
+    const r = rows[0];
+    if (!r) return null;
+    return {
+      active24h: Number(r.active_24h ?? 0),
+      active7d: Number(r.active_7d ?? 0),
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -80,7 +112,6 @@ export async function buildProductionDashboard(): Promise<ProductionDashboard> {
     cacheTotal += 1;
     if (src === "cache") cacheHits += 1;
   }
-  // Fallback analytics p2 meta
   if (cacheTotal === 0) {
     for (const e of analyticsEvents) {
       if (e.name !== "analysis.p2" && e.name !== "analysis.completed") continue;
@@ -99,6 +130,7 @@ export async function buildProductionDashboard(): Promise<ProductionDashboard> {
   const lock = getOllamaGenerateLockState();
   const stripeConfigured = isStripeConfigured();
   const webhookConfigured = Boolean(getStripeWebhookSecret());
+  const stripeLive = stripeConfigured && isStripeLiveMode();
   const stripeStatus: ProductionDashboard["stripe"]["status"] =
     stripeConfigured && webhookConfigured
       ? "ok"
@@ -113,17 +145,55 @@ export async function buildProductionDashboard(): Promise<ProductionDashboard> {
       ? 0
       : product.conversion.churned / Math.max(activeBase, 1);
 
-  const estimatedRevenue30dEur =
-    Math.round(
-      (product.conversion.converted * billing.priceMonthlyEur +
-        product.conversion.renewed * billing.priceMonthlyEur) *
-        100,
-    ) / 100;
+  const revenueVisible = stripeLive;
+  const estimatedRevenue30dEur = revenueVisible
+    ? Math.round(
+        (product.conversion.converted * billing.priceMonthlyEur +
+          product.conversion.renewed * billing.priceMonthlyEur) *
+          100,
+      ) / 100
+    : null;
 
   const arpuEur =
-    billing.premiumActive === 0
-      ? 0
+    !revenueVisible || billing.premiumActive === 0
+      ? null
       : Math.round((billing.mrrEur / billing.premiumActive) * 100) / 100;
+
+  const historyActives = await queryHistoryActives();
+  const analyticsActive24h = distinctUsers(
+    analyticsEvents,
+    24 * 60 * 60 * 1000,
+  );
+  const analyticsActive7d = distinctUsers(
+    analyticsEvents,
+    7 * 24 * 60 * 60 * 1000,
+  );
+
+  const users: ProductionDashboard["users"] =
+    historyActives != null
+      ? {
+          active24h: historyActives.active24h,
+          active7d: historyActives.active7d,
+          activeSource: "app_history",
+          signups30d: product.signups > 0 ? product.signups : null,
+          signupsSource:
+            product.signups > 0 ? "analytics_ephemeral" : "none",
+          premiumActive: billing.premiumActive,
+          premiumCanceling: billing.premiumCanceling,
+        }
+      : {
+          active24h: analyticsActive24h,
+          active7d: analyticsActive7d,
+          activeSource:
+            analyticsActive24h > 0 || analyticsActive7d > 0
+              ? "analytics_ephemeral"
+              : "none",
+          signups30d: product.signups > 0 ? product.signups : null,
+          signupsSource:
+            product.signups > 0 ? "analytics_ephemeral" : "none",
+          premiumActive: billing.premiumActive,
+          premiumCanceling: billing.premiumCanceling,
+        };
 
   return {
     at: new Date().toISOString(),
@@ -181,24 +251,21 @@ export async function buildProductionDashboard(): Promise<ProductionDashboard> {
       status: stripeStatus,
       label:
         stripeStatus === "ok"
-          ? "Stripe prêt"
+          ? stripeLive
+            ? "Stripe LIVE prêt"
+            : "Stripe TEST prêt"
           : stripeStatus === "partial"
             ? "Config partielle"
             : "Non configuré",
     },
-    users: {
-      active24h: distinctUsers(analyticsEvents, 24 * 60 * 60 * 1000),
-      active7d: distinctUsers(analyticsEvents, 7 * 24 * 60 * 60 * 1000),
-      signups30d: product.signups,
-      premiumActive: billing.premiumActive,
-      premiumCanceling: billing.premiumCanceling,
-    },
+    users,
     revenue: {
-      mrrEur: billing.mrrEur,
+      mrrEur: revenueVisible ? billing.mrrEur : null,
       estimatedRevenue30dEur,
       arpuEur,
       priceMonthlyEur: billing.priceMonthlyEur,
       billingSource: billing.source,
+      revenueVisible,
     },
     funnel: {
       conversionRate: product.conversion.freeToPremiumRate,

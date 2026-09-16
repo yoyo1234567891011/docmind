@@ -68,7 +68,11 @@ export function AdminBillingPanel() {
           </div>
 
           <div className="grid gap-2 sm:grid-cols-4">
-            <Stat label="Payants effectifs" value={String(data.paidActiveEffective)} />
+            <Stat
+              label="Payants effectifs"
+              value={String(data.paidActiveEffective)}
+              hint="active|trialing (hors past_due)"
+            />
             <Stat label="Free effectifs" value={String(data.freeEffective)} />
             <Stat
               label="past_due"
@@ -80,8 +84,23 @@ export function AdminBillingPanel() {
               value={String(data.cancelAtPeriodEnd)}
             />
             <Stat
-              label="MRR estimé"
-              value={`${data.mrrEur.toFixed(2)} €`}
+              label={
+                data.mrrSource === "catalog_live"
+                  ? "MRR catalogue (live)"
+                  : "MRR"
+              }
+              value={
+                data.mrrEur != null
+                  ? `${data.mrrEur.toFixed(2)} €`
+                  : "non mesuré"
+              }
+              hint={
+                data.mrrSource === "catalog_live"
+                  ? "Somme prix catalogue plans effectifs payants — pas invoices Stripe"
+                  : data.mrrSource === "hidden_test"
+                    ? "Masqué en Stripe TEST (pas de MRR inventé)"
+                    : "Stripe non configuré"
+              }
             />
           </div>
 
@@ -106,9 +125,10 @@ export function AdminBillingPanel() {
             </table>
           </div>
           <p className="text-[11px] text-[var(--muted)]">
-            past_due : plan catalogue souvent conservé en base ; accès effectif =
-            Free via resolveEffectivePlan. MRR n’inclut que les plans effectifs
-            payants (active/trialing).
+            Badge Stripe = clés réellement chargées (sk_live / sk_test). past_due :
+            plan catalogue souvent conservé en base ; accès effectif = Free via
+            resolveEffectivePlan. MRR catalogue live uniquement — jamais inventé
+            en mode test.
           </p>
         </>
       ) : null}
@@ -120,10 +140,12 @@ function Stat({
   label,
   value,
   warn,
+  hint,
 }: {
   label: string;
   value: string;
   warn?: boolean;
+  hint?: string;
 }) {
   return (
     <div className="rounded-xl border border-[var(--border)] px-3 py-2">
@@ -136,6 +158,9 @@ function Stat({
       >
         {value}
       </p>
+      {hint ? (
+        <p className="mt-0.5 text-[10px] text-[var(--muted)]">{hint}</p>
+      ) : null}
     </div>
   );
 }

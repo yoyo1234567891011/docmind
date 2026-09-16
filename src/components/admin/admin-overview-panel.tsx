@@ -292,34 +292,50 @@ export function AdminOverviewPanel() {
               label="Consommation jour UTC"
               value={data.tokens.usedToday}
               max={data.tokens.limitPerDay}
-              hint={
-                data.tokens.source === "estimate"
-                  ? `Estimation (jobs jour UTC × ~${fmtNum(data.tokens.avgPerAnalysis)} tok). totalTokens&lt;100 exclus (placeholders).`
-                  : "Somme metrics.totalTokens ≥100 (P2 completed, jour UTC)."
-              }
+              hint="Mesuré depuis les réponses Groq (somme metrics.totalTokens ≥100, jobs P2 completed, jour UTC)."
             />
           ) : (
-            <Stat label="Tokens jour UTC" value={fmtNum(data.tokens.usedToday)} />
+            <Stat
+              label="Tokens jour UTC"
+              value={fmtNum(data.tokens.usedToday)}
+              hint="Mesuré depuis les réponses Groq"
+            />
           )}
           <Stat
             label="Tokens 30 j"
             value={fmtNum(data.tokens.usedMonth)}
-            hint={
-              data.tokens.source === "estimate"
-                ? "Estimation si peu de métriques réelles"
-                : "Somme totalTokens ≥100 sur 30 j glissants"
-            }
+            hint="Mesuré depuis les réponses Groq (totalTokens ≥100, 30 j glissants)"
           />
           <Stat
             label="Moyenne / analyse (30 j)"
-            value={`~${fmtNum(data.tokens.avgPerAnalysis)}`}
-            hint="Hors placeholders totalTokens&lt;100"
+            value={
+              data.tokens.avgPerAnalysis != null
+                ? fmtNum(data.tokens.avgPerAnalysis)
+                : "non mesuré"
+            }
+            hint={
+              data.tokens.jobsMeasuredMonth > 0
+                ? `${data.tokens.jobsMeasuredMonth} job(s) mesuré(s)`
+                : "Aucun job avec usage Groq ≥100 sur 30 j"
+            }
           />
           <Stat
-            label="Analyses restantes (estim.)"
-            value={String(data.tokens.estimatedAnalysesRemainingToday)}
-            tone={tokenTone}
-            hint={`Avant plafond catalogue ${fmtNum(data.tokens.limitPerDay)} tok/jour (Groq free, pas API live)`}
+            label="Analyses restantes (dérivé)"
+            value={
+              data.tokens.estimatedAnalysesRemainingToday != null
+                ? String(data.tokens.estimatedAnalysesRemainingToday)
+                : "non mesuré"
+            }
+            tone={
+              data.tokens.estimatedAnalysesRemainingToday != null
+                ? tokenTone
+                : "default"
+            }
+            hint={
+              data.tokens.limitSource === "configured_groq_free"
+                ? `Plafond Groq free configuré ${fmtNum(data.tokens.limitPerDay)} tok/jour (hardcodé, pas renvoyé par Groq)`
+                : "Pas de plafond journalier (mode local)"
+            }
           />
           <Stat
             label="Réinitialisation tokens"
@@ -330,11 +346,24 @@ export function AdminOverviewPanel() {
             }
             hint={
               data.tokens.limitPerDay > 0
-                ? `TPD Groq → ${fmtResetLocal(data.tokens.resetsAt)} (minuit ${data.tokens.resetTimezone})`
+                ? `Minuit ${data.tokens.resetTimezone} → ${fmtResetLocal(data.tokens.resetsAt)}`
                 : "Pas de quota journalier (mode local)"
             }
           />
+          {data.tokens.jobsUnmeasuredToday > 0 ||
+          data.tokens.jobsUnmeasuredMonth > 0 ? (
+            <Stat
+              label="Usage non mesuré"
+              value={`${data.tokens.jobsUnmeasuredToday} jour / ${data.tokens.jobsUnmeasuredMonth} (30 j)`}
+              tone="warn"
+              hint={`${data.tokens.jobsUnmeasuredToday} jobs usage non mesuré (jour UTC) — exclus de la somme`}
+            />
+          ) : null}
         </div>
+        <p className="text-[11px] text-[var(--muted)]">
+          Mesuré depuis les réponses Groq. Les jobs sans usage (ou totalTokens
+          &lt;100) ne sont pas estimés en silence.
+        </p>
       </section>
 
       <section className="space-y-3">
@@ -343,15 +372,27 @@ export function AdminOverviewPanel() {
         </h3>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Stat
-            label="Comptes ayant utilisé DocMind"
+            label={
+              data.users.totalEverSource === "auth"
+                ? "Comptes Auth"
+                : "Comptes (union app)"
+            }
             value={String(data.users.totalEver)}
-            hint="Union usage + abonnements + historique"
+            hint={
+              data.users.totalEverSource === "auth"
+                ? "Count Auth Supabase (listUsers)"
+                : "Fallback union usage + abonnements + historique"
+            }
           />
-          <Stat label="Actifs (24h)" value={String(data.users.active24h)} />
           <Stat
-            label="Actifs (7j)"
+            label="Actifs analyse (24h)"
+            value={String(data.users.active24h)}
+            hint="Users avec ≥1 update app_history dans 24h"
+          />
+          <Stat
+            label="Actifs analyse (7j)"
             value={String(data.users.active7d)}
-            hint={`${data.users.active30d} sur 30 jours`}
+            hint={`${data.users.active30d} actifs analyse sur 30 j`}
           />
           <Stat
             label="Premium actifs"
@@ -360,13 +401,14 @@ export function AdminOverviewPanel() {
             hint="Plans payants active/trialing (hors past_due)"
           />
           <Stat
-            label="Avec au moins 1 analyse"
+            label="Avec ≥1 analyse"
             value={String(data.users.withAnalyses)}
+            hint="Distinct user_id dans app_history"
           />
           <Stat
             label="Moyenne analyses / user"
             value={String(data.users.avgAnalysesPerUser)}
-            hint="Completed all-time / users avec historique"
+            hint={`Completed all-time / ${data.users.withAnalyses} users avec analyse (pas ${data.users.totalEver})`}
           />
         </div>
       </section>
@@ -394,18 +436,20 @@ export function AdminOverviewPanel() {
             hint="All-time (pas seulement 7j)"
           />
           <Stat
-            label="Jobs créés (24 h)"
-            value={String(data.analyses.today)}
-            hint="Fenêtre glissante UTC, pas jour calendaire"
+            label="Jobs créés (jour UTC)"
+            value={String(data.analyses.todayUtc)}
+            hint="created_at ≥ date_trunc('day', now() UTC)"
           />
           <Stat
             label="En attente (pending)"
             value={String(data.jobs.queuePending)}
             tone={data.jobs.queuePending > 0 ? "warn" : "default"}
+            hint="Live (pas historique)"
           />
           <Stat
             label="En cours (processing)"
             value={String(data.jobs.queueProcessing)}
+            hint="Live (pas historique)"
           />
           <Stat
             label="Durée moyenne P2 (7j)"
@@ -422,7 +466,7 @@ export function AdminOverviewPanel() {
             tone={data.health.cronConfigured ? "ok" : "bad"}
             hint={
               data.health.cronConfigured
-                ? "cron-job.org → POST /api/cron/drain-analysis-jobs"
+                ? "≠ dernier drain — voir « Dernier drain » ci-dessus"
                 : "CRON_SECRET absent — les jobs P2 ne seront pas traités"
             }
           />

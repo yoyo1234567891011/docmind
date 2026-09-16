@@ -58,18 +58,23 @@ export interface ProductionDashboard {
     label: string;
   };
   users: {
+    /** Users avec ≥1 update app_history (même déf. Overview) ; sinon analytics éphémère. */
     active24h: number;
     active7d: number;
-    signups30d: number;
+    activeSource: "app_history" | "analytics_ephemeral" | "none";
+    signups30d: number | null;
+    signupsSource: "analytics_ephemeral" | "none";
     premiumActive: number;
     premiumCanceling: number;
   };
   revenue: {
-    mrrEur: number;
-    estimatedRevenue30dEur: number;
-    arpuEur: number;
+    mrrEur: number | null;
+    estimatedRevenue30dEur: number | null;
+    arpuEur: number | null;
     priceMonthlyEur: number;
     billingSource: string;
+    /** Masqué en Stripe test — pas de MRR inventé. */
+    revenueVisible: boolean;
   };
   funnel: {
     conversionRate: number;
