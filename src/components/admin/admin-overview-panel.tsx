@@ -190,6 +190,74 @@ export function AdminOverviewPanel() {
 
       <section className="space-y-3">
         <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
+          Alertes & santé
+        </h3>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Health"
+            value={data.health.ok ? "OK" : "Dégradé"}
+            tone={data.health.ok ? "ok" : "bad"}
+          />
+          <Stat
+            label="DB"
+            value={data.health.dbOk ? "OK" : "KO"}
+            tone={data.health.dbOk ? "ok" : "bad"}
+          />
+          <Stat
+            label="Cron drain"
+            value={data.health.cronConfigured ? "Configuré" : "Manquant"}
+            tone={data.health.cronConfigured ? "ok" : "bad"}
+          />
+          <Stat
+            label="Jobs stuck"
+            value={String(data.jobs.stuck)}
+            tone={data.jobs.stuck > 0 ? "bad" : "ok"}
+            hint="pending/processing > 10 min"
+          />
+          <Stat
+            label="Dernier drain"
+            value={
+              data.health.lastDrainAt
+                ? new Date(data.health.lastDrainAt).toLocaleString("fr-FR")
+                : "—"
+            }
+            hint={
+              data.health.lastDrainProcessed != null
+                ? `${data.health.lastDrainProcessed} job(s) traité(s)`
+                : "Pas encore journalisé"
+            }
+          />
+          <Stat
+            label="Reclaimed stale"
+            value={String(data.jobs.reclaimedStale)}
+          />
+        </div>
+        {data.alerts.length > 0 ? (
+          <ul className="space-y-2">
+            {data.alerts.map((a) => (
+              <li key={a.id}>
+                <Alert
+                  tone={
+                    a.severity === "critical"
+                      ? "error"
+                      : a.severity === "warning"
+                        ? "info"
+                        : "info"
+                  }
+                  title={a.code}
+                >
+                  <p>{a.message}</p>
+                </Alert>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-[var(--success)]">Aucune alerte active.</p>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
           IA & configuration
         </h3>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">

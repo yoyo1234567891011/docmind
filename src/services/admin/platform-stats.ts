@@ -1,7 +1,10 @@
 import { getLlmProviderConfig } from "@/ai/models/llm-provider";
 import { usePersistentStorage } from "@/config/persistence";
-import { query } from "@/lib/db/pool";
+import { getDatabaseUrl, query } from "@/lib/db/pool";
 import { collectBillingAdminRollup } from "@/services/billing/admin-metrics";
+import { countStuckAnalysisJobs } from "@/services/admin/jobs-admin";
+import { getDrainStatus } from "@/services/admin/ops-status";
+import type { AdminOverviewAlert } from "@/types/admin-ops";
 import type { AdminPlatformOverview } from "@/types/admin-platform";
 
 /** Tokens moyens par analyse P2 (mesuré sur gpt-oss-120b). */
@@ -57,6 +60,8 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
     todayTokens,
     monthTokens,
     billing,
+    stuckCount,
+    drain,
   ] = await Promise.all([
     queryUserStats(),
     queryJobStats(),
@@ -67,9 +72,73 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
       premiumCanceling: 0,
       mrrEur: 0,
       priceMonthlyEur: 0,
-      source: "unavailable",
+      source: "unavailable" as const,
+    })),
+    countStuckAnalysisJobs().catch(() => 0),
+    getDrainStatus().catch(() => ({
+      lastSuccessAt: null,
+      lastProcessed: null,
+      lastError: null,
     })),
   ]);
+
+  let dbOk = true;
+  if (usePersistentStorage() || getDatabaseUrl()) {
+    try {
+      await query(`select 1 as ok`);
+    } catch {
+      dbOk = false;
+    }
+  }
+
+  const cronConfigured = Boolean(process.env.CRON_SECRET?.trim());
+  const healthOk = dbOk && stuckCount < 20;
+
+  const alerts: AdminOverviewAlert[] = [];
+  if (!dbOk) {
+    alerts.push({
+      id: "db_down",
+      severity: "critical",
+      code: "DB_DEGRADED",
+      message: "Base de données injoignable (select 1 a échoué).",
+    });
+  }
+  if (!cronConfigured) {
+    alerts.push({
+      id: "cron_missing",
+      severity: "critical",
+      code: "CRON_NOT_CONFIGURED",
+      message: "CRON_SECRET absent — drain P2 non sécurisé / non déclenchable.",
+    });
+  }
+  if (stuckCount > 0) {
+    alerts.push({
+      id: "jobs_stuck",
+      severity: stuckCount >= 5 ? "critical" : "warning",
+      code: "JOBS_STUCK",
+      message: `${stuckCount} job(s) stuck > 10 min (pending/processing).`,
+    });
+  }
+  if (jobStats.failed > 0 && jobStats.today > 0) {
+    const failRate = jobStats.failed / Math.max(jobStats.total, 1);
+    if (failRate > 0.2) {
+      alerts.push({
+        id: "fail_rate",
+        severity: "warning",
+        code: "HIGH_FAIL_RATE",
+        message: `Taux d’échecs jobs élevé (${jobStats.failed} failed / ${jobStats.total}).`,
+      });
+    }
+  }
+  if (cronConfigured && !drain.lastSuccessAt) {
+    alerts.push({
+      id: "drain_never",
+      severity: "info",
+      code: "DRAIN_NO_SUCCESS_LOG",
+      message:
+        "Cron configuré mais aucun succès drain encore journalisé (attendre un tick).",
+    });
+  }
 
   const usedToday =
     todayTokens.fromMetrics > 0
@@ -136,12 +205,17 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
       queuePending: jobStats.pending,
       queueProcessing: jobStats.processing,
       reclaimedStale: jobStats.reclaimedStale,
+      stuck: stuckCount,
     },
     health: {
-      ok: true,
-      cronConfigured: Boolean(process.env.CRON_SECRET?.trim()),
+      ok: healthOk,
+      cronConfigured,
       storageMode: usePersistentStorage() ? "persistent" : "filesystem",
+      dbOk,
+      lastDrainAt: drain.lastSuccessAt,
+      lastDrainProcessed: drain.lastProcessed,
     },
+    alerts,
   };
 }
 

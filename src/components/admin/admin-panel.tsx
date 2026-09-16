@@ -50,6 +50,51 @@ const AdminOverviewPanel = dynamic(
     ),
   },
 );
+
+const AdminJobsPanel = dynamic(
+  () =>
+    import("@/components/admin/admin-jobs-panel").then((m) => ({
+      default: m.AdminJobsPanel,
+    })),
+  {
+    loading: () => (
+      <div className="space-y-3">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    ),
+  },
+);
+
+const AdminUsersPanel = dynamic(
+  () =>
+    import("@/components/admin/admin-users-panel").then((m) => ({
+      default: m.AdminUsersPanel,
+    })),
+  {
+    loading: () => (
+      <div className="space-y-3">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    ),
+  },
+);
+
+const AdminBillingPanel = dynamic(
+  () =>
+    import("@/components/admin/admin-billing-panel").then((m) => ({
+      default: m.AdminBillingPanel,
+    })),
+  {
+    loading: () => (
+      <div className="space-y-3">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    ),
+  },
+);
 import type {
   AdminPromptKey,
   AdminPromptVersion,
@@ -61,6 +106,9 @@ import { cn } from "@/lib/utils";
 
 type TabId =
   | "overview"
+  | "jobs"
+  | "users"
+  | "billing"
   | "production"
   | "models"
   | "prompts"
@@ -75,6 +123,9 @@ type TabId =
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "overview", label: "Vue d'ensemble" },
+  { id: "jobs", label: "Jobs" },
+  { id: "users", label: "Users" },
+  { id: "billing", label: "Billing" },
   { id: "production", label: "Production" },
   { id: "models", label: "Modèles IA" },
   { id: "prompts", label: "Prompts" },
@@ -394,6 +445,12 @@ export function AdminPanel() {
       </div>
 
       {tab === "overview" ? <AdminOverviewPanel /> : null}
+
+      {tab === "jobs" ? <AdminJobsPanel /> : null}
+
+      {tab === "users" ? <AdminUsersPanel /> : null}
+
+      {tab === "billing" ? <AdminBillingPanel /> : null}
 
       {tab === "production" ? <ProductionDashboardPanel /> : null}
 

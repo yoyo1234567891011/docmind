@@ -5,6 +5,7 @@ import {
   drainAnalysisJobs,
   getAnalysisJobStats,
 } from "@/services/analysis-jobs";
+import { recordDrainSuccess } from "@/services/admin/ops-status";
 
 export const runtime = "nodejs";
 /** Hobby Vercel ≤ 300s ; Pro peut remonter à 480. */
@@ -31,6 +32,7 @@ async function handleDrain(request: Request) {
   const before = await getAnalysisJobStats();
   const processed = await drainAnalysisJobs(maxJobs);
   const after = await getAnalysisJobStats();
+  await recordDrainSuccess({ processed }).catch(() => undefined);
 
   return apiSuccess({
     processed,

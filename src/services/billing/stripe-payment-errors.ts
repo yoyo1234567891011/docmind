@@ -59,10 +59,7 @@ export function toStripeBillingAppError(error: unknown): AppError {
     );
   }
 
-  if (error instanceof Error && error.message) {
-    return new AppError("INTERNAL_ERROR", error.message, 502);
-  }
-
+  // Ne jamais renvoyer le message brut Stripe / stack au client.
   return new AppError(
     "INTERNAL_ERROR",
     "Changement de plan impossible pour le moment.",

@@ -567,6 +567,87 @@ export async function claimNextAnalysisJob(
  * Remet un job en pending après saturation temporaire (429 / TPM).
  * `lease_expires_at` sert de cooldown avant le prochain claim.
  */
+/**
+ * Admin : remet un job failed / processing / pending en file (pending immédiat).
+ * Ne touche pas aux pages / contenu PDF.
+ */
+export async function adminRequeueAnalysisJob(
+  jobId: string,
+  note = "admin_retry",
+): Promise<AnalysisJob | null> {
+  const now = new Date().toISOString();
+  const msg = note.slice(0, 500);
+
+  if (usePersistentStorage()) {
+    const result = await query(
+      `update public.app_analysis_jobs
+       set status = 'pending',
+           claimed_at = null,
+           claimed_by = null,
+           lease_expires_at = null,
+           completed_at = null,
+           started_at = null,
+           last_error = $2,
+           updated_at = timezone('utc', now())
+       where id = $1
+         and status in ('pending', 'processing', 'failed')
+       returning *`,
+      [jobId, msg],
+    );
+    const row = result.rows[0] as
+      | {
+          id: string;
+          user_id: string;
+          document_id: string;
+          history_id: string;
+          file_name: string;
+          status: AnalysisJobStatus;
+          attempts: number;
+          last_error: string | null;
+          claimed_at: Date | null;
+          claimed_by: string | null;
+          lease_expires_at: Date | null;
+          started_at: Date | null;
+          completed_at: Date | null;
+          skip_ready_reply: boolean;
+          p1_duration_ms: number | null;
+          user_email: string | null;
+          pages: unknown;
+          metrics?: unknown;
+          created_at: Date;
+          updated_at: Date;
+        }
+      | undefined;
+    return row ? rowToJob(row) : null;
+  }
+
+  const jobs = await readFsJobs();
+  const idx = jobs.findIndex((j) => j.id === jobId);
+  if (idx < 0) return null;
+  const cur = jobs[idx]!;
+  if (
+    cur.status !== "pending" &&
+    cur.status !== "processing" &&
+    cur.status !== "failed"
+  ) {
+    return null;
+  }
+  const updated: AnalysisJob = {
+    ...cur,
+    status: "pending",
+    claimedAt: undefined,
+    claimedBy: undefined,
+    leaseExpiresAt: undefined,
+    completedAt: undefined,
+    startedAt: undefined,
+    lastError: msg,
+    updatedAt: now,
+  };
+  jobs[idx] = updated;
+  await writeFsJobs(jobs);
+  return updated;
+}
+
 export async function requeueAnalysisJob(
   jobId: string,
   errorMessage?: string,

@@ -24,6 +24,7 @@ export {
   getAnalysisJobRemainingMs,
   isAnalysisJobGlobalTimeoutExceeded,
   requeueAnalysisJob,
+  adminRequeueAnalysisJob,
   findActiveAnalysisJob,
   findAnalysisJobByHistoryId,
   deleteAnalysisJobsForHistory,

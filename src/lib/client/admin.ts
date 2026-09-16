@@ -204,6 +204,116 @@ export async function fetchAdminProduction(): Promise<ProductionDashboard> {
   return parseJson<ProductionDashboard>(response);
 }
 
+export async function fetchAdminJobs(input?: {
+  status?: string;
+  userId?: string;
+  limit?: number;
+}): Promise<import("@/types/admin-ops").AdminJobsListResult> {
+  const params = new URLSearchParams();
+  if (input?.status) params.set("status", input.status);
+  if (input?.userId) params.set("userId", input.userId);
+  if (input?.limit) params.set("limit", String(input.limit));
+  const qs = params.toString();
+  const response = await fetch(`/api/admin/jobs${qs ? `?${qs}` : ""}`, {
+    cache: "no-store",
+  });
+  return parseJson(response);
+}
+
+export async function retryAdminJob(
+  jobId: string,
+): Promise<import("@/types/admin-ops").AdminJobRow> {
+  const response = await fetch("/api/admin/jobs", {
+    method: "POST",
+    headers: await csrfHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ action: "retry", jobId }),
+    credentials: "same-origin",
+  });
+  const data = await parseJson<{ job: import("@/types/admin-ops").AdminJobRow }>(
+    response,
+  );
+  return data.job;
+}
+
+export async function fetchAdminUsers(limit = 50): Promise<
+  import("@/types/admin-ops").AdminUsersListResult
+> {
+  const response = await fetch(`/api/admin/users?limit=${limit}`, {
+    cache: "no-store",
+  });
+  return parseJson(response);
+}
+
+export async function fetchAdminUserDetail(
+  userId: string,
+): Promise<import("@/types/admin-ops").AdminUserDetail> {
+  const response = await fetch(
+    `/api/admin/users/${encodeURIComponent(userId)}`,
+    { cache: "no-store" },
+  );
+  const data = await parseJson<{
+    detail: import("@/types/admin-ops").AdminUserDetail;
+  }>(response);
+  return data.detail;
+}
+
+export async function searchAdminUserByEmail(
+  email: string,
+): Promise<import("@/types/admin-ops").AdminUserDetail> {
+  const response = await fetch(
+    `/api/admin/users?email=${encodeURIComponent(email)}`,
+    { cache: "no-store" },
+  );
+  const data = await parseJson<{
+    detail: import("@/types/admin-ops").AdminUserDetail;
+  }>(response);
+  return data.detail;
+}
+
+export async function adminSyncUserStripe(
+  userId: string,
+): Promise<import("@/types/admin-ops").AdminUserDetail> {
+  const response = await fetch(
+    `/api/admin/users/${encodeURIComponent(userId)}`,
+    {
+      method: "POST",
+      headers: await csrfHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ action: "sync_stripe" }),
+      credentials: "same-origin",
+    },
+  );
+  const data = await parseJson<{
+    detail: import("@/types/admin-ops").AdminUserDetail;
+  }>(response);
+  return data.detail;
+}
+
+export async function adminResetUserAnalyzeQuota(
+  userId: string,
+  confirm: string,
+): Promise<import("@/types/admin-ops").AdminUserDetail> {
+  const response = await fetch(
+    `/api/admin/users/${encodeURIComponent(userId)}`,
+    {
+      method: "POST",
+      headers: await csrfHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ action: "reset_analyze_quota", confirm }),
+      credentials: "same-origin",
+    },
+  );
+  const data = await parseJson<{
+    detail: import("@/types/admin-ops").AdminUserDetail;
+  }>(response);
+  return data.detail;
+}
+
+export async function fetchAdminBilling(): Promise<
+  import("@/types/admin-ops").AdminBillingDetail
+> {
+  const response = await fetch("/api/admin/billing", { cache: "no-store" });
+  return parseJson(response);
+}
+
 export async function reanalyzeAdminDocument(
   historyId: string,
   skipReadyReply = false,

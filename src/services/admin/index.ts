@@ -34,3 +34,21 @@ export {
 export { DEFAULT_ADMIN_PROMPTS } from "@/services/admin/default-prompts";
 export { diffPromptLines, comparePromptOutputs } from "@/services/admin/compare";
 export { reanalyzeHistoryRecord } from "@/services/admin/reanalyze";
+export {
+  listAdminAnalysisJobs,
+  retryAdminAnalysisJob,
+  countStuckAnalysisJobs,
+} from "@/services/admin/jobs-admin";
+export {
+  listAdminUsers,
+  getAdminUserDetail,
+  adminSyncUserStripe,
+  adminResetAnalyzeQuota,
+} from "@/services/admin/users-admin";
+export { collectAdminBillingDetail } from "@/services/admin/billing-admin";
+export {
+  recordDrainSuccess,
+  getDrainStatus,
+  appendAdminActionLog,
+} from "@/services/admin/ops-status";
+export { buildAdminPlatformOverview } from "@/services/admin/platform-stats";

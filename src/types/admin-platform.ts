@@ -1,3 +1,5 @@
+import type { AdminOverviewAlert } from "@/types/admin-ops";
+
 export type AdminLlmRuntime = {
   provider: "ollama" | "groq" | "mistral" | "openai_compatible";
   model: string;
@@ -42,10 +44,15 @@ export type AdminPlatformOverview = {
     queuePending: number;
     queueProcessing: number;
     reclaimedStale: number;
+    stuck: number;
   };
   health: {
     ok: boolean;
     cronConfigured: boolean;
     storageMode: "persistent" | "filesystem";
+    dbOk: boolean;
+    lastDrainAt: string | null;
+    lastDrainProcessed: number | null;
   };
+  alerts: AdminOverviewAlert[];
 };

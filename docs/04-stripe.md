@@ -118,8 +118,8 @@ Page Analyser / `/api/upload` : vérité = **analyses** (pas de blocage sur un c
 
 | Événement | Usage du mois | Limites |
 |-----------|---------------|---------|
-| **Upgrade** de palier | `analyze` + `search` + `letter` + `upload` → **0** | nouveau plan |
-| **Downgrade** / renew | **conservé** | plan actuel |
+| **Upgrade** de palier | `used` **conservé** ; nouvelles `limit` | nouveau plan (après paid) |
+| **Downgrade** / renew | **conservé** | haut jusqu’à `period_end`, puis bas |
 | `past_due` | conservé | effective = **free** |
 
 Affichage : toujours `Plan · used/limit` du plan **actuel** (pas un « restants » orphelin d’un autre plafond).

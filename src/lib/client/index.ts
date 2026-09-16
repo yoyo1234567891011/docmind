@@ -88,6 +88,14 @@ export {
   runAdminMonitoringCheck,
   fetchAdminProduction,
   fetchAdminOverview,
+  fetchAdminJobs,
+  retryAdminJob,
+  fetchAdminUsers,
+  fetchAdminUserDetail,
+  searchAdminUserByEmail,
+  adminSyncUserStripe,
+  adminResetUserAnalyzeQuota,
+  fetchAdminBilling,
 } from "./admin";
 export type {
   AdminDashboardData,
@@ -96,6 +104,13 @@ export type {
   ProductionDashboard,
 } from "./admin";
 export type { AdminPlatformOverview } from "@/types/admin-platform";
+export type {
+  AdminJobRow,
+  AdminJobsListResult,
+  AdminUserDetail,
+  AdminUsersListResult,
+  AdminBillingDetail,
+} from "@/types/admin-ops";
 export { fetchAnalysisLogs } from "./logs";
 export {
   submitFeedback,
