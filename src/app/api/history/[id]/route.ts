@@ -14,6 +14,10 @@ export const runtime = "nodejs";
 /** Delete unitaire : cascade mémoire/S3 peut dépasser le défaut 10s. */
 export const maxDuration = 60;
 
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
 /**
  * GET /api/history/:id
  */
