@@ -4,6 +4,8 @@ import { AppError } from "@/lib/errors";
 import { deleteHistoryRecordsBulk } from "@/services/history";
 
 export const runtime = "nodejs";
+/** Cascade S3/mémoire/jobs peut dépasser 10s (défaut Vercel) sur 2+ docs. */
+export const maxDuration = 60;
 
 /**
  * POST /api/history/bulk-delete

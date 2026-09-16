@@ -11,10 +11,8 @@ import { assertTagIds } from "@/services/tags";
 import type { PatchHistoryInput } from "@/types";
 
 export const runtime = "nodejs";
-
-interface RouteContext {
-  params: Promise<{ id: string }>;
-}
+/** Delete unitaire : cascade mémoire/S3 peut dépasser le défaut 10s. */
+export const maxDuration = 60;
 
 /**
  * GET /api/history/:id
