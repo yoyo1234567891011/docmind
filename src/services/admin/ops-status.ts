@@ -30,7 +30,7 @@ async function ensureAdminDir(): Promise<void> {
   await mkdir(ADMIN_DIR, { recursive: true });
 }
 
-/** Enregistre le dernier drain cron (best-effort FS ou mémoire). */
+/** Enregistre le dernier drain cron (best-effort PG prod / FS local). */
 export async function recordDrainSuccess(input: {
   processed: number;
 }): Promise<void> {
@@ -40,15 +40,11 @@ export async function recordDrainSuccess(input: {
     lastError: null,
   };
   Object.assign(memoryDrain, next);
-  if (!canUseLocalFilesystem()) return;
-  try {
-    await ensureAdminDir();
-    await writeFile(DRAIN_STATUS_FILE, JSON.stringify(next, null, 2), "utf8");
-  } catch {
-    /* non bloquant */
-  }
+
+  // Prod serverless : pas de FS — écrire PG en premier (sinon early-return perdu).
   if (usePersistentStorage()) {
     try {
+      await ensureAdminKvTable();
       await query(
         `insert into public.app_admin_kv (key, data, updated_at)
          values ('drain_status', $1::jsonb, timezone('utc', now()))
@@ -57,7 +53,16 @@ export async function recordDrainSuccess(input: {
         [JSON.stringify(next)],
       );
     } catch {
-      /* table optionnelle — ignore */
+      /* non bloquant */
+    }
+  }
+
+  if (canUseLocalFilesystem()) {
+    try {
+      await ensureAdminDir();
+      await writeFile(DRAIN_STATUS_FILE, JSON.stringify(next, null, 2), "utf8");
+    } catch {
+      /* non bloquant */
     }
   }
 }
@@ -65,6 +70,7 @@ export async function recordDrainSuccess(input: {
 export async function getDrainStatus(): Promise<DrainStatus> {
   if (usePersistentStorage()) {
     try {
+      await ensureAdminKvTable();
       const { rows } = await query<{ data: DrainStatus }>(
         `select data from public.app_admin_kv where key = 'drain_status' limit 1`,
       );
@@ -82,6 +88,16 @@ export async function getDrainStatus(): Promise<DrainStatus> {
     }
   }
   return { ...memoryDrain };
+}
+
+async function ensureAdminKvTable(): Promise<void> {
+  await query(`
+    create table if not exists public.app_admin_kv (
+      key text primary key,
+      data jsonb not null,
+      updated_at timestamptz not null default timezone('utc', now())
+    )
+  `);
 }
 
 export async function appendAdminActionLog(

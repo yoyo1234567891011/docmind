@@ -10,7 +10,13 @@ import type { AdminPlatformOverview } from "@/types/admin-platform";
 /** Tokens moyens par analyse P2 (mesuré sur gpt-oss-120b). */
 const ESTIMATED_TOKENS_PER_ANALYSIS = 4_000;
 
-/** Quotas Groq free tier — openai/gpt-oss-120b. */
+/**
+ * Seuil anti-faux métriques : certains chemins salvage écrivent totalTokens=1
+ * pour passer la validation publish — à exclure des sommes admin.
+ */
+const MIN_REAL_JOB_TOKENS = 100;
+
+/** Plafond catalogue Groq free TPD (gpt-oss-*) — pas l’API quota live. */
 const GROQ_FREE_DAILY_TOKENS = 200_000;
 
 /** Groq TPD (tokens/jour) se réinitialise à minuit UTC. */
@@ -65,8 +71,8 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
   ] = await Promise.all([
     queryUserStats(),
     queryJobStats(),
-    queryTokensUsed("day"),
-    queryTokensUsed("month"),
+    queryTokensUsed("utc_day"),
+    queryTokensUsed("rolling_30d"),
     collectBillingAdminRollup().catch(() => ({
       premiumActive: 0,
       premiumCanceling: 0,
@@ -119,14 +125,16 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
       message: `${stuckCount} job(s) stuck > 10 min (pending/processing).`,
     });
   }
-  if (jobStats.failed > 0 && jobStats.today > 0) {
-    const failRate = jobStats.failed / Math.max(jobStats.total, 1);
+  // Taux d’échec sur 7j seulement (les failed historiques ne doivent pas alerter).
+  const recentDenom = jobStats.completed7d + jobStats.failed7d;
+  if (jobStats.failed7d > 0 && recentDenom > 0) {
+    const failRate = jobStats.failed7d / recentDenom;
     if (failRate > 0.2) {
       alerts.push({
         id: "fail_rate",
         severity: "warning",
         code: "HIGH_FAIL_RATE",
-        message: `Taux d’échecs jobs élevé (${jobStats.failed} failed / ${jobStats.total}).`,
+        message: `Taux d’échecs jobs 7j élevé (${jobStats.failed7d} failed / ${recentDenom}).`,
       });
     }
   }
@@ -140,24 +148,28 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
     });
   }
 
+  const avgPerAnalysis =
+    monthTokens.jobsWithRealMetrics > 0
+      ? Math.round(monthTokens.fromMetrics / monthTokens.jobsWithRealMetrics)
+      : ESTIMATED_TOKENS_PER_ANALYSIS;
+
+  // Jour UTC (= fenêtre Groq TPD). totalTokens < MIN exclus (souvent placeholders =1).
   const usedToday =
     todayTokens.fromMetrics > 0
       ? todayTokens.fromMetrics
-      : jobStats.completedToday * ESTIMATED_TOKENS_PER_ANALYSIS;
+      : todayTokens.jobsCompleted * avgPerAnalysis;
   const usedMonth =
     monthTokens.fromMetrics > 0
       ? monthTokens.fromMetrics
-      : jobStats.completed * ESTIMATED_TOKENS_PER_ANALYSIS;
-
-  const avgPerAnalysis =
-    jobStats.completedWithMetrics > 0
-      ? Math.round(monthTokens.fromMetrics / jobStats.completedWithMetrics)
-      : ESTIMATED_TOKENS_PER_ANALYSIS;
+      : monthTokens.jobsCompleted * avgPerAnalysis;
 
   const limitPerDay = cloudEnabled ? groqDailyTokenLimit(model) : 0;
   const remaining =
     limitPerDay > 0
-      ? Math.max(0, Math.floor((limitPerDay - usedToday) / Math.max(avgPerAnalysis, 1)))
+      ? Math.max(
+          0,
+          Math.floor((limitPerDay - usedToday) / Math.max(avgPerAnalysis, 1)),
+        )
       : 0;
 
   const avgAnalysesPerUser =
@@ -285,6 +297,8 @@ async function queryJobStats(): Promise<{
   processing: number;
   today: number;
   completedToday: number;
+  completed7d: number;
+  failed7d: number;
   completedWithMetrics: number;
   avgDurationSec: number;
   reclaimedStale: number;
@@ -298,6 +312,8 @@ async function queryJobStats(): Promise<{
       processing: string;
       today: string;
       completed_today: string;
+      completed_7d: string;
+      failed_7d: string;
       completed_with_metrics: string;
       avg_duration_sec: string;
       reclaimed_stale: string;
@@ -312,11 +328,28 @@ async function queryJobStats(): Promise<{
         count(*) filter (where status = 'completed'
           and created_at >= timezone('utc', now()) - interval '24 hours')::text as completed_today,
         count(*) filter (where status = 'completed'
+          and created_at >= timezone('utc', now()) - interval '7 days')::text as completed_7d,
+        count(*) filter (where status = 'failed'
+          and created_at >= timezone('utc', now()) - interval '7 days')::text as failed_7d,
+        count(*) filter (where status = 'completed'
           and metrics ? 'totalTokens')::text as completed_with_metrics,
+        -- Durée P2 réelle : metrics.totalMs (ms→s), fenêtre 7j, hors outliers >10 min.
+        -- Ancien calcul wall-clock all-time (updated_at-created_at) gonflait à des heures.
         coalesce(
           round(avg(
-            extract(epoch from (updated_at - created_at))
-          ) filter (where status = 'completed'))::int,
+            case
+              when metrics ? 'totalMs'
+                and (metrics->>'totalMs')::numeric between 1000 and 600000
+              then (metrics->>'totalMs')::numeric / 1000.0
+              when started_at is not null and completed_at is not null
+                and extract(epoch from (completed_at - started_at)) between 1 and 600
+              then extract(epoch from (completed_at - started_at))
+              else null
+            end
+          ) filter (
+            where status = 'completed'
+              and created_at >= timezone('utc', now()) - interval '7 days'
+          ))::int,
           0
         )::text as avg_duration_sec,
         count(*) filter (where last_error = 'reclaimed_stale_lease')::text as reclaimed_stale
@@ -331,6 +364,8 @@ async function queryJobStats(): Promise<{
       processing: Number(r?.processing ?? 0),
       today: Number(r?.today ?? 0),
       completedToday: Number(r?.completed_today ?? 0),
+      completed7d: Number(r?.completed_7d ?? 0),
+      failed7d: Number(r?.failed_7d ?? 0),
       completedWithMetrics: Number(r?.completed_with_metrics ?? 0),
       avgDurationSec: Number(r?.avg_duration_sec ?? 0),
       reclaimedStale: Number(r?.reclaimed_stale ?? 0),
@@ -344,6 +379,8 @@ async function queryJobStats(): Promise<{
       processing: 0,
       today: 0,
       completedToday: 0,
+      completed7d: 0,
+      failed7d: 0,
       completedWithMetrics: 0,
       avgDurationSec: 0,
       reclaimedStale: 0,
@@ -352,24 +389,51 @@ async function queryJobStats(): Promise<{
 }
 
 async function queryTokensUsed(
-  window: "day" | "month",
-): Promise<{ fromMetrics: number }> {
-  const interval = window === "day" ? "24 hours" : "30 days";
+  window: "utc_day" | "rolling_30d",
+): Promise<{
+  fromMetrics: number;
+  jobsWithRealMetrics: number;
+  jobsCompleted: number;
+}> {
+  const windowSql =
+    window === "utc_day"
+      ? `created_at >= date_trunc('day', timezone('utc', now()))`
+      : `created_at >= timezone('utc', now()) - interval '30 days'`;
   try {
-    const { rows } = await query<{ total: string }>(
+    const { rows } = await query<{
+      tokens: string;
+      with_metrics: string;
+      completed: string;
+    }>(
       `
-      select coalesce(
-        sum((metrics->>'totalTokens')::bigint),
-        0
-      )::text as total
+      select
+        coalesce(
+          sum((metrics->>'totalTokens')::bigint) filter (
+            where status = 'completed'
+              and ${windowSql}
+              and metrics ? 'totalTokens'
+              and (metrics->>'totalTokens')::bigint >= ${MIN_REAL_JOB_TOKENS}
+          ),
+          0
+        )::text as tokens,
+        count(*) filter (
+          where status = 'completed'
+            and ${windowSql}
+            and metrics ? 'totalTokens'
+            and (metrics->>'totalTokens')::bigint >= ${MIN_REAL_JOB_TOKENS}
+        )::text as with_metrics,
+        count(*) filter (
+          where status = 'completed' and ${windowSql}
+        )::text as completed
       from public.app_analysis_jobs
-      where status = 'completed'
-        and created_at >= timezone('utc', now()) - interval '${interval}'
-        and metrics ? 'totalTokens'
       `,
     );
-    return { fromMetrics: Number(rows[0]?.total ?? 0) };
+    return {
+      fromMetrics: Number(rows[0]?.tokens ?? 0),
+      jobsWithRealMetrics: Number(rows[0]?.with_metrics ?? 0),
+      jobsCompleted: Number(rows[0]?.completed ?? 0),
+    };
   } catch {
-    return { fromMetrics: 0 };
+    return { fromMetrics: 0, jobsWithRealMetrics: 0, jobsCompleted: 0 };
   }
 }

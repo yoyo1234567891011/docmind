@@ -859,7 +859,7 @@ export function AdminPanel() {
             <>
               <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
                 <Stat
-                  label="Analyses"
+                  label="Analyses (24 h)"
                   value={String(monitoring.snapshot.analysis.count)}
                 />
                 <Stat
@@ -875,7 +875,7 @@ export function AdminPanel() {
                   value={`${monitoring.snapshot.analysis.avgWaitMs} ms`}
                 />
                 <Stat
-                  label="Erreurs 5xx"
+                  label="Erreurs 5xx (24 h)"
                   value={String(monitoring.snapshot.serverErrors24h)}
                 />
                 <Stat
@@ -889,6 +889,10 @@ export function AdminPanel() {
                   }
                 />
               </div>
+              <p className="text-[11px] text-[var(--muted)]">
+                Compteurs issus du store monitoring (éphémère sur Vercel sans FS) ·
+                GPU souvent N/A en mode Groq cloud.
+              </p>
               <p className="text-xs text-[var(--muted)]">
                 LLM {data?.llmRuntime?.cloudEnabled ? "cloud" : "Ollama"}{" "}
                 {monitoring.snapshot.workers.ollamaUp ? "up" : "down"} · gén.
@@ -931,7 +935,7 @@ export function AdminPanel() {
         <section className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Stat
-              label="Appels"
+              label="Appels LLM (rétention)"
               value={String(data.performance.totalCalls)}
             />
             <Stat
@@ -947,6 +951,10 @@ export function AdminPanel() {
               value={`${data.performance.p95DurationMs} ms`}
             />
           </div>
+          <p className="text-[11px] text-[var(--muted)]">
+            Métriques admin LLM en mémoire/FS local (max 2000) — souvent vides
+            après cold start Vercel. Pas des tokens Groq.
+          </p>
           <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-[var(--border)] text-[var(--muted)]">
@@ -1003,6 +1011,7 @@ export function AdminPanel() {
               <p className="text-sm text-[var(--muted)]">
                 Fenêtre {data.productAnalytics.windowDays} jours ·{" "}
                 {data.productAnalytics.totalEvents} événements
+                {" · "}store analytics (éphémère sur Vercel sans FS)
               </p>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Stat

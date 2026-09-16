@@ -18,11 +18,8 @@ export interface BillingAdminRollup {
 
 function isPaidActive(sub: UserSubscriptionRecord): boolean {
   if (!isPaidBillingPlanId(sub.plan)) return false;
-  return (
-    sub.status === "active" ||
-    sub.status === "trialing" ||
-    sub.status === "past_due"
-  );
+  // Aligné Billing admin / resolveEffectivePlan : past_due ≠ payant effectif.
+  return sub.status === "active" || sub.status === "trialing";
 }
 
 function planMonthlyEur(plan: UserSubscriptionRecord["plan"]): number {

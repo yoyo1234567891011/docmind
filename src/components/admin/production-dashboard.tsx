@@ -303,6 +303,7 @@ export function ProductionDashboardPanel() {
         {data.host.gpuPercent == null && data.ollama.gpuProxyPercent != null
           ? " · * proxy Ollama /api/ps (installez nvidia-smi pour le GPU réel)"
           : ` · host ${data.host.source}`}
+        {" · "}GPU/CPU/RAM = machine locale (N/A utile sur Groq cloud Vercel)
       </p>
 
       <Section title="Business">
@@ -335,12 +336,12 @@ export function ProductionDashboardPanel() {
         <Stat
           label="MRR"
           value={fmtEur(data.revenue.mrrEur)}
-          hint={`${data.users.premiumActive} Premium · ARPU ${fmtEur(data.revenue.arpuEur)}`}
+          hint={`${data.users.premiumActive} payants active/trialing · ARPU ${fmtEur(data.revenue.arpuEur)}`}
         />
         <Stat
           label="Churn"
           value={fmtPct(data.funnel.churnRate)}
-          hint={`${data.funnel.churned} churn · ${data.funnel.cancelRequested} annulations demandées`}
+          hint={`${data.funnel.churned} churn · ${data.funnel.cancelRequested} annulations demandées (analytics 30j)`}
           tone={
             data.funnel.churnRate >= 0.1
               ? "bad"
@@ -352,7 +353,7 @@ export function ProductionDashboardPanel() {
         <Stat
           label="Conversion"
           value={fmtPct(data.funnel.conversionRate)}
-          hint={`${data.funnel.converted}/${data.funnel.checkoutStarted} checkouts`}
+          hint={`${data.funnel.converted}/${data.funnel.checkoutStarted} checkouts (analytics)`}
           tone={data.funnel.conversionRate >= 0.2 ? "ok" : "default"}
         />
         <Stat
@@ -360,8 +361,8 @@ export function ProductionDashboardPanel() {
           value={String(data.users.premiumActive)}
           hint={
             data.users.premiumCanceling > 0
-              ? `${data.users.premiumCanceling} en fin de période`
-              : `source ${data.revenue.billingSource}`
+              ? `${data.users.premiumCanceling} en fin de période · hors past_due`
+              : `source ${data.revenue.billingSource} · hors past_due`
           }
         />
         <Stat

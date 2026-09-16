@@ -67,7 +67,7 @@ export function AdminJobsPanel() {
           <h2 className="font-display text-lg">File d&apos;analyses P2</h2>
           <p className="text-xs text-[var(--muted)]">
             Sans extract PDF · stuck = pending/processing &gt; 10 min ou lease
-            expirée
+            expirée · compteurs = all-time PG
           </p>
         </div>
         <Button type="button" variant="secondary" size="sm" onClick={() => void load()}>

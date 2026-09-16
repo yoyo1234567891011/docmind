@@ -284,37 +284,42 @@ export function AdminOverviewPanel() {
 
       <section className="space-y-3">
         <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
-          Tokens Groq (aujourd&apos;hui)
+          Tokens Groq (jour UTC)
         </h3>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {data.tokens.limitPerDay > 0 ? (
             <Gauge
-              label="Consommation journalière"
+              label="Consommation jour UTC"
               value={data.tokens.usedToday}
               max={data.tokens.limitPerDay}
               hint={
                 data.tokens.source === "estimate"
-                  ? "Estimation (~4 000 tokens/analyse). Les prochaines analyses afficheront les valeurs réelles."
-                  : "Valeurs mesurées depuis les jobs d'analyse."
+                  ? `Estimation (jobs jour UTC × ~${fmtNum(data.tokens.avgPerAnalysis)} tok). totalTokens&lt;100 exclus (placeholders).`
+                  : "Somme metrics.totalTokens ≥100 (P2 completed, jour UTC)."
               }
             />
           ) : (
-            <Stat label="Tokens aujourd'hui" value={fmtNum(data.tokens.usedToday)} />
+            <Stat label="Tokens jour UTC" value={fmtNum(data.tokens.usedToday)} />
           )}
           <Stat
-            label="Tokens ce mois"
+            label="Tokens 30 j"
             value={fmtNum(data.tokens.usedMonth)}
-            hint={data.tokens.source === "estimate" ? "Estimation" : "Mesuré"}
+            hint={
+              data.tokens.source === "estimate"
+                ? "Estimation si peu de métriques réelles"
+                : "Somme totalTokens ≥100 sur 30 j glissants"
+            }
           />
           <Stat
-            label="Moyenne / analyse"
+            label="Moyenne / analyse (30 j)"
             value={`~${fmtNum(data.tokens.avgPerAnalysis)}`}
+            hint="Hors placeholders totalTokens&lt;100"
           />
           <Stat
             label="Analyses restantes (estim.)"
             value={String(data.tokens.estimatedAnalysesRemainingToday)}
             tone={tokenTone}
-            hint="Avant d'atteindre la limite Groq free (200k tokens/jour)"
+            hint={`Avant plafond catalogue ${fmtNum(data.tokens.limitPerDay)} tok/jour (Groq free, pas API live)`}
           />
           <Stat
             label="Réinitialisation tokens"
@@ -325,7 +330,7 @@ export function AdminOverviewPanel() {
             }
             hint={
               data.tokens.limitPerDay > 0
-                ? `Quota journalier Groq → ${fmtResetLocal(data.tokens.resetsAt)} (minuit ${data.tokens.resetTimezone})`
+                ? `TPD Groq → ${fmtResetLocal(data.tokens.resetsAt)} (minuit ${data.tokens.resetTimezone})`
                 : "Pas de quota journalier (mode local)"
             }
           />
@@ -352,6 +357,7 @@ export function AdminOverviewPanel() {
             label="Premium actifs"
             value={String(data.users.premiumActive)}
             tone={data.users.premiumActive > 0 ? "ok" : "default"}
+            hint="Plans payants active/trialing (hors past_due)"
           />
           <Stat
             label="Avec au moins 1 analyse"
@@ -360,6 +366,7 @@ export function AdminOverviewPanel() {
           <Stat
             label="Moyenne analyses / user"
             value={String(data.users.avgAnalysesPerUser)}
+            hint="Completed all-time / users avec historique"
           />
         </div>
       </section>
@@ -369,18 +376,28 @@ export function AdminOverviewPanel() {
           Analyses & file d&apos;attente
         </h3>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Total analyses" value={String(data.analyses.total)} />
+          <Stat
+            label="Total jobs"
+            value={String(data.analyses.total)}
+            hint="All-time app_analysis_jobs"
+          />
           <Stat
             label="Complétées"
             value={String(data.analyses.completed)}
             tone="ok"
+            hint="All-time"
           />
           <Stat
             label="Échouées"
             value={String(data.analyses.failed)}
             tone={data.analyses.failed > 0 ? "warn" : "default"}
+            hint="All-time (pas seulement 7j)"
           />
-          <Stat label="Aujourd'hui" value={String(data.analyses.today)} />
+          <Stat
+            label="Jobs créés (24 h)"
+            value={String(data.analyses.today)}
+            hint="Fenêtre glissante UTC, pas jour calendaire"
+          />
           <Stat
             label="En attente (pending)"
             value={String(data.jobs.queuePending)}
@@ -391,12 +408,13 @@ export function AdminOverviewPanel() {
             value={String(data.jobs.queueProcessing)}
           />
           <Stat
-            label="Durée moyenne P2"
+            label="Durée moyenne P2 (7j)"
             value={
               data.analyses.avgDurationSec > 0
                 ? `${data.analyses.avgDurationSec}s`
                 : "—"
             }
+            hint="metrics.totalMs (hors outliers >10 min)"
           />
           <Stat
             label="Cron drain"
