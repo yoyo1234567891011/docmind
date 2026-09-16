@@ -472,11 +472,12 @@ export async function deleteHistoryRecord(
         async () => {
           await purgeMemoryForDocument(userId, documentId);
         },
-        { ttlMs: 120_000 },
+        // Court : ne pas bloquer delete/bulk si un job P2 tient le lock.
+        { ttlMs: 30_000, waitMs: 8_000 },
       );
     } catch (error) {
+      // Historique + PDF déjà retirés : échec mémoire = log only (évite ECONNRESET bulk).
       logCascadeError(userId, documentId, id, "memory_purge", error);
-      criticalErrors.push("memory");
     }
 
     if (criticalErrors.length > 0) {
