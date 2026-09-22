@@ -21,6 +21,7 @@ import {
   sanitizeProductionDeadlines,
   shouldShowWatchEmptyState,
 } from "@/ai/post-processing/prod-quality";
+import { AnalysisTtsButton } from "@/components/documents/analysis-tts-button";
 import { DocumentRelationsPanel } from "@/components/documents/document-relations-panel";
 import { DocumentTimelinePanel } from "@/components/documents/document-timeline-panel";
 import { DocumentSheetCard } from "@/components/documents/document-sheet-card";
@@ -716,6 +717,10 @@ export function AnalysisResults({
   const watchPoints = buildWatchPoints(analysis, classification);
   const summary = resolveDisplaySummary(analysis, classification);
   const displayDeadlines = sanitizeProductionDeadlines(analysis.deadlines ?? []);
+  const summaryTitle =
+    cleanTitleForDisplay(analysis.title?.trim() || documentType) ||
+    documentType;
+  const ttsActions = cleanActionsForDisplay(analysis.actions ?? []);
 
   return (
     <section
@@ -767,8 +772,7 @@ export function AnalysisResults({
           id="analysis-summary-heading"
           className="mt-2.5 font-display text-2xl leading-snug tracking-tight text-[var(--foreground)] sm:text-[1.85rem]"
         >
-          {cleanTitleForDisplay(analysis.title?.trim() || documentType) ||
-            documentType}
+          {summaryTitle}
         </h3>
         {summary || isPreviewLoading || isPreview ? (
           <p className="mt-5 max-w-3xl text-base leading-[1.7] text-[var(--foreground)] sm:text-[1.0625rem]">
@@ -780,6 +784,19 @@ export function AnalysisResults({
         ) : (
           <EmptyState label="Aucun résumé disponible pour ce document." />
         )}
+        {!isPreviewLoading ? (
+          <AnalysisTtsButton
+            className="mt-5"
+            documentKey={documentId ?? historyId ?? summaryTitle}
+            title={summaryTitle}
+            summary={summary ?? ""}
+            watchPoints={watchPoints.map((p) => ({
+              title: p.title,
+              explanation: p.explanation,
+            }))}
+            actions={ttsActions}
+          />
+        ) : null}
         {(analysis.date || analysis.amounts?.length > 0) && (
           <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-[var(--border)] pt-5 text-sm leading-relaxed text-[var(--muted)]">
             {analysis.date ? (
