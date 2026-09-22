@@ -784,19 +784,17 @@ export function AnalysisResults({
         ) : (
           <EmptyState label="Aucun résumé disponible pour ce document." />
         )}
-        {!isPreviewLoading ? (
-          <AnalysisTtsButton
-            className="mt-5"
-            documentKey={documentId ?? historyId ?? summaryTitle}
-            title={summaryTitle}
-            summary={summary ?? ""}
-            watchPoints={watchPoints.map((p) => ({
-              title: p.title,
-              explanation: p.explanation,
-            }))}
-            actions={ttsActions}
-          />
-        ) : null}
+        <AnalysisTtsButton
+          className="mt-5"
+          documentKey={documentId ?? historyId ?? summaryTitle}
+          title={summaryTitle}
+          summary={summary ?? ""}
+          watchPoints={watchPoints.map((p) => ({
+            title: p.title,
+            explanation: p.explanation,
+          }))}
+          actions={ttsActions}
+        />
         {(analysis.date || analysis.amounts?.length > 0) && (
           <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-[var(--border)] pt-5 text-sm leading-relaxed text-[var(--muted)]">
             {analysis.date ? (

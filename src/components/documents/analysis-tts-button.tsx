@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Lecture orale de l’analyse (Web Speech API) — feature flag NEXT_PUBLIC_TTS_ENABLED=1.
+ * Lecture orale de l’analyse (Web Speech API navigateur).
  * Tout le TTS est ici pour pouvoir supprimer le fichier + l’import unique.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -25,13 +25,6 @@ export type AnalysisTtsButtonProps = {
 };
 
 type PlayState = "idle" | "speaking" | "paused";
-
-function isTtsFlagEnabled(): boolean {
-  const raw = (process.env.NEXT_PUBLIC_TTS_ENABLED ?? "").trim();
-  // Vercel CLI / PowerShell peut enregistrer "1\r\n" littéral (pas un vrai newline).
-  const normalized = raw.replace(/\\r|\\n|\r|\n/g, "").trim();
-  return normalized === "1";
-}
 
 function hasSpeechSynthesis(): boolean {
   return (
@@ -199,7 +192,7 @@ function useAnalysisTts(props: {
   }, []);
 
   const start = useCallback(() => {
-    if (!hasSpeechSynthesis()) return;
+    if (!hasSpeechSynthesis() || script.length === 0) return;
     cancelSpeech();
     scriptRef.current = script;
     voiceRef.current = pickFrenchVoice();
@@ -258,34 +251,8 @@ function useAnalysisTts(props: {
   };
 }
 
-/**
- * Bouton lecture orale — rendu uniquement si NEXT_PUBLIC_TTS_ENABLED=1.
- */
+/** Bouton lecture orale — toujours affiché sauf si speechSynthesis absent. */
 export function AnalysisTtsButton({
-  documentKey,
-  title,
-  summary,
-  watchPoints,
-  actions,
-  className,
-}: AnalysisTtsButtonProps) {
-  if (!isTtsFlagEnabled()) {
-    return null;
-  }
-
-  return (
-    <AnalysisTtsButtonInner
-      documentKey={documentKey}
-      title={title}
-      summary={summary}
-      watchPoints={watchPoints}
-      actions={actions}
-      className={className}
-    />
-  );
-}
-
-function AnalysisTtsButtonInner({
   documentKey,
   title,
   summary,
@@ -302,21 +269,17 @@ function AnalysisTtsButtonInner({
       actions,
     });
 
+  // Hydration : attendre le check client.
+  if (supported === null) {
+    return null;
+  }
+
   if (supported === false) {
     return (
-      <p
-        className={cn(
-          "text-sm text-[var(--muted)]",
-          className,
-        )}
-      >
+      <p className={cn("text-sm text-[var(--muted)]", className)}>
         Lecture vocale non disponible sur ce navigateur
       </p>
     );
-  }
-
-  if (supported === null || !canSpeak) {
-    return null;
   }
 
   if (playState === "idle") {
@@ -327,6 +290,7 @@ function AnalysisTtsButtonInner({
           variant="secondary"
           size="sm"
           aria-label="Écouter l’analyse"
+          disabled={!canSpeak}
           onClick={start}
         >
           Écouter l’analyse
