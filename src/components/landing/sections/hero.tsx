@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { LandingSectionLink } from "@/components/landing/landing-section-link";
 import { siteConfig } from "@/config/site";
 
 export function LandingHero() {
@@ -33,12 +34,12 @@ export function LandingHero() {
           >
             Analyser un PDF gratuitement
           </Link>
-          <a
-            href="#demo"
+          <LandingSectionLink
+            sectionId="demo"
             className="inline-flex h-11 items-center rounded-md border border-[var(--border-strong)] bg-[color-mix(in_oklab,var(--surface)_70%,transparent)] px-5 text-sm font-medium text-[var(--foreground)] backdrop-blur-sm transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
           >
             Voir un exemple
-          </a>
+          </LandingSectionLink>
         </div>
         <p className="landing-reveal landing-reveal-delay-3 mt-4 text-sm text-[var(--muted)]">
           Gratuit pour démarrer · Sans carte bancaire · Analyse IA privée par compte

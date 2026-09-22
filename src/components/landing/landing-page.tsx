@@ -1,3 +1,4 @@
+import { LandingHashCleanup } from "@/components/landing/landing-hash-cleanup";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { LandingDemo } from "@/components/landing/sections/demo";
 import { LandingFaq } from "@/components/landing/sections/faq";
@@ -18,6 +19,7 @@ import { LandingWhyUs } from "@/components/landing/sections/why-us";
 export function LandingPage() {
   return (
     <div className="landing-root bg-[var(--background)] text-[var(--foreground)]">
+      <LandingHashCleanup />
       <LandingNav />
       <LandingHero />
       <LandingDemo />

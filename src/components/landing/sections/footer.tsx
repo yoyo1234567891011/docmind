@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { LandingSectionLink } from "@/components/landing/landing-section-link";
 import { siteConfig } from "@/config/site";
 
 export function LandingFooter() {
@@ -23,14 +24,20 @@ export function LandingFooter() {
               </p>
               <ul className="mt-3 space-y-2 text-sm text-[var(--foreground)]">
                 <li>
-                  <a href="#fonctionnalites" className="hover:text-[var(--accent)]">
+                  <LandingSectionLink
+                    sectionId="fonctionnalites"
+                    className="hover:text-[var(--accent)]"
+                  >
                     Fonctionnalités
-                  </a>
+                  </LandingSectionLink>
                 </li>
                 <li>
-                  <a href="#tarifs" className="hover:text-[var(--accent)]">
+                  <LandingSectionLink
+                    sectionId="tarifs"
+                    className="hover:text-[var(--accent)]"
+                  >
                     Tarifs
-                  </a>
+                  </LandingSectionLink>
                 </li>
                 <li>
                   <Link href="/analyser" className="hover:text-[var(--accent)]">
@@ -100,9 +107,12 @@ export function LandingFooter() {
               </p>
               <ul className="mt-3 space-y-2 text-sm text-[var(--foreground)]">
                 <li>
-                  <a href="#faq" className="hover:text-[var(--accent)]">
+                  <LandingSectionLink
+                    sectionId="faq"
+                    className="hover:text-[var(--accent)]"
+                  >
                     FAQ
-                  </a>
+                  </LandingSectionLink>
                 </li>
                 <li>
                   <Link href="/auth/signup" className="hover:text-[var(--accent)]">

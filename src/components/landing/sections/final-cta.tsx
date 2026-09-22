@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { LandingSectionLink } from "@/components/landing/landing-section-link";
 import { siteConfig } from "@/config/site";
 
 /** CTA de clôture — pattern SaaS IA (Linear / Claude / Notion). */
@@ -22,12 +23,12 @@ export function LandingFinalCta() {
             >
               Créer mon compte gratuit
             </Link>
-            <a
-              href="#tarifs"
+            <LandingSectionLink
+              sectionId="tarifs"
               className="inline-flex h-11 items-center rounded-md border border-[var(--border-strong)] px-5 text-sm font-medium text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
               Voir les tarifs
-            </a>
+            </LandingSectionLink>
           </div>
           <p className="mt-4 text-sm text-[var(--muted)]">
             {siteConfig.name} · Gratuit pour démarrer · Sans carte

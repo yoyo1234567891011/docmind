@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { LandingSectionLink } from "@/components/landing/landing-section-link";
 import { CloseIcon, MenuIcon } from "@/components/ui/icons";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "#demo", label: "Exemple" },
-  { href: "#pourquoi", label: "vs ChatGPT" },
-  { href: "#tarifs", label: "Tarifs" },
-  { href: "#faq", label: "FAQ" },
+  { sectionId: "demo", label: "Exemple" },
+  { sectionId: "pourquoi", label: "vs ChatGPT" },
+  { sectionId: "tarifs", label: "Tarifs" },
+  { sectionId: "faq", label: "FAQ" },
 ] as const;
 
 export function LandingNav() {
@@ -44,23 +45,23 @@ export function LandingNav() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:px-6">
-        <a
-          href="#top"
+        <LandingSectionLink
+          sectionId="top"
           className="font-display text-2xl tracking-tight text-[var(--foreground)]"
-          onClick={() => setMenuOpen(false)}
+          onNavigate={() => setMenuOpen(false)}
         >
           {siteConfig.name}
-        </a>
+        </LandingSectionLink>
 
         <nav className="hidden items-center gap-1 md:flex">
           {LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
+            <LandingSectionLink
+              key={link.sectionId}
+              sectionId={link.sectionId}
               className="rounded-md px-3 py-1.5 text-sm text-[var(--muted)] transition-colors hover:text-[var(--foreground)]"
             >
               {link.label}
-            </a>
+            </LandingSectionLink>
           ))}
         </nav>
 
@@ -97,14 +98,14 @@ export function LandingNav() {
       {menuOpen ? (
         <nav className="mx-auto flex max-w-6xl flex-col gap-1 px-3 pb-4 md:hidden">
           {LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
+            <LandingSectionLink
+              key={link.sectionId}
+              sectionId={link.sectionId}
               className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--surface)]"
-              onClick={() => setMenuOpen(false)}
+              onNavigate={() => setMenuOpen(false)}
             >
               {link.label}
-            </a>
+            </LandingSectionLink>
           ))}
           <Link
             href="/auth/login"
