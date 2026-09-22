@@ -282,9 +282,21 @@ export function AnalysisTtsButton({
 
   const ready = canSpeak && script.length > 0;
 
+  const disclaimer = (
+    <p className="max-w-[18rem] text-xs leading-snug text-[var(--muted)] sm:max-w-[14rem] sm:text-right">
+      La voix est celle de votre appareil (qualité variable selon téléphone,
+      ordinateur et navigateur).
+    </p>
+  );
+
   if (playState === "idle") {
     return (
-      <div className={cn("flex w-full sm:w-auto", className)}>
+      <div
+        className={cn(
+          "flex w-full flex-col gap-1.5 sm:w-auto sm:items-end",
+          className,
+        )}
+      >
         <Button
           type="button"
           variant="primary"
@@ -298,6 +310,7 @@ export function AnalysisTtsButton({
           <SpeakerIcon className="h-4 w-4 shrink-0" />
           Écouter l’analyse
         </Button>
+        {disclaimer}
       </div>
     );
   }
@@ -305,46 +318,49 @@ export function AnalysisTtsButton({
   return (
     <div
       className={cn(
-        "flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end",
+        "flex w-full flex-col gap-1.5 sm:w-auto sm:items-end",
         className,
       )}
       data-testid="analysis-tts-controls"
     >
-      {playState === "speaking" ? (
+      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+        {playState === "speaking" ? (
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            data-testid="analysis-tts"
+            aria-label="Mettre en pause la lecture"
+            onClick={pause}
+            className="h-11 flex-1 px-5 text-sm font-semibold sm:flex-none"
+          >
+            Pause
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="primary"
+            size="md"
+            data-testid="analysis-tts"
+            aria-label="Reprendre la lecture"
+            onClick={resume}
+            className="h-11 flex-1 px-5 text-sm font-semibold sm:flex-none"
+          >
+            Reprendre
+          </Button>
+        )}
         <Button
           type="button"
-          variant="primary"
+          variant="secondary"
           size="md"
-          data-testid="analysis-tts"
-          aria-label="Mettre en pause la lecture"
-          onClick={pause}
+          aria-label="Arrêter la lecture"
+          onClick={stop}
           className="h-11 flex-1 px-5 text-sm font-semibold sm:flex-none"
         >
-          Pause
+          Stop
         </Button>
-      ) : (
-        <Button
-          type="button"
-          variant="primary"
-          size="md"
-          data-testid="analysis-tts"
-          aria-label="Reprendre la lecture"
-          onClick={resume}
-          className="h-11 flex-1 px-5 text-sm font-semibold sm:flex-none"
-        >
-          Reprendre
-        </Button>
-      )}
-      <Button
-        type="button"
-        variant="secondary"
-        size="md"
-        aria-label="Arrêter la lecture"
-        onClick={stop}
-        className="h-11 flex-1 px-5 text-sm font-semibold sm:flex-none"
-      >
-        Stop
-      </Button>
+      </div>
+      {disclaimer}
     </div>
   );
 }
