@@ -27,7 +27,7 @@ export type AnalysisTtsButtonProps = {
 type PlayState = "idle" | "speaking" | "paused";
 
 function isTtsFlagEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_TTS_ENABLED === "1";
+  return process.env.NEXT_PUBLIC_TTS_ENABLED?.trim() === "1";
 }
 
 function hasSpeechSynthesis(): boolean {
