@@ -27,7 +27,10 @@ export type AnalysisTtsButtonProps = {
 type PlayState = "idle" | "speaking" | "paused";
 
 function isTtsFlagEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_TTS_ENABLED?.trim() === "1";
+  const raw = (process.env.NEXT_PUBLIC_TTS_ENABLED ?? "").trim();
+  // Vercel CLI / PowerShell peut enregistrer "1\r\n" littéral (pas un vrai newline).
+  const normalized = raw.replace(/\\r|\\n|\r|\n/g, "").trim();
+  return normalized === "1";
 }
 
 function hasSpeechSynthesis(): boolean {
