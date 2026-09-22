@@ -139,9 +139,17 @@ export function NotificationCenter() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-50 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)] animate-fade-in">
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <div>
+        <div
+          className={cn(
+            "z-50 flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)] animate-fade-in",
+            // Mobile : quasi plein écran, ancré sous le header
+            "fixed inset-x-3 top-16",
+            // Desktop : dropdown inchangé à droite de la cloche
+            "md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2 md:max-h-none md:w-[min(24rem,calc(100vw-2rem))]",
+          )}
+        >
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
+            <div className="min-w-0">
               <p className="text-sm font-medium text-[var(--foreground)]">
                 Notifications
               </p>
@@ -154,6 +162,7 @@ export function NotificationCenter() {
             <Button
               variant="ghost"
               size="sm"
+              className="shrink-0"
               onClick={() => {
                 void markAllAlertsAsRead().then(() => {
                   setUnread(0);
@@ -167,7 +176,7 @@ export function NotificationCenter() {
             </Button>
           </div>
 
-          <ul className="max-h-80 overflow-y-auto">
+          <ul className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden md:max-h-80">
             {alerts.length === 0 ? (
               <li className="px-4 py-8 text-center text-sm text-[var(--muted)]">
                 Aucune notification pour le moment.
@@ -189,26 +198,26 @@ export function NotificationCenter() {
                     />
                     <div className="min-w-0 flex-1 text-left">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium text-[var(--foreground)]">
+                        <p className="break-words text-sm font-medium text-[var(--foreground)]">
                           {alert.title}
                         </p>
                         <span
                           className={cn(
-                            "rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+                            "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium",
                             severityClass(alert.severity),
                           )}
                         >
                           {ALERT_KIND_LABELS[alert.kind as AlertKind]}
                         </span>
                       </div>
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--muted)]">
+                      <p className="mt-1 break-words text-xs leading-relaxed text-[var(--muted)] md:line-clamp-2">
                         {alert.message}
                       </p>
-                      <p className="mt-1 text-[11px] text-[var(--muted)]">
+                      <p className="mt-1 break-words text-[11px] text-[var(--muted)]">
                         {alert.date} · {alert.documentTitle}
                       </p>
                       {alert.recommendedAction ? (
-                        <p className="mt-1 line-clamp-2 text-[11px] text-[var(--foreground)]">
+                        <p className="mt-1 break-words text-[11px] text-[var(--foreground)] md:line-clamp-2">
                           → {alert.recommendedAction}
                         </p>
                       ) : null}
@@ -250,7 +259,7 @@ export function NotificationCenter() {
             )}
           </ul>
 
-          <div className="border-t border-[var(--border)] px-4 py-3">
+          <div className="shrink-0 border-t border-[var(--border)] px-4 py-3">
             <Link
               href="/alertes"
               onClick={() => setOpen(false)}

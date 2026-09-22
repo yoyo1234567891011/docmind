@@ -187,7 +187,7 @@ export function AlertsCenterView() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-[var(--foreground)]">
+                    <p className="break-words font-medium text-[var(--foreground)]">
                       {alert.title}
                     </p>
                     <span
@@ -207,8 +207,10 @@ export function AlertsCenterView() {
                       </span>
                     ) : null}
                   </div>
-                  <p className="text-sm text-[var(--muted)]">{alert.message}</p>
-                  <p className="text-xs text-[var(--muted)]">
+                  <p className="break-words text-sm text-[var(--muted)]">
+                    {alert.message}
+                  </p>
+                  <p className="break-words text-xs text-[var(--muted)]">
                     Document : {alert.documentTitle} · {alert.fileName}
                     {" · "}
                     Date : {alert.date}
@@ -217,7 +219,7 @@ export function AlertsCenterView() {
                       : ""}
                   </p>
                   {alert.recommendedAction ? (
-                    <p className="rounded-lg bg-[var(--accent-soft)] px-3 py-2 text-xs text-[var(--foreground)]">
+                    <p className="break-words rounded-lg bg-[var(--accent-soft)] px-3 py-2 text-xs text-[var(--foreground)]">
                       Action recommandée : {alert.recommendedAction}
                     </p>
                   ) : null}
@@ -226,7 +228,7 @@ export function AlertsCenterView() {
                       {alert.evidence.map((item) => (
                         <li
                           key={item}
-                          className="rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)]"
+                          className="break-words rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)]"
                         >
                           {item}
                         </li>
