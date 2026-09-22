@@ -2,7 +2,7 @@
 
 /**
  * Lecture orale de l’analyse (Web Speech API navigateur).
- * Tout le TTS est ici pour pouvoir supprimer le fichier + l’import unique.
+ * Tout le TTS est ici — pas de flag, pas d’API cloud.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -26,10 +26,29 @@ export type AnalysisTtsButtonProps = {
 
 type PlayState = "idle" | "speaking" | "paused";
 
+function SpeakerIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+}
+
 function hasSpeechSynthesis(): boolean {
   return (
     typeof window !== "undefined" &&
-    typeof window.speechSynthesis !== "undefined" &&
+    "speechSynthesis" in window &&
     typeof window.SpeechSynthesisUtterance !== "undefined"
   );
 }
@@ -119,15 +138,21 @@ function cancelSpeech(): void {
   }
 }
 
-function useAnalysisTts(props: {
-  documentKey?: string;
-  title: string;
-  summary: string;
-  watchPoints: AnalysisTtsWatchPoint[];
-  actions: string[];
-}) {
+/**
+ * Bouton lecture orale — toujours dans le DOM (pas de return null SSR).
+ * Activé après mount si speechSynthesis est dispo.
+ */
+export function AnalysisTtsButton({
+  documentKey,
+  title,
+  summary,
+  watchPoints,
+  actions,
+  className,
+}: AnalysisTtsButtonProps) {
+  const [canSpeak, setCanSpeak] = useState(false);
+  const [unsupported, setUnsupported] = useState(false);
   const [playState, setPlayState] = useState<PlayState>("idle");
-  const [supported, setSupported] = useState<boolean | null>(null);
   const indexRef = useRef(0);
   const scriptRef = useRef<string[]>([]);
   const voiceRef = useRef<SpeechSynthesisVoice | undefined>(undefined);
@@ -136,12 +161,12 @@ function useAnalysisTts(props: {
   const script = useMemo(
     () =>
       buildScript({
-        title: props.title,
-        summary: props.summary,
-        watchPoints: props.watchPoints,
-        actions: props.actions,
+        title,
+        summary,
+        watchPoints,
+        actions,
       }),
-    [props.title, props.summary, props.watchPoints, props.actions],
+    [title, summary, watchPoints, actions],
   );
 
   const stop = useCallback(() => {
@@ -221,8 +246,12 @@ function useAnalysisTts(props: {
   }, []);
 
   useEffect(() => {
-    setSupported(hasSpeechSynthesis());
-    if (!hasSpeechSynthesis()) return;
+    const ok = hasSpeechSynthesis();
+    setCanSpeak(ok);
+    setUnsupported(!ok);
+    // DEBUG temporaire
+    console.log(`TTS mount canSpeak=${ok}`);
+    if (!ok) return;
     const refresh = () => {
       voiceRef.current = pickFrenchVoice();
     };
@@ -238,61 +267,35 @@ function useAnalysisTts(props: {
   useEffect(() => {
     stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on document change only
-  }, [props.documentKey]);
+  }, [documentKey]);
 
-  return {
-    supported,
-    playState,
-    canSpeak: script.length > 0,
-    start,
-    pause,
-    resume,
-    stop,
-  };
-}
-
-/** Bouton lecture orale — toujours affiché sauf si speechSynthesis absent. */
-export function AnalysisTtsButton({
-  documentKey,
-  title,
-  summary,
-  watchPoints,
-  actions,
-  className,
-}: AnalysisTtsButtonProps) {
-  const { supported, playState, canSpeak, start, pause, resume, stop } =
-    useAnalysisTts({
-      documentKey,
-      title,
-      summary,
-      watchPoints,
-      actions,
-    });
-
-  // Hydration : attendre le check client.
-  if (supported === null) {
-    return null;
-  }
-
-  if (supported === false) {
+  if (unsupported) {
     return (
-      <p className={cn("text-sm text-[var(--muted)]", className)}>
+      <p
+        className={cn("text-sm text-[var(--muted)]", className)}
+        data-testid="analysis-tts-unavailable"
+      >
         Lecture vocale non disponible sur ce navigateur
       </p>
     );
   }
 
+  const ready = canSpeak && script.length > 0;
+
   if (playState === "idle") {
     return (
-      <div className={cn("flex flex-wrap items-center gap-2", className)}>
+      <div className={cn("flex w-full sm:w-auto", className)}>
         <Button
           type="button"
-          variant="secondary"
-          size="sm"
+          variant="primary"
+          size="md"
+          data-testid="analysis-tts"
           aria-label="Écouter l’analyse"
-          disabled={!canSpeak}
+          disabled={!ready}
           onClick={start}
+          className="h-11 w-full px-5 text-sm font-semibold sm:w-auto"
         >
+          <SpeakerIcon className="h-4 w-4 shrink-0" />
           Écouter l’analyse
         </Button>
       </div>
@@ -300,34 +303,45 @@ export function AnalysisTtsButton({
   }
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+    <div
+      className={cn(
+        "flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end",
+        className,
+      )}
+      data-testid="analysis-tts-controls"
+    >
       {playState === "speaking" ? (
         <Button
           type="button"
-          variant="secondary"
-          size="sm"
+          variant="primary"
+          size="md"
+          data-testid="analysis-tts"
           aria-label="Mettre en pause la lecture"
           onClick={pause}
+          className="h-11 flex-1 px-5 text-sm font-semibold sm:flex-none"
         >
           Pause
         </Button>
       ) : (
         <Button
           type="button"
-          variant="secondary"
-          size="sm"
+          variant="primary"
+          size="md"
+          data-testid="analysis-tts"
           aria-label="Reprendre la lecture"
           onClick={resume}
+          className="h-11 flex-1 px-5 text-sm font-semibold sm:flex-none"
         >
           Reprendre
         </Button>
       )}
       <Button
         type="button"
-        variant="ghost"
-        size="sm"
+        variant="secondary"
+        size="md"
         aria-label="Arrêter la lecture"
         onClick={stop}
+        className="h-11 flex-1 px-5 text-sm font-semibold sm:flex-none"
       >
         Stop
       </Button>

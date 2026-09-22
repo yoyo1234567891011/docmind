@@ -765,9 +765,21 @@ export function AnalysisResults({
         className="animate-fade-up rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] px-5 py-7 text-left shadow-[var(--shadow-sm)] sm:px-8 sm:py-8"
         aria-labelledby="analysis-summary-heading"
       >
-        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--accent)]">
-          Résumé
-        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--accent)]">
+            Résumé
+          </p>
+          <AnalysisTtsButton
+            documentKey={documentId ?? historyId ?? summaryTitle}
+            title={summaryTitle}
+            summary={summary ?? ""}
+            watchPoints={watchPoints.map((p) => ({
+              title: p.title,
+              explanation: p.explanation,
+            }))}
+            actions={ttsActions}
+          />
+        </div>
         <h3
           id="analysis-summary-heading"
           className="mt-2.5 font-display text-2xl leading-snug tracking-tight text-[var(--foreground)] sm:text-[1.85rem]"
@@ -784,17 +796,6 @@ export function AnalysisResults({
         ) : (
           <EmptyState label="Aucun résumé disponible pour ce document." />
         )}
-        <AnalysisTtsButton
-          className="mt-5"
-          documentKey={documentId ?? historyId ?? summaryTitle}
-          title={summaryTitle}
-          summary={summary ?? ""}
-          watchPoints={watchPoints.map((p) => ({
-            title: p.title,
-            explanation: p.explanation,
-          }))}
-          actions={ttsActions}
-        />
         {(analysis.date || analysis.amounts?.length > 0) && (
           <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-[var(--border)] pt-5 text-sm leading-relaxed text-[var(--muted)]">
             {analysis.date ? (
