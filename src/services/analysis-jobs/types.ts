@@ -17,7 +17,9 @@ export type AnalysisJobMetrics = {
   historyMs: number;
   memoryMs: number | null;
   totalMs: number;
-  /** Tokens LLM consommés (P2). */
+  /** Tokens LLM consommés (P2) — usage API si disponible. */
+  promptTokens?: number;
+  completionTokens?: number;
   totalTokens?: number;
   /** Diagnostic latence détaillé (temporaire — observabilité). */
   latencyDiag?: import("./latency-diag").LatencyDiag;

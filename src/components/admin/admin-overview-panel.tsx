@@ -216,6 +216,10 @@ export function AdminOverviewPanel() {
         ? "warn"
         : "ok";
 
+  const tokensUnmeasuredToday = data.tokens.jobsUnmeasuredToday > 0;
+  const tokensGaugeMisleadingZero =
+    tokensUnmeasuredToday && data.tokens.usedTodayParis === 0;
+
   const stripeBadge =
     data.billing.stripeMode === "test"
       ? "TEST"
@@ -599,11 +603,12 @@ export function AdminOverviewPanel() {
           <Stat
             label="Durée LLM moy. (7j)"
             value={
-              data.analyses.avgLlmDurationSec7d != null
+              data.analyses.avgLlmDurationSec7d != null &&
+              data.analyses.avgLlmDurationSec7d > 0
                 ? `${data.analyses.avgLlmDurationSec7d}s`
                 : "n/d"
             }
-            hint="metrics.generateMs uniquement (appel modèle)"
+            hint="metrics.generateMs (ou latencyDiag.llmTotalMs) — n/d seulement si absent"
           />
         </div>
       </section>
@@ -639,24 +644,35 @@ export function AdminOverviewPanel() {
           Tokens (mesurés · jour Paris)
         </h3>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          {data.tokens.limitPerDay > 0 ? (
+          {tokensGaugeMisleadingZero ? (
+            <Stat
+              label="Tokens jour Paris"
+              value="n/d"
+              tone="warn"
+              hint={`${data.tokens.jobsUnmeasuredToday} job(s) completed sans usage mesuré — pas « 0 consommé ». Relancer une analyse après correctif modèle/usage.`}
+            />
+          ) : data.tokens.limitPerDay > 0 ? (
             <Gauge
               label="Tokens mesurés / plafond configuré"
               value={data.tokens.usedTodayParis}
               max={data.tokens.limitPerDay}
-              hint={data.tokens.limitLabel}
+              hint={
+                tokensUnmeasuredToday
+                  ? `${data.tokens.limitLabel} · ${data.tokens.jobsUnmeasuredToday} job(s) non mesuré(s) exclus`
+                  : data.tokens.limitLabel
+              }
             />
           ) : (
             <Stat
               label="Tokens jour Paris (mesurés)"
               value={fmtNum(data.tokens.usedTodayParis)}
-              hint="Somme metrics.totalTokens ≥100"
+              hint="Somme metrics.totalTokens > 0"
             />
           )}
           <Stat
             label="Tokens 30 j (mesurés)"
             value={fmtNum(data.tokens.usedMonthRolling30d)}
-            hint="Somme metrics.totalTokens ≥100, 30 j glissants"
+            hint="Somme metrics.totalTokens > 0, 30 j glissants"
           />
           <Stat
             label="Moyenne / analyse (30 j)"
@@ -668,25 +684,31 @@ export function AdminOverviewPanel() {
             hint={
               data.tokens.jobsMeasuredMonth > 0
                 ? `${data.tokens.jobsMeasuredMonth} job(s) mesuré(s)`
-                : "Aucun job avec usage ≥100 sur 30 j"
+                : "Aucun job avec usage > 0 sur 30 j"
             }
           />
           <Stat
             label="Estim. analyses restantes (plafond configuré)"
             value={
-              data.tokens.estimatedAnalysesRemainingToday != null
-                ? String(data.tokens.estimatedAnalysesRemainingToday)
-                : "n/d"
+              tokensGaugeMisleadingZero
+                ? "n/d"
+                : data.tokens.estimatedAnalysesRemainingToday != null
+                  ? String(data.tokens.estimatedAnalysesRemainingToday)
+                  : "n/d"
             }
             tone={
-              data.tokens.estimatedAnalysesRemainingToday != null
-                ? tokenTone
-                : "default"
+              tokensGaugeMisleadingZero
+                ? "warn"
+                : data.tokens.estimatedAnalysesRemainingToday != null
+                  ? tokenTone
+                  : "default"
             }
             hint={
-              data.tokens.limitSource === "configured_estimate"
-                ? data.tokens.limitLabel
-                : "Pas de plafond (mode local)"
+              tokensGaugeMisleadingZero
+                ? "Estimation impossible tant que l’usage du jour n’est pas mesuré"
+                : data.tokens.limitSource === "configured_estimate"
+                  ? data.tokens.limitLabel
+                  : "Pas de plafond (mode local)"
             }
           />
           <Stat
@@ -708,13 +730,15 @@ export function AdminOverviewPanel() {
               label="Jobs usage non mesuré"
               value={`${data.tokens.jobsUnmeasuredToday} jour / ${data.tokens.jobsUnmeasuredMonth} (30 j)`}
               tone="warn"
-              hint="Completed sans totalTokens ≥100 — exclus de la somme"
+              hint="Completed sans totalTokens > 0 (generate_failed / fallback local) — exclus de la somme"
             />
           ) : null}
         </div>
         <p className="text-[11px] text-[var(--muted)]">
-          Somme mesurée depuis les réponses LLM (metrics). Le plafond est une
-          estimation configurée — pas le quota officiel de l’API provider.
+          Somme mesurée depuis les réponses LLM (metrics.totalTokens &gt; 0). Le
+          plafond est une estimation configurée — pas le quota officiel de
+          l’API provider. Un jauge à 0&nbsp;% n’est affichée que si des tokens
+          ont bien été mesurés (sinon n/d).
         </p>
       </section>
     </div>

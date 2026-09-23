@@ -360,6 +360,8 @@ async function defaultRunP2(
     generateMs: timing.generateMs,
     historyMs,
     memoryMs: null,
+    promptTokens: Math.max(0, full.promptTokens ?? 0),
+    completionTokens: Math.max(0, full.completionTokens ?? 0),
     totalTokens: full.totalTokens ?? 0,
   };
 }
@@ -473,6 +475,28 @@ export async function processOneAnalysisJob(
             ...failMetricsBase,
             quotaCharged: true,
           };
+
+    // Backfill tokens depuis latencyDiag.meta si le pipeline n’a pas remonté usage.
+    if (finalMetrics) {
+      const diagMeta = finalMetrics.latencyDiag?.meta;
+      const fromDiag = Number(diagMeta?.totalTokens ?? 0);
+      if ((finalMetrics.totalTokens ?? 0) < 1 && fromDiag > 0) {
+        finalMetrics.promptTokens = Number(diagMeta?.promptTokens ?? 0);
+        finalMetrics.completionTokens = Number(
+          diagMeta?.completionTokens ?? 0,
+        );
+        finalMetrics.totalTokens = fromDiag;
+      }
+      // Durée LLM : si generateMs absent/0 mais llmTotalMs mesuré, remonter.
+      const llmMs = finalMetrics.latencyDiag?.llmTotalMs;
+      if (
+        (finalMetrics.generateMs ?? 0) < 1 &&
+        typeof llmMs === "number" &&
+        llmMs > 0
+      ) {
+        finalMetrics.generateMs = Math.round(llmMs);
+      }
+    }
 
     const didComplete = await complete(job.id, finalMetrics);
     if (didComplete) {

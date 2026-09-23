@@ -16,10 +16,10 @@ import type { BillingPlanId } from "@/types/billing";
 import { BILLING_PLANS, isPaidBillingPlanId } from "@/config/billing";
 
 /**
- * Seuil anti-faux métriques : ancien salvage totalTokens=1 —
- * exclu des sommes (un job P2 Groq réel est typiquement 2–5k+).
+ * Seuil anti-faux métriques : ancien salvage totalTokens=1 forcé —
+ * on accepte tout totalTokens > 0 (usage API réel, même petit).
  */
-const MIN_REAL_JOB_TOKENS = 100;
+const MIN_REAL_JOB_TOKENS = 1;
 
 /** Plafond catalogue estimé (pas l’API quota live Groq). */
 const CONFIGURED_DAILY_TOKEN_CEILING = 200_000;
@@ -675,14 +675,17 @@ async function queryJobStats(): Promise<{
       coalesce(round(avg(
         case
           when metrics ? 'generateMs'
-            and (metrics->>'generateMs')::numeric between 50 and 600000
+            and (metrics->>'generateMs')::numeric between 1 and 600000
           then (metrics->>'generateMs')::numeric / 1000.0
+          when metrics #>> '{latencyDiag,llmTotalMs}' is not null
+            and (metrics #>> '{latencyDiag,llmTotalMs}')::numeric between 1 and 600000
+          then (metrics #>> '{latencyDiag,llmTotalMs}')::numeric / 1000.0
           else null
         end
       ) filter (
         where status = 'completed'
           and created_at >= timezone('utc', now()) - interval '7 days'
-      ))::int, 0)::text as avg_llm,
+      ), 3), 0)::text as avg_llm,
       count(*) filter (where last_error = 'reclaimed_stale_lease')::text as reclaimed_stale
     from public.app_analysis_jobs
   `);

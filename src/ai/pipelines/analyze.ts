@@ -333,6 +333,8 @@ async function analyzeDocumentTextUnlocked(
       sheet,
       resultSource: "agents",
       durationMs,
+      promptTokens: tokens.prompt,
+      completionTokens: tokens.completion,
       totalTokens: tokens.total,
     };
 

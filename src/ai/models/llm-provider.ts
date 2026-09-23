@@ -45,9 +45,15 @@ function resolveCloudBaseUrl(apiKeySource: "groq" | "mistral" | "generic"): stri
  * Modèles Groq retirés (shutdown 2026-08-16) → remplacement automatique.
  * @see https://console.groq.com/docs/deprecations
  */
+/**
+ * Modèles retirés / indisponibles sur le compte (404 model_not_found).
+ * qwen/qwen3.6-27b : listé docs mais rejeté en prod free (2026-09) → gpt-oss-20b.
+ */
 const GROQ_RETIRED_MODEL_MAP: Record<string, string> = {
-  "llama-3.3-70b-versatile": "qwen/qwen3.6-27b",
+  "llama-3.3-70b-versatile": "openai/gpt-oss-20b",
   "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+  "qwen/qwen3.6-27b": "openai/gpt-oss-20b",
+  "qwen/qwen3.8-27b": "openai/gpt-oss-20b",
 };
 
 /** Normalise un id modèle cloud (remap des modèles Groq retirés). */

@@ -168,6 +168,7 @@ export async function generateWithOpenAiCompatible(
   let lastFinishReason: string | undefined;
   let rateLimitAttempts = 0;
   let emptyAttempts = 0;
+  let modelFallbackTried = false;
   const maxAttempts = EMPTY_RESPONSE_RETRIES + RATE_LIMIT_RETRIES + 1;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -219,6 +220,21 @@ export async function generateWithOpenAiCompatible(
         await sleep(waitMs);
         continue;
       }
+      // Modèle retiré / inaccessible : 1 retry avec fallback free-tier stable.
+      const modelGone =
+        response.status === 404 ||
+        /model_not_found|does not exist|no longer available|deprecated/i.test(
+          details,
+        );
+      if (isGroq && modelGone && !modelFallbackTried) {
+        modelFallbackTried = true;
+        const fallback = "openai/gpt-oss-20b";
+        console.warn(
+          `[llm] model_unavailable=${String(body.model)} → fallback=${fallback}`,
+        );
+        body.model = fallback;
+        continue;
+      }
       throw httpErrorToAppError(response.status, details);
     }
 
@@ -227,9 +243,20 @@ export async function generateWithOpenAiCompatible(
     const text = extractChatMessageText(payload.choices?.[0]?.message);
     lastFinishReason = payload.choices?.[0]?.finish_reason ?? undefined;
 
+    const promptTokens = payload.usage?.prompt_tokens ?? 0;
+    const completionTokens = payload.usage?.completion_tokens ?? 0;
+    const totalTokens =
+      payload.usage?.total_tokens ?? promptTokens + completionTokens;
+    if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
+      latencyMeta({
+        model: payload.model || String(body.model) || model,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+      });
+    }
+
     if (text) {
-      const promptTokens = payload.usage?.prompt_tokens ?? 0;
-      const completionTokens = payload.usage?.completion_tokens ?? 0;
       const durationMs = Date.now() - started;
       const generateProxyMs = bodyEnd - headersAt;
       const llmTotalMs = bodyEnd - requestStart;
@@ -239,20 +266,18 @@ export async function generateWithOpenAiCompatible(
       latencySpan("llmGenerateProxyMs", generateProxyMs);
       latencySpan("llmTotalMs", llmTotalMs);
       latencyMeta({
-        model: payload.model || model,
+        model: payload.model || String(body.model) || model,
         promptTokens,
         completionTokens,
-        totalTokens:
-          payload.usage?.total_tokens ?? promptTokens + completionTokens,
+        totalTokens,
       });
 
       return {
         text,
-        model: payload.model || model,
+        model: payload.model || String(body.model) || model,
         promptTokens,
         completionTokens,
-        totalTokens:
-          payload.usage?.total_tokens ?? promptTokens + completionTokens,
+        totalTokens,
         durationMs,
         finishReason: lastFinishReason,
       };

@@ -70,5 +70,7 @@ export interface AnalyzeDocumentResult {
   /** Durée totale pipeline (ms), si mesurée. */
   durationMs?: number;
   /** Tokens cumulés (si disponibles). */
+  promptTokens?: number;
+  completionTokens?: number;
   totalTokens?: number;
 }
