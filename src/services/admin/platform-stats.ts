@@ -120,6 +120,7 @@ function isSameParisDay(iso: string | null, now = new Date()): boolean {
 export async function buildAdminPlatformOverview(): Promise<AdminPlatformOverview> {
   const llmCfg = getLlmProviderConfig();
   const cloudEnabled = llmCfg.kind === "openai_compatible";
+  const modelEnv = process.env.LLM_MODEL?.trim() || null;
   const model =
     cloudEnabled ? llmCfg.model : process.env.OLLAMA_MODEL?.trim() || "mistral";
   const baseUrl =
@@ -292,10 +293,11 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
         ? 0
         : null;
 
-  const failDenom24h =
-    jobStats.completed24h + jobStats.failed24h;
+  const failDenom24h = jobStats.llmOk24h + jobStats.failed24h;
   const failRate24h =
-    failDenom24h > 0 ? Math.round((jobStats.failed24h / failDenom24h) * 1000) / 1000 : null;
+    failDenom24h > 0
+      ? Math.round((jobStats.failed24h / failDenom24h) * 1000) / 1000
+      : null;
 
   const stripeMode = billing?.stripeMode ?? "unconfigured";
   const byPlanActive: Array<{ plan: BillingPlanId; count: number }> = (
@@ -325,6 +327,8 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
     llm: {
       provider: detectProviderLabel(),
       model,
+      modelEnv:
+        cloudEnabled && modelEnv && modelEnv !== model ? modelEnv : null,
       baseUrl,
       cloudEnabled,
     },
@@ -399,13 +403,15 @@ export async function buildAdminPlatformOverview(): Promise<AdminPlatformOvervie
       cancelAtPeriodEnd: billing?.cancelAtPeriodEnd ?? 0,
     },
     usage: {
-      jobsCompletedTodayParis: jobStats.completedTodayParis,
+      jobsCompletedTodayParis: jobStats.llmOkTodayParis,
+      jobsFallbackTodayParis: jobStats.fallbackTodayParis,
       jobsFailedTodayParis: jobStats.failedTodayParis,
       jobsPending: jobStats.pending,
       jobsProcessing: jobStats.processing,
-      jobsCompleted7d: jobStats.completed7d,
+      jobsCompleted7d: jobStats.llmOk7d,
       jobsFailed7d: jobStats.failed7d,
-      jobsCompleted30d: jobStats.completed30d,
+      jobsCompleted30d: jobStats.llmOk30d,
+      jobsFallback7d: jobStats.fallback7d,
       failRate24h,
       uploadsTodayParis: uploadsToday,
       freeQuotaHitTodayParis: freeQuotaHits?.today ?? null,
@@ -595,18 +601,24 @@ async function queryJobStats(): Promise<{
   pending: number;
   processing: number;
   createdTodayParis: number;
-  completedTodayParis: number;
+  llmOkTodayParis: number;
+  fallbackTodayParis: number;
   failedTodayParis: number;
-  completed24h: number;
+  llmOk24h: number;
   failed24h: number;
-  completed7d: number;
+  llmOk7d: number;
+  fallback7d: number;
   failed7d: number;
-  completed30d: number;
+  llmOk30d: number;
   avgWallDurationSec7d: number;
   avgLlmDurationSec7d: number;
   reclaimedStale: number;
 }> {
   const dayStart = parisDayStartSql();
+  /** Completed avec usage LLM réel (pas fallback local). */
+  const llmOk = `status = 'completed' and coalesce((metrics->>'totalTokens')::bigint, 0) > 0`;
+  /** Completed sans tokens = fallback / generate_failed publié. */
+  const fallback = `status = 'completed' and coalesce((metrics->>'totalTokens')::bigint, 0) = 0`;
   const { rows } = await query<{
     total: string;
     completed: string;
@@ -614,13 +626,15 @@ async function queryJobStats(): Promise<{
     pending: string;
     processing: string;
     created_today: string;
-    completed_today: string;
+    llm_ok_today: string;
+    fallback_today: string;
     failed_today: string;
-    completed_24h: string;
+    llm_ok_24h: string;
     failed_24h: string;
-    completed_7d: string;
+    llm_ok_7d: string;
+    fallback_7d: string;
     failed_7d: string;
-    completed_30d: string;
+    llm_ok_30d: string;
     avg_wall: string;
     avg_llm: string;
     reclaimed_stale: string;
@@ -633,31 +647,38 @@ async function queryJobStats(): Promise<{
       count(*) filter (where status = 'processing')::text as processing,
       count(*) filter (where created_at >= ${dayStart})::text as created_today,
       count(*) filter (
-        where status = 'completed' and coalesce(completed_at, created_at) >= ${dayStart}
-      )::text as completed_today,
+        where ${llmOk} and coalesce(completed_at, created_at) >= ${dayStart}
+      )::text as llm_ok_today,
+      count(*) filter (
+        where ${fallback} and coalesce(completed_at, created_at) >= ${dayStart}
+      )::text as fallback_today,
       count(*) filter (
         where status = 'failed' and created_at >= ${dayStart}
       )::text as failed_today,
       count(*) filter (
-        where status = 'completed'
+        where ${llmOk}
           and created_at >= timezone('utc', now()) - interval '24 hours'
-      )::text as completed_24h,
+      )::text as llm_ok_24h,
       count(*) filter (
         where status = 'failed'
           and created_at >= timezone('utc', now()) - interval '24 hours'
       )::text as failed_24h,
       count(*) filter (
-        where status = 'completed'
+        where ${llmOk}
           and created_at >= timezone('utc', now()) - interval '7 days'
-      )::text as completed_7d,
+      )::text as llm_ok_7d,
+      count(*) filter (
+        where ${fallback}
+          and created_at >= timezone('utc', now()) - interval '7 days'
+      )::text as fallback_7d,
       count(*) filter (
         where status = 'failed'
           and created_at >= timezone('utc', now()) - interval '7 days'
       )::text as failed_7d,
       count(*) filter (
-        where status = 'completed'
+        where ${llmOk}
           and created_at >= timezone('utc', now()) - interval '30 days'
-      )::text as completed_30d,
+      )::text as llm_ok_30d,
       coalesce(round(avg(
         case
           when metrics ? 'totalMs'
@@ -669,7 +690,7 @@ async function queryJobStats(): Promise<{
           else null
         end
       ) filter (
-        where status = 'completed'
+        where ${llmOk}
           and created_at >= timezone('utc', now()) - interval '7 days'
       ))::int, 0)::text as avg_wall,
       coalesce(round(avg(
@@ -683,7 +704,7 @@ async function queryJobStats(): Promise<{
           else null
         end
       ) filter (
-        where status = 'completed'
+        where ${llmOk}
           and created_at >= timezone('utc', now()) - interval '7 days'
       ), 3), 0)::text as avg_llm,
       count(*) filter (where last_error = 'reclaimed_stale_lease')::text as reclaimed_stale
@@ -697,13 +718,15 @@ async function queryJobStats(): Promise<{
     pending: Number(r?.pending ?? 0),
     processing: Number(r?.processing ?? 0),
     createdTodayParis: Number(r?.created_today ?? 0),
-    completedTodayParis: Number(r?.completed_today ?? 0),
+    llmOkTodayParis: Number(r?.llm_ok_today ?? 0),
+    fallbackTodayParis: Number(r?.fallback_today ?? 0),
     failedTodayParis: Number(r?.failed_today ?? 0),
-    completed24h: Number(r?.completed_24h ?? 0),
+    llmOk24h: Number(r?.llm_ok_24h ?? 0),
     failed24h: Number(r?.failed_24h ?? 0),
-    completed7d: Number(r?.completed_7d ?? 0),
+    llmOk7d: Number(r?.llm_ok_7d ?? 0),
+    fallback7d: Number(r?.fallback_7d ?? 0),
     failed7d: Number(r?.failed_7d ?? 0),
-    completed30d: Number(r?.completed_30d ?? 0),
+    llmOk30d: Number(r?.llm_ok_30d ?? 0),
     avgWallDurationSec7d: Number(r?.avg_wall ?? 0),
     avgLlmDurationSec7d: Number(r?.avg_llm ?? 0),
     reclaimedStale: Number(r?.reclaimed_stale ?? 0),

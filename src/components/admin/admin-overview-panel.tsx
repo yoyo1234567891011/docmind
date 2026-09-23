@@ -251,8 +251,8 @@ export function AdminOverviewPanel() {
             {loading ? " · rafraîchissement…" : ""}
           </p>
           <p className="text-[11px] text-[var(--muted)]">
-            Auto-refresh {AUTO_REFRESH_MS / 1000}s (presence via last_seen, pas
-            websocket)
+            Snapshot complet /api/admin/overview toutes les {AUTO_REFRESH_MS / 1000}s
+            (pas de cache serveur · presence via last_seen, pas websocket)
           </p>
         </div>
         <Button
@@ -512,9 +512,21 @@ export function AdminOverviewPanel() {
             hint={`created_at ≥ début jour ${data.timezone} · snapshot ${parisClock}`}
           />
           <Stat
-            label="Completed (jour Paris)"
+            label="Completed LLM (jour Paris)"
             value={fmtNum(data.usage.jobsCompletedTodayParis)}
             tone="ok"
+            hint="status=completed ET totalTokens > 0"
+          />
+          <Stat
+            label="Fallback / partiel (jour Paris)"
+            value={fmtNum(data.usage.jobsFallbackTodayParis)}
+            tone={
+              data.usage.jobsFallbackTodayParis > 0 ? "warn" : "default"
+            }
+            badge={
+              data.usage.jobsFallbackTodayParis > 0 ? "PAS LLM" : undefined
+            }
+            hint="completed sans tokens (generate_failed / fallback local) — exclu succès Groq"
           />
           <Stat
             label="Failed (jour Paris)"
@@ -527,8 +539,13 @@ export function AdminOverviewPanel() {
             hint="Live file d’attente"
           />
           <Stat
-            label="Completed 7j / 30j"
+            label="Completed LLM 7j / 30j"
             value={`${fmtNum(data.usage.jobsCompleted7d)} / ${fmtNum(data.usage.jobsCompleted30d)}`}
+            hint={
+              data.usage.jobsFallback7d > 0
+                ? `${fmtNum(data.usage.jobsFallback7d)} fallback(s) exclus sur 7 j`
+                : "totalTokens > 0 uniquement"
+            }
           />
           <Stat
             label="Failed 7j"
@@ -538,7 +555,7 @@ export function AdminOverviewPanel() {
           <Stat
             label="Taux échec 24h"
             value={failPct}
-            hint="failed / (completed+failed) 24h glissants"
+            hint="failed / (LLM OK + failed) 24h — fallbacks exclus"
             tone={
               data.usage.failRate24h != null && data.usage.failRate24h > 0.2
                 ? "bad"
@@ -582,9 +599,10 @@ export function AdminOverviewPanel() {
             hint="All-time app_analysis_jobs"
           />
           <Stat
-            label="Complétées"
+            label="Complétées (status)"
             value={fmtNum(data.analyses.completed)}
             tone="ok"
+            hint="Tous status=completed (incl. fallbacks) — voir usage LLM vs fallback"
           />
           <Stat
             label="Échouées"
@@ -622,7 +640,15 @@ export function AdminOverviewPanel() {
             label="Provider"
             value={PROVIDER_LABELS[data.llm.provider] ?? data.llm.provider}
           />
-          <Stat label="Modèle actif" value={data.llm.model} />
+          <Stat
+            label="Modèle actif"
+            value={data.llm.model}
+            hint={
+              data.llm.modelEnv
+                ? `Runtime après remap (LLM_MODEL=${data.llm.modelEnv})`
+                : "Runtime getLlmProviderConfig() / LLM_MODEL"
+            }
+          />
           <Stat
             label="Mode"
             value={data.llm.cloudEnabled ? "Cloud (prod)" : "Local (dev)"}
@@ -720,7 +746,7 @@ export function AdminOverviewPanel() {
             }
             hint={
               data.tokens.limitPerDay > 0
-                ? `Minuit ${data.tokens.resetTimezone} → ${fmtResetLocal(data.tokens.resetsAt)}`
+                ? `Minuit UTC (réinit. plafond tokens, ≠ jour Paris) → ${fmtResetLocal(data.tokens.resetsAt)}`
                 : "Pas de plafond journalier"
             }
           />

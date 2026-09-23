@@ -3,7 +3,10 @@ import type { BillingPlanId } from "@/types/billing";
 
 export type AdminLlmRuntime = {
   provider: "ollama" | "groq" | "mistral" | "openai_compatible";
+  /** Modèle effectif runtime (après remap Groq si applicable). */
   model: string;
+  /** Valeur brute LLM_MODEL (si différente du runtime). */
+  modelEnv?: string | null;
   baseUrl: string;
   cloudEnabled: boolean;
 };
@@ -60,13 +63,22 @@ export type AdminPlatformOverview = {
     cancelAtPeriodEnd: number;
   };
   usage: {
+    /** Completed avec usage LLM réel (totalTokens > 0) — jour Paris. */
     jobsCompletedTodayParis: number;
+    /** Completed sans usage (= fallback local / generate_failed) — jour Paris. */
+    jobsFallbackTodayParis: number;
     jobsFailedTodayParis: number;
     jobsPending: number;
     jobsProcessing: number;
+    /** Completed LLM (tokens > 0) sur 7j / 30j. */
     jobsCompleted7d: number;
     jobsFailed7d: number;
     jobsCompleted30d: number;
+    jobsFallback7d: number;
+    /**
+     * failed / (llm_ok + failed) 24h — les fallbacks locaux sont exclus
+     * (ni succès Groq ni failed status).
+     */
     failRate24h: number | null;
     uploadsTodayParis: number;
     freeQuotaHitTodayParis: number | null;
