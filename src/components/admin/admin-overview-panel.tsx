@@ -1,17 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchAdminOverview } from "@/lib/client/admin";
+import { BILLING_PLANS } from "@/config/billing";
 import { Alert, Button, Skeleton } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import type { AdminPlatformOverview } from "@/types/admin-platform";
+import type { AdminNdNumber, AdminPlatformOverview } from "@/types/admin-platform";
+
+const AUTO_REFRESH_MS = 20_000;
 
 function fmtNum(n: number): string {
   return new Intl.NumberFormat("fr-FR").format(n);
 }
 
-/** Compte à rebours lisible jusqu’à une date ISO. */
+function fmtNd(n: AdminNdNumber): string {
+  if (n.value == null) return "n/d";
+  return fmtNum(n.value);
+}
+
 function fmtCountdownTo(iso: string, nowMs = Date.now()): string {
   const ms = Math.max(0, new Date(iso).getTime() - nowMs);
   const totalMin = Math.floor(ms / 60_000);
@@ -31,20 +38,36 @@ function fmtResetLocal(iso: string): string {
   });
 }
 
+function fmtAgeSec(sec: number | null): string {
+  if (sec == null) return "n/d";
+  if (sec < 60) return `il y a ${sec}s`;
+  if (sec < 3600) return `il y a ${Math.floor(sec / 60)} min`;
+  return `il y a ${Math.floor(sec / 3600)} h`;
+}
+
 function Stat({
   label,
   value,
   hint,
   tone,
+  badge,
 }: {
   label: string;
   value: string;
   hint?: string;
   tone?: "default" | "ok" | "warn" | "bad";
+  badge?: string;
 }) {
   return (
     <div className="rounded-xl border border-[var(--border)] p-4">
-      <p className="text-xs text-[var(--muted)]">{label}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs text-[var(--muted)]">{label}</p>
+        {badge ? (
+          <span className="rounded bg-[var(--warning)]/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--warning)]">
+            {badge}
+          </span>
+        ) : null}
+      </div>
       <p
         className={cn(
           "mt-1 font-display text-2xl tracking-tight",
@@ -121,23 +144,36 @@ export function AdminOverviewPanel() {
   const [data, setData] = useState<AdminPlatformOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const silentRef = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = Boolean(opts?.silent);
+    if (!silent) setLoading(true);
+    silentRef.current = silent;
     setError(null);
     try {
       setData(await fetchAdminOverview());
+      setNowTick(Date.now());
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Impossible de charger l'aperçu",
       );
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      silentRef.current = false;
     }
   }, []);
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void load({ silent: true });
+    }, AUTO_REFRESH_MS);
+    return () => window.clearInterval(id);
   }, [load]);
 
   if (loading && !data) {
@@ -157,7 +193,12 @@ export function AdminOverviewPanel() {
     return (
       <Alert tone="error" title="Erreur">
         <p>{error}</p>
-        <Button type="button" variant="secondary" className="mt-3" onClick={() => void load()}>
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-3"
+          onClick={() => void load()}
+        >
           Réessayer
         </Button>
       </Alert>
@@ -168,22 +209,54 @@ export function AdminOverviewPanel() {
 
   const tokenTone =
     data.tokens.limitPerDay > 0 &&
-    data.tokens.usedToday / data.tokens.limitPerDay >= 0.85
+    data.tokens.usedTodayParis / data.tokens.limitPerDay >= 0.85
       ? "bad"
       : data.tokens.limitPerDay > 0 &&
-          data.tokens.usedToday / data.tokens.limitPerDay >= 0.6
+          data.tokens.usedTodayParis / data.tokens.limitPerDay >= 0.6
         ? "warn"
         : "ok";
+
+  const stripeBadge =
+    data.billing.stripeMode === "test"
+      ? "TEST"
+      : data.billing.stripeMode === "live"
+        ? "LIVE"
+        : undefined;
+
+  const failPct =
+    data.usage.failRate24h != null
+      ? `${Math.round(data.usage.failRate24h * 1000) / 10} %`
+      : "n/d";
+
+  const parisClock = new Date(data.at).toLocaleString("fr-FR", {
+    timeZone: data.timezone,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-[var(--muted)]">
-            Mise à jour : {new Date(data.at).toLocaleString("fr-FR")}
+            Fuseau {data.timezone} · snapshot {parisClock}
+            {loading ? " · rafraîchissement…" : ""}
+          </p>
+          <p className="text-[11px] text-[var(--muted)]">
+            Auto-refresh {AUTO_REFRESH_MS / 1000}s (presence via last_seen, pas
+            websocket)
           </p>
         </div>
-        <Button type="button" variant="secondary" size="sm" onClick={() => void load()}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void load()}
+        >
           Rafraîchir
         </Button>
       </div>
@@ -204,28 +277,31 @@ export function AdminOverviewPanel() {
             tone={data.health.dbOk ? "ok" : "bad"}
           />
           <Stat
-            label="Cron drain"
+            label="Cron drain (secret)"
             value={data.health.cronConfigured ? "Configuré" : "Manquant"}
             tone={data.health.cronConfigured ? "ok" : "bad"}
+            hint="CRON_SECRET présent ≠ drain récent"
+          />
+          <Stat
+            label="Dernier drain (âge)"
+            value={fmtAgeSec(data.health.lastDrainAgeSec)}
+            tone={
+              data.health.lastDrainAgeSec != null &&
+              data.health.lastDrainAgeSec > 300
+                ? "warn"
+                : "default"
+            }
+            hint={
+              data.health.lastDrainAt
+                ? `${new Date(data.health.lastDrainAt).toLocaleString("fr-FR", { timeZone: data.timezone })} · ${data.health.lastDrainProcessed ?? "?"} job(s)`
+                : "Aucun succès drain journalisé"
+            }
           />
           <Stat
             label="Jobs stuck"
             value={String(data.jobs.stuck)}
             tone={data.jobs.stuck > 0 ? "bad" : "ok"}
             hint="pending/processing > 10 min"
-          />
-          <Stat
-            label="Dernier drain"
-            value={
-              data.health.lastDrainAt
-                ? new Date(data.health.lastDrainAt).toLocaleString("fr-FR")
-                : "—"
-            }
-            hint={
-              data.health.lastDrainProcessed != null
-                ? `${data.health.lastDrainProcessed} job(s) traité(s)`
-                : "Pas encore journalisé"
-            }
           />
           <Stat
             label="Reclaimed stale"
@@ -258,6 +334,282 @@ export function AdminOverviewPanel() {
 
       <section className="space-y-3">
         <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
+          En ligne / connexions
+        </h3>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="En ligne maintenant"
+            value={fmtNd(data.presence.onlineNow)}
+            hint={
+              data.presence.onlineNow.reason ??
+              "last_seen_at < 5 min (blob presence, throttle ≥60s)"
+            }
+            tone={
+              data.presence.onlineNow.value != null &&
+              data.presence.onlineNow.value > 0
+                ? "ok"
+                : "default"
+            }
+          />
+          <Stat
+            label="Connectés aujourd’hui (Paris)"
+            value={fmtNd(data.presence.connectedTodayParis)}
+            hint={
+              data.presence.connectedTodayParis.reason ??
+              "last_sign_in Auth ∪ last_seen (jour Paris)"
+            }
+          />
+          <Stat
+            label="Inscrits aujourd’hui (Paris)"
+            value={fmtNd(data.presence.signedUpTodayParis)}
+            hint={
+              data.presence.signedUpTodayParis.reason ??
+              "Auth created_at jour Europe/Paris"
+            }
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
+          Utilisateurs (Auth)
+        </h3>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Comptes Auth"
+            value={fmtNd(data.users.authAccounts)}
+            hint={
+              data.users.authAccounts.reason ?? "Supabase Auth listUsers"
+            }
+          />
+          <Stat
+            label="Avec ≥1 analyse (parmi Auth)"
+            value={fmtNd(data.users.withAnalysesAmongAuth)}
+            hint={
+              data.users.withAnalysesAmongAuth.reason ??
+              "Distinct user_id app_history ∩ Auth"
+            }
+          />
+          <Stat
+            label="Orphelins history"
+            value={fmtNd(data.users.orphanHistoryUsers)}
+            tone={
+              (data.users.orphanHistoryUsers.value ?? 0) > 0 ? "warn" : "default"
+            }
+            hint={
+              data.users.orphanHistoryUsers.reason ??
+              "user_id dans app_history absents d’Auth (comptes supprimés)"
+            }
+          />
+          <Stat
+            label="Actifs analyse 24h"
+            value={fmtNum(data.users.activeAnalyze24h)}
+            hint="Parmi Auth encore présents"
+          />
+          <Stat
+            label="Actifs analyse 7j"
+            value={fmtNum(data.users.activeAnalyze7d)}
+            hint={`${fmtNum(data.users.activeAnalyze30d)} actifs analyse / 30 j (même filtre Auth)`}
+          />
+          <Stat
+            label="Actifs analyse 30j"
+            value={fmtNum(data.users.activeAnalyze30d)}
+            hint="Parmi Auth encore présents"
+          />
+          <Stat
+            label="Moy. analyses / user (Auth)"
+            value={
+              data.users.avgAnalysesPerUserWithHistory != null
+                ? String(data.users.avgAnalysesPerUserWithHistory)
+                : "n/d"
+            }
+            hint="Jobs completed Auth / users avec ≥1 analyse Auth"
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
+            Abonnements
+          </h3>
+          {stripeBadge ? (
+            <span
+              className={cn(
+                "rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                data.billing.stripeMode === "test"
+                  ? "bg-[var(--warning)]/15 text-[var(--warning)]"
+                  : "bg-[var(--success)]/15 text-[var(--success)]",
+              )}
+            >
+              Stripe {stripeBadge}
+            </span>
+          ) : (
+            <span className="rounded bg-[var(--muted)]/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--muted)]">
+              Stripe n/d
+            </span>
+          )}
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Free (jamais souscrit)"
+            value={
+              data.billing.freeNeverSubscribed != null
+                ? fmtNum(data.billing.freeNeverSubscribed)
+                : "n/d"
+            }
+            hint="Auth − users avec sub payante active/trialing"
+            badge={stripeBadge}
+          />
+          <Stat
+            label="Payants actifs"
+            value={fmtNum(data.billing.paidActive)}
+            tone={data.billing.paidActive > 0 ? "ok" : "default"}
+            hint="active + trialing (DB app_subscriptions)"
+            badge={stripeBadge}
+          />
+          {data.billing.byPlanActive
+            .filter((p) => p.plan !== "free")
+            .map((p) => (
+              <Stat
+                key={p.plan}
+                label={`${BILLING_PLANS[p.plan]?.name ?? p.plan} actifs`}
+                value={fmtNum(p.count)}
+                badge={stripeBadge}
+              />
+            ))}
+          <Stat
+            label="past_due"
+            value={fmtNum(data.billing.pastDue)}
+            tone={data.billing.pastDue > 0 ? "warn" : "default"}
+            badge={stripeBadge}
+          />
+          <Stat
+            label="canceled"
+            value={fmtNum(data.billing.canceled)}
+            badge={stripeBadge}
+          />
+          <Stat
+            label="cancel_at_period_end"
+            value={fmtNum(data.billing.cancelAtPeriodEnd)}
+            badge={stripeBadge}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
+          Usage (jour Paris + fenêtres)
+        </h3>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Jobs créés (jour Paris)"
+            value={fmtNum(data.analyses.todayParis)}
+            hint={`created_at ≥ début jour ${data.timezone} · snapshot ${parisClock}`}
+          />
+          <Stat
+            label="Completed (jour Paris)"
+            value={fmtNum(data.usage.jobsCompletedTodayParis)}
+            tone="ok"
+          />
+          <Stat
+            label="Failed (jour Paris)"
+            value={fmtNum(data.usage.jobsFailedTodayParis)}
+            tone={data.usage.jobsFailedTodayParis > 0 ? "warn" : "default"}
+          />
+          <Stat
+            label="Pending / processing"
+            value={`${data.usage.jobsPending} / ${data.usage.jobsProcessing}`}
+            hint="Live file d’attente"
+          />
+          <Stat
+            label="Completed 7j / 30j"
+            value={`${fmtNum(data.usage.jobsCompleted7d)} / ${fmtNum(data.usage.jobsCompleted30d)}`}
+          />
+          <Stat
+            label="Failed 7j"
+            value={fmtNum(data.usage.jobsFailed7d)}
+            tone={data.usage.jobsFailed7d > 0 ? "warn" : "default"}
+          />
+          <Stat
+            label="Taux échec 24h"
+            value={failPct}
+            hint="failed / (completed+failed) 24h glissants"
+            tone={
+              data.usage.failRate24h != null && data.usage.failRate24h > 0.2
+                ? "bad"
+                : "default"
+            }
+          />
+          <Stat
+            label="Uploads (jour Paris)"
+            value={fmtNum(data.usage.uploadsTodayParis)}
+            hint="app_documents created_at jour Paris"
+          />
+          <Stat
+            label="Quota Free atteint (aujourd’hui)"
+            value={
+              data.usage.freeQuotaHitTodayParis != null
+                ? fmtNum(data.usage.freeQuotaHitTodayParis)
+                : "n/d"
+            }
+            hint={`analyze ≥ ${data.usage.freeAnalyzeLimit} (mois UTC) + maj jour Paris · hors payants`}
+          />
+          <Stat
+            label="Quota Free atteint (mois)"
+            value={
+              data.usage.freeQuotaHitMonth != null
+                ? fmtNum(data.usage.freeQuotaHitMonth)
+                : "n/d"
+            }
+            hint={`analyze ≥ ${data.usage.freeAnalyzeLimit} ce mois UTC · hors payants`}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
+          Analyses & durées
+        </h3>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Total jobs"
+            value={fmtNum(data.analyses.total)}
+            hint="All-time app_analysis_jobs"
+          />
+          <Stat
+            label="Complétées"
+            value={fmtNum(data.analyses.completed)}
+            tone="ok"
+          />
+          <Stat
+            label="Échouées"
+            value={fmtNum(data.analyses.failed)}
+            tone={data.analyses.failed > 0 ? "warn" : "default"}
+          />
+          <Stat
+            label="Durée wall moy. (7j)"
+            value={
+              data.analyses.avgWallDurationSec7d != null
+                ? `${data.analyses.avgWallDurationSec7d}s`
+                : "n/d"
+            }
+            hint="metrics.totalMs ou completed_at−started_at (job réel)"
+          />
+          <Stat
+            label="Durée LLM moy. (7j)"
+            value={
+              data.analyses.avgLlmDurationSec7d != null
+                ? `${data.analyses.avgLlmDurationSec7d}s`
+                : "n/d"
+            }
+            hint="metrics.generateMs uniquement (appel modèle)"
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
           IA & configuration
         </h3>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -273,38 +625,38 @@ export function AdminOverviewPanel() {
           />
           <Stat
             label="Stockage"
-            value={data.health.storageMode === "persistent" ? "PostgreSQL + S3" : "Fichiers locaux"}
+            value={
+              data.health.storageMode === "persistent"
+                ? "PostgreSQL + S3"
+                : "Fichiers locaux"
+            }
           />
         </div>
-        <p className="text-[11px] text-[var(--muted)]">
-          Modèle configuré via <code className="text-xs">LLM_MODEL</code> sur Vercel.
-          Pour changer de modèle Groq, modifiez la variable d&apos;environnement puis redéployez.
-        </p>
       </section>
 
       <section className="space-y-3">
         <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
-          Tokens Groq (jour UTC)
+          Tokens (mesurés · jour Paris)
         </h3>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {data.tokens.limitPerDay > 0 ? (
             <Gauge
-              label="Consommation jour UTC"
-              value={data.tokens.usedToday}
+              label="Tokens mesurés / plafond configuré"
+              value={data.tokens.usedTodayParis}
               max={data.tokens.limitPerDay}
-              hint="Mesuré depuis les réponses Groq (somme metrics.totalTokens ≥100, jobs P2 completed, jour UTC)."
+              hint={data.tokens.limitLabel}
             />
           ) : (
             <Stat
-              label="Tokens jour UTC"
-              value={fmtNum(data.tokens.usedToday)}
-              hint="Mesuré depuis les réponses Groq"
+              label="Tokens jour Paris (mesurés)"
+              value={fmtNum(data.tokens.usedTodayParis)}
+              hint="Somme metrics.totalTokens ≥100"
             />
           )}
           <Stat
-            label="Tokens 30 j"
-            value={fmtNum(data.tokens.usedMonth)}
-            hint="Mesuré depuis les réponses Groq (totalTokens ≥100, 30 j glissants)"
+            label="Tokens 30 j (mesurés)"
+            value={fmtNum(data.tokens.usedMonthRolling30d)}
+            hint="Somme metrics.totalTokens ≥100, 30 j glissants"
           />
           <Stat
             label="Moyenne / analyse (30 j)"
@@ -316,15 +668,15 @@ export function AdminOverviewPanel() {
             hint={
               data.tokens.jobsMeasuredMonth > 0
                 ? `${data.tokens.jobsMeasuredMonth} job(s) mesuré(s)`
-                : "Aucun job avec usage Groq ≥100 sur 30 j"
+                : "Aucun job avec usage ≥100 sur 30 j"
             }
           />
           <Stat
-            label="Analyses restantes (dérivé)"
+            label="Estim. analyses restantes (plafond configuré)"
             value={
               data.tokens.estimatedAnalysesRemainingToday != null
                 ? String(data.tokens.estimatedAnalysesRemainingToday)
-                : "non mesuré"
+                : "n/d"
             }
             tone={
               data.tokens.estimatedAnalysesRemainingToday != null
@@ -332,145 +684,38 @@ export function AdminOverviewPanel() {
                 : "default"
             }
             hint={
-              data.tokens.limitSource === "configured_groq_free"
-                ? `Plafond Groq free configuré ${fmtNum(data.tokens.limitPerDay)} tok/jour (hardcodé, pas renvoyé par Groq)`
-                : "Pas de plafond journalier (mode local)"
+              data.tokens.limitSource === "configured_estimate"
+                ? data.tokens.limitLabel
+                : "Pas de plafond (mode local)"
             }
           />
           <Stat
-            label="Réinitialisation tokens"
+            label="Réinit. plafond (UTC)"
             value={
               data.tokens.limitPerDay > 0
-                ? `dans ${fmtCountdownTo(data.tokens.resetsAt)}`
+                ? `dans ${fmtCountdownTo(data.tokens.resetsAt, nowTick)}`
                 : "—"
             }
             hint={
               data.tokens.limitPerDay > 0
                 ? `Minuit ${data.tokens.resetTimezone} → ${fmtResetLocal(data.tokens.resetsAt)}`
-                : "Pas de quota journalier (mode local)"
+                : "Pas de plafond journalier"
             }
           />
           {data.tokens.jobsUnmeasuredToday > 0 ||
           data.tokens.jobsUnmeasuredMonth > 0 ? (
             <Stat
-              label="Usage non mesuré"
+              label="Jobs usage non mesuré"
               value={`${data.tokens.jobsUnmeasuredToday} jour / ${data.tokens.jobsUnmeasuredMonth} (30 j)`}
               tone="warn"
-              hint={`${data.tokens.jobsUnmeasuredToday} jobs usage non mesuré (jour UTC) — exclus de la somme`}
+              hint="Completed sans totalTokens ≥100 — exclus de la somme"
             />
           ) : null}
         </div>
         <p className="text-[11px] text-[var(--muted)]">
-          Mesuré depuis les réponses Groq. Les jobs sans usage (ou totalTokens
-          &lt;100) ne sont pas estimés en silence.
+          Somme mesurée depuis les réponses LLM (metrics). Le plafond est une
+          estimation configurée — pas le quota officiel de l’API provider.
         </p>
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
-          Utilisateurs
-        </h3>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label={
-              data.users.totalEverSource === "auth"
-                ? "Comptes Auth"
-                : "Comptes (union app)"
-            }
-            value={String(data.users.totalEver)}
-            hint={
-              data.users.totalEverSource === "auth"
-                ? "Count Auth Supabase (listUsers)"
-                : "Fallback union usage + abonnements + historique"
-            }
-          />
-          <Stat
-            label="Actifs analyse (24h)"
-            value={String(data.users.active24h)}
-            hint="Users avec ≥1 update app_history dans 24h"
-          />
-          <Stat
-            label="Actifs analyse (7j)"
-            value={String(data.users.active7d)}
-            hint={`${data.users.active30d} actifs analyse sur 30 j`}
-          />
-          <Stat
-            label="Premium actifs"
-            value={String(data.users.premiumActive)}
-            tone={data.users.premiumActive > 0 ? "ok" : "default"}
-            hint="Plans payants active/trialing (hors past_due)"
-          />
-          <Stat
-            label="Avec ≥1 analyse"
-            value={String(data.users.withAnalyses)}
-            hint="Distinct user_id dans app_history"
-          />
-          <Stat
-            label="Moyenne analyses / user"
-            value={String(data.users.avgAnalysesPerUser)}
-            hint={`Completed all-time / ${data.users.withAnalyses} users avec analyse (pas ${data.users.totalEver})`}
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="font-display text-sm uppercase tracking-wide text-[var(--muted)]">
-          Analyses & file d&apos;attente
-        </h3>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="Total jobs"
-            value={String(data.analyses.total)}
-            hint="All-time app_analysis_jobs"
-          />
-          <Stat
-            label="Complétées"
-            value={String(data.analyses.completed)}
-            tone="ok"
-            hint="All-time"
-          />
-          <Stat
-            label="Échouées"
-            value={String(data.analyses.failed)}
-            tone={data.analyses.failed > 0 ? "warn" : "default"}
-            hint="All-time (pas seulement 7j)"
-          />
-          <Stat
-            label="Jobs créés (jour UTC)"
-            value={String(data.analyses.todayUtc)}
-            hint="created_at ≥ date_trunc('day', now() UTC)"
-          />
-          <Stat
-            label="En attente (pending)"
-            value={String(data.jobs.queuePending)}
-            tone={data.jobs.queuePending > 0 ? "warn" : "default"}
-            hint="Live (pas historique)"
-          />
-          <Stat
-            label="En cours (processing)"
-            value={String(data.jobs.queueProcessing)}
-            hint="Live (pas historique)"
-          />
-          <Stat
-            label="Durée moyenne P2 (7j)"
-            value={
-              data.analyses.avgDurationSec > 0
-                ? `${data.analyses.avgDurationSec}s`
-                : "—"
-            }
-            hint="metrics.totalMs (hors outliers >10 min)"
-          />
-          <Stat
-            label="Cron drain"
-            value={data.health.cronConfigured ? "Configuré" : "Manquant"}
-            tone={data.health.cronConfigured ? "ok" : "bad"}
-            hint={
-              data.health.cronConfigured
-                ? "≠ dernier drain — voir « Dernier drain » ci-dessus"
-                : "CRON_SECRET absent — les jobs P2 ne seront pas traités"
-            }
-          />
-        </div>
       </section>
     </div>
   );

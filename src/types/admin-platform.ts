@@ -1,4 +1,5 @@
 import type { AdminOverviewAlert } from "@/types/admin-ops";
+import type { BillingPlanId } from "@/types/billing";
 
 export type AdminLlmRuntime = {
   provider: "ollama" | "groq" | "mistral" | "openai_compatible";
@@ -7,55 +8,78 @@ export type AdminLlmRuntime = {
   cloudEnabled: boolean;
 };
 
+export type AdminNdNumber = {
+  value: number | null;
+  reason?: string;
+};
+
 export type AdminPlatformOverview = {
   at: string;
+  timezone: "Europe/Paris";
   llm: AdminLlmRuntime;
   tokens: {
-    /** Somme metrics.totalTokens ≥100, jour calendaire UTC. 0 si rien de mesuré. */
-    usedToday: number;
-    /** Somme metrics.totalTokens ≥100, 30 j glissants. */
-    usedMonth: number;
+    usedTodayParis: number;
+    usedMonthRolling30d: number;
     jobsMeasuredToday: number;
     jobsUnmeasuredToday: number;
     jobsMeasuredMonth: number;
     jobsUnmeasuredMonth: number;
-    /** null si aucun job mesuré sur 30 j. */
     avgPerAnalysis: number | null;
-    /**
-     * null si pas assez de mesure pour estimer.
-     * Sinon floor((limit - usedToday) / avg) avec avg mesuré.
-     */
+    /** Estimation locale vs plafond configuré — pas l’API Groq. */
     estimatedAnalysesRemainingToday: number | null;
     source: "metrics" | "none";
     limitPerDay: number;
-    /** Origine du plafond affiché (jamais une réponse API Groq). */
-    limitSource: "configured_groq_free" | "none";
+    limitSource: "configured_estimate" | "none";
+    limitLabel: string;
     resetsAt: string;
     resetTimezone: "UTC";
   };
+  presence: {
+    onlineNow: AdminNdNumber;
+    connectedTodayParis: AdminNdNumber;
+    signedUpTodayParis: AdminNdNumber;
+    source: "auth+presence" | "unavailable";
+  };
   users: {
-    /** Comptes Auth Supabase si dispo, sinon union usage+subs+history. */
-    totalEver: number;
-    totalEverSource: "auth" | "app_union";
-    /** Users avec ≥1 update app_history dans la fenêtre. */
-    active24h: number;
-    active7d: number;
-    active30d: number;
-    withAnalyses: number;
-    /** active|trialing payants (hors past_due). */
-    premiumActive: number;
-    /** completed all-time / withAnalyses. */
-    avgAnalysesPerUser: number;
+    authAccounts: AdminNdNumber;
+    withAnalysesAmongAuth: AdminNdNumber;
+    orphanHistoryUsers: AdminNdNumber;
+    /** Actifs analyse parmi comptes Auth encore présents. */
+    activeAnalyze24h: number;
+    activeAnalyze7d: number;
+    activeAnalyze30d: number;
+    avgAnalysesPerUserWithHistory: number | null;
+  };
+  billing: {
+    stripeMode: "test" | "live" | "unconfigured";
+    freeNeverSubscribed: number | null;
+    byPlanActive: Array<{ plan: BillingPlanId; count: number }>;
+    paidActive: number;
+    pastDue: number;
+    canceled: number;
+    cancelAtPeriodEnd: number;
+  };
+  usage: {
+    jobsCompletedTodayParis: number;
+    jobsFailedTodayParis: number;
+    jobsPending: number;
+    jobsProcessing: number;
+    jobsCompleted7d: number;
+    jobsFailed7d: number;
+    jobsCompleted30d: number;
+    failRate24h: number | null;
+    uploadsTodayParis: number;
+    freeQuotaHitTodayParis: number | null;
+    freeQuotaHitMonth: number | null;
+    freeAnalyzeLimit: number;
   };
   analyses: {
     total: number;
     completed: number;
     failed: number;
-    pending: number;
-    processing: number;
-    /** Jobs créés durant le jour calendaire UTC. */
-    todayUtc: number;
-    avgDurationSec: number;
+    todayParis: number;
+    avgWallDurationSec7d: number | null;
+    avgLlmDurationSec7d: number | null;
   };
   jobs: {
     queuePending: number;
@@ -69,6 +93,7 @@ export type AdminPlatformOverview = {
     storageMode: "persistent" | "filesystem";
     dbOk: boolean;
     lastDrainAt: string | null;
+    lastDrainAgeSec: number | null;
     lastDrainProcessed: number | null;
   };
   alerts: AdminOverviewAlert[];

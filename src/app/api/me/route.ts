@@ -32,6 +32,9 @@ export async function GET() {
     }
 
     await ensureUserWorkspace(user.id).catch(() => undefined);
+    // Presence best-effort (throttle 60s) — pour cartes « en ligne » admin.
+    const { touchUserLastSeen } = await import("@/services/admin/presence");
+    void touchUserLastSeen(user.id);
     const stats = await getUserAccountStats(user.id).catch(() => null);
 
     return apiSuccess({
