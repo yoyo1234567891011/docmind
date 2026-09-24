@@ -47,14 +47,14 @@ function resolveCloudBaseUrl(apiKeySource: "groq" | "mistral" | "generic"): stri
  */
 /**
  * Modèles retirés / indisponibles / ids mal formés → id Groq servi.
- * qwen/qwen3.6-27b : listé docs mais rejeté en prod free (2026-09).
- * gpt-oss:120b : syntaxe Ollama — Groq attend openai/gpt-oss-*.
+ * Cible prod : openai/gpt-oss-120b. Fallback HTTP model_not_found → 20b.
+ * Ne jamais remap vers Qwen (indispo free-tier observé).
  */
 const GROQ_RETIRED_MODEL_MAP: Record<string, string> = {
-  "llama-3.3-70b-versatile": "openai/gpt-oss-20b",
-  "llama-3.1-8b-instant": "openai/gpt-oss-20b",
-  "qwen/qwen3.6-27b": "openai/gpt-oss-20b",
-  "qwen/qwen3.8-27b": "openai/gpt-oss-20b",
+  "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+  "llama-3.1-8b-instant": "openai/gpt-oss-120b",
+  "qwen/qwen3.6-27b": "openai/gpt-oss-120b",
+  "qwen/qwen3.8-27b": "openai/gpt-oss-120b",
   "gpt-oss:120b": "openai/gpt-oss-120b",
   "gpt-oss:20b": "openai/gpt-oss-20b",
   "gpt-oss-120b": "openai/gpt-oss-120b",
