@@ -609,19 +609,41 @@ const IRRELEVANT_MONEY_CONTEXT =
   /capital\s+social|garantie\s+financi[eè]re|rcs\b|siren|immatriculation|chiffre\s+d['']affaires|plafond\s+de\s+garantie|caisse\s+de\s+garantie|taxe\s+d['']habitation|suppression\s+(?:de\s+)?la\s+taxe|milliards?|national(?:e|es)?|collectivit[ée]s?|ensemble\s+des\s+(?:foyers|contribuables)|produit\s+(?:net\s+)?(?:de\s+la\s+)?taxe|statistiques?|budget\s+(?:de\s+)?l[''][ée]tat|france\s+enti[eè]re|nombre\s+de\s+foyers|base\s+nationale|montant\s+global\s+(?:des|de)|total\s+(?:des\s+)?recettes|r[ée]f[ée]rence\s+(?:nationale|cadastrale)|valeur\s+locative\s+(?:cadastrale|moyenne)/i;
 
 function snippetAround(text: string, index: number, length: number): string {
-  let start = Math.max(0, index - 48);
-  let end = Math.min(text.length, index + length + 56);
-  // Bornes de mots (évite « sion de… » / fins coupées)
-  while (start > 0 && /[A-Za-zÀ-ÿ0-9]/.test(text.charAt(start))) {
-    start -= 1;
+  // Une seule ligne / puce (évite collage « Loyer… ## Clauses • Renouvellement »).
+  const lineStart = Math.max(0, text.lastIndexOf("\n", Math.max(0, index)) + 1);
+  let lineEnd = text.indexOf("\n", index + Math.max(1, length));
+  if (lineEnd < 0) lineEnd = text.length;
+  // Couper avant un titre markdown sur la même ligne stretch.
+  const headingInLine = text.slice(lineStart, lineEnd).search(/\s##\s/);
+  if (headingInLine >= 0) {
+    lineEnd = lineStart + headingInLine;
   }
-  if (start > 0) start += 1;
-  while (end < text.length && /[A-Za-zÀ-ÿ0-9]/.test(text.charAt(end))) {
-    end += 1;
+  let raw = text
+    .slice(lineStart, lineEnd)
+    .replace(/^[#*_>\-\s•]+/, "")
+    .replace(/\*{1,2}/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Si la ligne est trop courte (label seul), élargir modestement sans franchir \n\n / ##.
+  if (raw.length < 24) {
+    let start = Math.max(0, index - 40);
+    let end = Math.min(text.length, index + length + 48);
+    const prevBreak = text.lastIndexOf("\n\n", index);
+    const prevHead = text.lastIndexOf("\n##", index);
+    start = Math.max(start, prevBreak + 2, prevHead >= 0 ? prevHead + 1 : 0);
+    const nextBreak = text.indexOf("\n\n", index + length);
+    const nextHead = text.indexOf("\n##", index + length);
+    if (nextBreak >= 0) end = Math.min(end, nextBreak);
+    if (nextHead >= 0) end = Math.min(end, nextHead);
+    raw = text
+      .slice(start, end)
+      .replace(/^[#*_>\-\s•]+/, "")
+      .replace(/\*{1,2}/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
-  const raw = text.slice(start, end).replace(/\s+/g, " ").trim();
   const capped =
-    raw.length <= 180 ? raw : truncateAtTextBoundary(raw, 180);
+    raw.length <= 160 ? raw : truncateAtTextBoundary(raw, 160);
   return cleanExcerptForDisplay(capped) ?? capped;
 }
 
@@ -633,13 +655,16 @@ function findLabeledEuroFact(
   const kw = `(?:${keyword.source})`;
   const amountGroup =
     "(\\d+(?:[\\s\\u00a0\\u202f]\\d{3})*(?:[.,]\\d{1,2})?)\\s*(?:€|euros?\\b)";
-  const after = new RegExp(`${kw}[^\\d]{0,60}${amountGroup}`, "i");
-  const before = new RegExp(`${amountGroup}[^\\d]{0,60}${kw}`, "i");
+  const after = new RegExp(`${kw}[^\\d\\n]{0,60}${amountGroup}`, "i");
+  const before = new RegExp(`${amountGroup}[^\\d\\n]{0,60}${kw}`, "i");
   for (const re of [after, before]) {
     const m = documentText.match(re);
     if (!m) continue;
+    // Exiger label + montant sur la même ligne (évite « ## Loyers… » + montant suivant).
     const idx = m.index ?? 0;
-    const excerpt = snippetAround(documentText, idx, m[0]!.length);
+    const span = m[0] ?? "";
+    if (/\n/.test(span)) continue;
+    const excerpt = snippetAround(documentText, idx, span.length);
     if (IRRELEVANT_MONEY_CONTEXT.test(excerpt)) continue;
     const raw = (m[1] ?? "").replace(/[\s\u00a0\u202f]+/g, " ").trim();
     if (!raw) continue;
@@ -660,7 +685,7 @@ function findBailLabeledFacts(documentText: string): BailLabeledFact[] {
 
   const loyer = findLabeledEuroFact(
     documentText,
-    /loyer(?:\s+mensuel)?(?:\s+hors\s+charges|\s+hc)?/i,
+    /loyer(?:\s+mensuel)?(?:\s+hors\s+charges|\s+hc)?(?!\s+et\s+charges)/i,
   );
   if (loyer && !IRRELEVANT_MONEY_CONTEXT.test(loyer.excerpt)) {
     facts.push({
@@ -727,6 +752,9 @@ function findBailLabeledFacts(documentText: string): BailLabeledFact[] {
   const preavisGeneric = documentText.match(
     /pr[ée]avis[^\d]{0,30}(\d+)\s*mois/i,
   );
+  const congeAvantTerme = documentText.match(
+    /cong[eé]\s+(?:donn[ée]e?\s+)?(?:au\s+moins\s+)?(\d+)\s*mois\s+avant(?:\s+le\s+terme)?|sauf\s+cong[eé][^\d]{0,40}(\d+)\s*mois/i,
+  );
   if (preavisLoc) {
     const idx = preavisLoc.index ?? 0;
     facts.push({
@@ -748,14 +776,63 @@ function findBailLabeledFacts(documentText: string): BailLabeledFact[] {
       description: `Préavis : ${preavisGeneric[1]} mois`,
       excerpt: snippetAround(documentText, idx, preavisGeneric[0]!.length),
     });
+  } else if (congeAvantTerme) {
+    const months = congeAvantTerme[1] || congeAvantTerme[2];
+    const idx = congeAvantTerme.index ?? 0;
+    facts.push({
+      criterionId: "resiliation",
+      description: `Préavis / congé : ${months} mois avant terme`,
+      excerpt: snippetAround(documentText, idx, congeAvantTerme[0]!.length),
+    });
   }
 
-  const resolutoire = documentText.match(/clause\s+r[ée]solutoire/i);
+  const penalites = documentText.match(
+    /p[ée]nalit[ée]s?(?:\s+de\s+retard)?[^\d%]{0,40}(\d+(?:[.,]\d+)?)\s*%|majoration(?:\s+de)?\s*(\d+(?:[.,]\d+)?)\s*%|(\d+(?:[.,]\d+)?)\s*%[^\n.]{0,40}(?:p[ée]nalit|majoration|retard\s+de\s+loyer)/i,
+  );
+  if (penalites) {
+    const pct = penalites[1] || penalites[2] || penalites[3];
+    const idx = penalites.index ?? 0;
+    facts.push({
+      criterionId: "penalites",
+      description: `Pénalités de retard : ${pct} %`,
+      excerpt: snippetAround(documentText, idx, penalites[0]!.length),
+    });
+  }
+
+  const fraisRelance = findLabeledEuroFact(
+    documentText,
+    /frais\s+de\s+relance(?:\s+locative)?/i,
+  );
+  if (fraisRelance && !IRRELEVANT_MONEY_CONTEXT.test(fraisRelance.excerpt)) {
+    facts.push({
+      criterionId: "frais_caches",
+      description: `Frais de relance : ${fraisRelance.amount}`,
+      excerpt: fraisRelance.excerpt,
+    });
+  }
+
+  const assurance = documentText.match(
+    /assurance\s+habitation|attestation\s+annuelle(?:\s+d['']assurance)?/i,
+  );
+  if (assurance) {
+    const idx = assurance.index ?? 0;
+    facts.push({
+      criterionId: "obligations_importantes",
+      description: "Assurance habitation + attestation annuelle",
+      excerpt: snippetAround(documentText, idx, assurance[0]!.length),
+    });
+  }
+
+  const resolutoire = documentText.match(
+    /clause\s+r[ée]solutoire|r[ée]siliation\s+de\s+plein\s+droit|commandement\s+de\s+payer(?:\s+demeur[ée]\s+infructueux)?/i,
+  );
   if (resolutoire) {
     const idx = resolutoire.index ?? 0;
     facts.push({
       criterionId: "clauses_abusives",
-      description: "Clause résolutoire",
+      description: /commandement|plein\s+droit/i.test(resolutoire[0]!)
+        ? "Clause résolutoire / commandement de payer"
+        : "Clause résolutoire",
       excerpt: snippetAround(documentText, idx, resolutoire[0]!.length),
     });
   }
@@ -1103,6 +1180,7 @@ function makeLocalFinding(
   excerpt: string,
   family: WatchDocFamily,
   description?: string,
+  opts?: { confirmed?: boolean },
 ): RiskFinding | null {
   const meta = localFindingMeta(id, family);
   if (!meta) return null;
@@ -1120,6 +1198,12 @@ function makeLocalFinding(
   }
   const pinnedTotal =
     isRecouvrementTotalWatchTitle(label) || isFactureTtcWatchTitle(label);
+  const bailLabeledConfirmed =
+    family === "bail" &&
+    (opts?.confirmed === true ||
+      /^loyer\b|^charges\b|d[ée]p[ôo]t\s+de\s+garantie|p[ée]nalit|majoration|pr[ée]avis|tacite|clause\s+r[ée]solutoire|assurance\s+habitation|frais\s+de\s+relance|dur[ée]e\s+du\s+bail/i.test(
+        label,
+      ));
   return {
     description: label,
     why: meta.why,
@@ -1129,10 +1213,13 @@ function makeLocalFinding(
     justification: meta.why,
     impact: meta.implication,
     excerpt,
-    confidence: pinnedTotal ? Math.max(meta.confidence, 0.92) : meta.confidence,
+    confidence:
+      pinnedTotal || bailLabeledConfirmed
+        ? Math.max(meta.confidence, 0.92)
+        : meta.confidence,
     severity: meta.severity,
     criterion_id: id,
-    status: pinnedTotal ? "confirmed" : "ambiguous",
+    status: pinnedTotal || bailLabeledConfirmed ? "confirmed" : "ambiguous",
   };
 }
 
@@ -1149,6 +1236,7 @@ function injectBailLabeledFindings(
       fact.excerpt,
       "bail",
       fact.description,
+      { confirmed: true },
     );
     if (!finding) continue;
 
@@ -1173,7 +1261,15 @@ function injectBailLabeledFindings(
         (/^r[ée]vision\s+du\s+loyer/i.test(f.description) &&
           /^r[ée]vision\s+du\s+loyer/i.test(fact.description)) ||
         (/^honoraires?/i.test(f.description) &&
-          /^honoraires?/i.test(fact.description));
+          /^honoraires?/i.test(fact.description)) ||
+        (/p[ée]nalit|majoration/i.test(f.description) &&
+          /p[ée]nalit|majoration/i.test(fact.description) &&
+          f.criterion_id === "penalites" &&
+          fact.criterionId === "penalites") ||
+        (/assurance\s+habitation/i.test(f.description) &&
+          /assurance\s+habitation/i.test(fact.description)) ||
+        (/frais\s+de\s+relance/i.test(f.description) &&
+          /frais\s+de\s+relance/i.test(fact.description));
       return sameTitle || sameKind;
     });
 
@@ -1651,10 +1747,21 @@ export function mergeWithLocalRiskFindings(
     const economic = merged.filter((f) =>
       /^loyer\b|^charges\b|d[ée]p[ôo]t\s+de\s+garantie/i.test(f.description),
     );
-    const other = merged.filter(
-      (f) => !/^loyer\b|^charges\b|d[ée]p[ôo]t\s+de\s+garantie/i.test(f.description),
+    const mid = merged.filter(
+      (f) =>
+        !/^loyer\b|^charges\b|d[ée]p[ôo]t\s+de\s+garantie/i.test(f.description) &&
+        /dur[ée]e\s+du\s+bail|tacite|pr[ée]avis|p[ée]nalit|majoration|assurance\s+habitation|clause\s+r[ée]solutoire|frais\s+de\s+relance/i.test(
+          f.description,
+        ),
     );
-    return [...economic, ...other].slice(0, 12);
+    const other = merged.filter(
+      (f) =>
+        !/^loyer\b|^charges\b|d[ée]p[ôo]t\s+de\s+garantie/i.test(f.description) &&
+        !/dur[ée]e\s+du\s+bail|tacite|pr[ée]avis|p[ée]nalit|majoration|assurance\s+habitation|clause\s+r[ée]solutoire|frais\s+de\s+relance/i.test(
+          f.description,
+        ),
+    );
+    return [...economic, ...mid, ...other].slice(0, 12);
   }
 
   if (family === "recouvrement") {

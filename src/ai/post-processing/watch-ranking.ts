@@ -139,10 +139,10 @@ export const WATCH_CRITERION_ORDER_BY_FAMILY: Record<
     "engagement",
     "renouvellement_tacite",
     "resiliation",
+    "penalites",
     "clauses_abusives",
     "augmentation_tarif",
     "delais",
-    "penalites",
     "sanctions",
   ],
   pret: [
@@ -231,6 +231,7 @@ export const LOCAL_INJECT_CRITERIA_BY_FAMILY: Record<
     "engagement",
     "renouvellement_tacite",
     "resiliation",
+    "penalites",
     "augmentation_tarif",
     "delais",
     "clauses_abusives",
@@ -482,12 +483,16 @@ function bailTitlePriority(description: string): number {
     return 1;
   }
   if (/d[ée]p[ôo]t\s+de\s+garantie|d[ée]p[ôo]t\s*:/i.test(t)) return 2;
-  if (/honoraires?|frais\s+de\s+(?:mise\s+en\s+)?location/i.test(t)) return 3;
-  if (/dur[ée]e\s+du\s+bail/.test(t)) return 10;
-  if (/tacite|reconduction/.test(t)) return 11;
-  if (/pr[ée]avis/.test(t)) return 12;
-  if (/clause\s+r[ée]solutoire/.test(t)) return 13;
-  if (/r[ée]vision|irl/.test(t)) return 14;
+  if (/dur[ée]e\s+du\s+bail/.test(t)) return 3;
+  if (/tacite|reconduction|renouvellement\s+auto/.test(t)) return 4;
+  if (/pr[ée]avis|cong[eé].{0,20}\d+\s*mois|6\s*mois\s+avant/.test(t)) return 5;
+  if (/p[ée]nalit|majoration|\d+[.,]\d+\s*%/.test(t)) return 6;
+  if (/assurance\s+habitation|attestation\s+annuelle/.test(t)) return 7;
+  if (/clause\s+r[ée]solutoire|r[ée]siliation\s+de\s+plein\s+droit|commandement\s+de\s+payer/.test(t))
+    return 8;
+  if (/honoraires?|frais\s+de\s+(?:mise\s+en\s+)?location|frais\s+de\s+relance/i.test(t))
+    return 9;
+  if (/r[ée]vision|irl/.test(t)) return 10;
   return 50;
 }
 
@@ -621,6 +626,18 @@ export function watchRankScore(
   finding: RiskFinding,
   family: WatchDocFamily,
 ): number {
+  // Bail : ordre métier (loyer → … → pénalités) prime sur l’ordre critère générique.
+  if (family === "bail") {
+    const bp = bailTitlePriority(finding.description);
+    if (bp < 50) {
+      return (
+        bp * 10 +
+        severityBoost(finding.severity) * 0.05 +
+        (1 - Math.min(1, Math.max(0, finding.confidence ?? 0.5)))
+      );
+    }
+  }
+
   const order = WATCH_CRITERION_ORDER_BY_FAMILY[family];
   const id = finding.criterion_id;
   const criterionIdx = id ? order.indexOf(id) : -1;

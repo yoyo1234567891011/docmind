@@ -76,6 +76,10 @@ export async function upsertRelation(
 
 function relationKey(r: MemoryRelation): string {
   const a = [r.fromDocId, r.toDocId].sort().join("|");
+  // linked_deadline / same_contract_family : 1 carte par paire de docs (évite ×N).
+  if (r.type === "linked_deadline" || r.type === "same_contract_family") {
+    return `${r.type}:${a}`;
+  }
   const node =
     r.fromNode?.kind === "entity"
       ? r.fromNode.id
