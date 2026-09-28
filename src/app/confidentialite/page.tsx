@@ -23,7 +23,7 @@ export default function PrivacyPage() {
         Confidentialité & RGPD
       </h1>
       <p className="text-sm text-[var(--muted)]">
-        Dernière mise à jour : 30 juillet 2026 · {siteConfig.name}
+        Dernière mise à jour : 28 septembre 2026 · {siteConfig.name}
       </p>
 
       <section className="space-y-2 text-sm leading-relaxed text-[var(--foreground)]">
@@ -48,7 +48,11 @@ export default function PrivacyPage() {
           extraits, analyses, alertes, préférences, et données de facturation
           Stripe (identifiants client / abonnement — pas le numéro de carte
           stocké chez DocMind). Des cookies techniques de session sont utilisés
-          pour l’authentification.
+          pour l’authentification (détail :{" "}
+          <Link href="/cookies" className="text-[var(--accent)] hover:underline">
+            Cookies
+          </Link>
+          ).
         </p>
       </section>
 
@@ -56,7 +60,7 @@ export default function PrivacyPage() {
         <h2 className="font-display text-2xl">Finalités</h2>
         <p>
           Fournir l’analyse documentaire, la mémoire / recherche, les alertes,
-          l’agent courrier Premium, et la facturation. Base légale :
+          l’agent courrier (plans payants), et la facturation. Base légale :
           exécution du contrat et intérêt légitime (sécurité, amélioration
           produit anonymisée).
         </p>
@@ -65,8 +69,13 @@ export default function PrivacyPage() {
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Hébergement & sous-traitants</h2>
         <p>
-          L’analyse IA s’effectue via une API dédiée (Groq) sur une infrastructure sécurisée. Aucun PDF n’est partagé avec un modèle public. Authentification : Supabase. Paiements : Stripe.
-          Consultez leurs politiques respectives.
+          Le PDF est stocké sur l’infrastructure DocMind (Vercel / stockage
+          associé). Le texte est extrait sur nos serveurs, puis analysé via
+          l’API Groq (États-Unis) — pas via ChatGPT public. DocMind n’utilise
+          pas vos documents pour entraîner un modèle grand public. Pour
+          l’usage des données côté Groq, consultez la politique de
+          confidentialité de Groq. Authentification : Supabase. Paiements :
+          Stripe.
         </p>
       </section>
 
@@ -117,6 +126,10 @@ export default function PrivacyPage() {
         {" · "}
         <Link href="/cgv" className="hover:underline">
           CGV
+        </Link>
+        {" · "}
+        <Link href="/cookies" className="hover:underline">
+          Cookies
         </Link>
         {" · "}
         <Link href="/mentions-legales" className="hover:underline">

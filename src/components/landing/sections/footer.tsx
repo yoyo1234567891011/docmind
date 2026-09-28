@@ -13,11 +13,12 @@ export function LandingFooter() {
               {siteConfig.name}
             </p>
             <p className="mt-2 max-w-sm text-sm leading-relaxed text-[var(--muted)]">
-              Analyse documentaire privée. Structurée. Actionnable.
+              Analyse documentaire privée. Structurée. Actionnable. PDF texte
+              uniquement.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
                 Produit
@@ -42,6 +43,11 @@ export function LandingFooter() {
                 <li>
                   <Link href="/analyser" className="hover:text-[var(--accent)]">
                     Analyser
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/guide" className="hover:text-[var(--accent)]">
+                    Guide
                   </Link>
                 </li>
               </ul>
@@ -75,6 +81,19 @@ export function LandingFooter() {
               <ul className="mt-3 space-y-2 text-sm text-[var(--foreground)]">
                 <li>
                   <Link
+                    href="/mentions-legales"
+                    className="hover:text-[var(--accent)]"
+                  >
+                    Mentions légales
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/cgv" className="hover:text-[var(--accent)]">
+                    CGV
+                  </Link>
+                </li>
+                <li>
+                  <Link
                     href="/confidentialite"
                     className="hover:text-[var(--accent)]"
                   >
@@ -87,16 +106,8 @@ export function LandingFooter() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/cgv" className="hover:text-[var(--accent)]">
-                    CGV
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/mentions-legales"
-                    className="hover:text-[var(--accent)]"
-                  >
-                    Mentions légales
+                  <Link href="/cookies" className="hover:text-[var(--accent)]">
+                    Cookies
                   </Link>
                 </li>
               </ul>
@@ -115,8 +126,8 @@ export function LandingFooter() {
                   </LandingSectionLink>
                 </li>
                 <li>
-                  <Link href="/auth/signup" className="hover:text-[var(--accent)]">
-                    Créer un compte
+                  <Link href="/feedback" className="hover:text-[var(--accent)]">
+                    Avis
                   </Link>
                 </li>
                 <li>
@@ -130,8 +141,12 @@ export function LandingFooter() {
         </div>
 
         <p className="mt-12 border-t border-[var(--border)] pt-6 text-xs text-[var(--muted)]">
-          © {new Date().getFullYear()} {siteConfig.name}. Documents traités sur
-          l’infrastructure DocMind — voir politique de confidentialité.
+          © {new Date().getFullYear()} {siteConfig.name}. Extraction du texte
+          sur nos serveurs ; analyse IA via Groq —{" "}
+          <Link href="/confidentialite" className="hover:underline">
+            confidentialité
+          </Link>
+          .
         </p>
       </div>
     </footer>

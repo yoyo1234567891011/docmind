@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { GuideStartButton } from "@/components/guide/guide-start-button";
+import {
+  BILLING_PLANS,
+  getPlanQuotaFeatureLines,
+} from "@/config/billing";
 import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
@@ -97,6 +101,57 @@ export default function GuidePage() {
                 </span>
               </li>
             </ul>
+          </article>
+
+          <article className="surface-panel rounded-2xl p-5 sm:p-6">
+            <h2 className="font-display text-2xl tracking-tight text-[var(--foreground)]">
+              Abonnements
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
+              Même catalogue que la page d’accueil et Facturation. Courrier IA
+              inclus dès Basique. Résiliation à tout moment via Facturation →
+              portail Stripe (effet en fin de période).
+            </p>
+            <ul className="mt-4 space-y-3 text-sm leading-relaxed text-[var(--foreground)]">
+              {(
+                [
+                  "free",
+                  "basique",
+                  "pro",
+                  "premium",
+                  "extra",
+                ] as const
+              ).map((id) => {
+                const plan = BILLING_PLANS[id];
+                const price =
+                  plan.priceMonthlyEur == null
+                    ? "Gratuit"
+                    : `${plan.priceMonthlyEur.toLocaleString("fr-FR", {
+                        minimumFractionDigits: 2,
+                      })} € / mois`;
+                return (
+                  <li key={id}>
+                    <strong>{plan.name}</strong> — {price}.{" "}
+                    {getPlanQuotaFeatureLines(id).join(" · ")}.
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-4 text-sm">
+              <Link
+                href="/facturation"
+                className="font-medium text-[var(--accent)] hover:underline"
+              >
+                Gérer mon abonnement
+              </Link>
+              {" · "}
+              <Link
+                href="/cgv"
+                className="font-medium text-[var(--accent)] hover:underline"
+              >
+                CGV
+              </Link>
+            </p>
           </article>
         </div>
 

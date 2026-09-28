@@ -3,15 +3,19 @@
 const FAQ_ITEMS = [
   {
     q: "En quoi DocMind est différent de ChatGPT ?",
-    a: "ChatGPT est un chat généraliste : vous y collez un PDF, vous obtenez un texte. DocMind construit une mémoire (fiches, alertes, recherche, historique) et prépare des actions — sans envoyer vos documents à une IA cloud grand public.",
+    a: "ChatGPT est un chat généraliste où vous collez un PDF. DocMind construit une mémoire (fiches, alertes, recherche, historique) et prépare des actions. L’analyse passe par une API dédiée (Groq), pas par ChatGPT public.",
   },
   {
-    q: "Mes documents sont-ils privés ?",
-    a: "Vos fichiers sont stockés dans votre espace DocMind, isolé par compte. L’analyse IA passe par une API dédiée — elle n’est pas partagée avec d’autres utilisateurs ni utilisée pour entraîner un modèle public.",
+    q: "Où vont mes documents ?",
+    a: "Vous téléversez un PDF : le texte est extrait sur nos serveurs, puis envoyé à Groq (États-Unis) pour l’analyse. DocMind n’utilise pas vos documents pour entraîner un modèle grand public. Consultez aussi la politique de confidentialité de Groq. Compte isolé : pas de partage entre utilisateurs.",
+  },
+  {
+    q: "Quels PDF sont acceptés ?",
+    a: "Uniquement les PDF avec texte sélectionnable. Les scans / photos / PDF image ne sont pas supportés pour l’instant (pas d’OCR). Comptez environ 1 à 3 minutes pour une analyse complète. Détails dans le Guide.",
   },
   {
     q: "Dois-je installer un logiciel ?",
-    a: "Non. DocMind fonctionne entièrement dans le navigateur. Déposez un PDF, l’analyse démarre automatiquement — aucune installation requise.",
+    a: "Non. DocMind fonctionne dans le navigateur. Créez un compte, déposez un PDF texte — l’analyse démarre automatiquement.",
   },
   {
     q: "Faut-il une carte bancaire pour commencer ?",
@@ -19,7 +23,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Puis-je changer ou annuler mon abonnement facilement ?",
-    a: "Oui. Vous gérez l’abonnement depuis Facturation (portail Stripe) ; l’annulation en fin de période est prévue. Aucun engagement long.",
+    a: "Oui. Depuis Facturation → portail Stripe : annulation en fin de période déjà payée. Aucun engagement long. Détails dans les CGV.",
   },
   {
     q: "DocMind remplace-t-il un avocat ?",

@@ -23,9 +23,9 @@ export function LandingHero() {
           Vos contrats et factures, analysés en privé — risques, échéances, actions.
         </h1>
         <p className="landing-reveal landing-reveal-delay-2 mt-4 max-w-xl text-pretty text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-          Pas un chat généraliste : une mémoire documentaire française qui
-          extrait les faits, alerte avant un renouvellement, et prépare le
-          courrier — sans coller vos PDF dans ChatGPT.
+          Mémoire documentaire française : faits, alertes, courriers — sans
+          coller vos PDF dans ChatGPT. PDF avec texte sélectionnable uniquement
+          (pas de scans).
         </p>
         <div className="landing-reveal landing-reveal-delay-3 mt-8 flex flex-wrap items-center gap-3">
           <Link
@@ -42,7 +42,10 @@ export function LandingHero() {
           </LandingSectionLink>
         </div>
         <p className="landing-reveal landing-reveal-delay-3 mt-4 text-sm text-[var(--muted)]">
-          Gratuit pour démarrer · Sans carte bancaire · Analyse IA privée par compte
+          Gratuit pour démarrer · Sans carte · PDF texte · Analyse ~1–3 min ·{" "}
+          <Link href="/guide" className="text-[var(--accent)] hover:underline">
+            Guide
+          </Link>
         </p>
       </div>
     </section>

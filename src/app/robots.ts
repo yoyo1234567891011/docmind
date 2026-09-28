@@ -11,6 +11,8 @@ export default function robots(): MetadataRoute.Robots {
         "/cgu",
         "/cgv",
         "/mentions-legales",
+        "/cookies",
+        "/guide",
         "/auth/login",
         "/auth/signup",
       ],

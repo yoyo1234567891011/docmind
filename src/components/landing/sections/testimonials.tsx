@@ -13,7 +13,7 @@ const OUTCOMES = [
   },
   {
     title: "Garder le contrôle des données",
-    text: "Espace isolé par compte : vos PDF ne sont pas collés dans un chat cloud généraliste, et vos analyses restent privées.",
+    text: "Espace isolé par compte. Extraction sur nos serveurs ; analyse via Groq (pas ChatGPT). Vos fichiers ne sont pas collés dans un chat public.",
   },
 ] as const;
 

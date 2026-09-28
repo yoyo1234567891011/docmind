@@ -64,6 +64,7 @@ const critical = [
 const legal = [
   "NEXT_PUBLIC_LEGAL_ENTITY_NAME",
   "NEXT_PUBLIC_LEGAL_ADDRESS",
+  "NEXT_PUBLIC_LEGAL_SIRET",
   "NEXT_PUBLIC_LEGAL_CONTACT_EMAIL",
 ] as const;
 

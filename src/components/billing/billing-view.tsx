@@ -338,8 +338,10 @@ export function BillingView() {
         </Alert>
       ) : null}
       {stripeConfigured && stripeTestMode ? (
-        <Alert tone="info" title="Mode test">
-          Mode test — ne pas utiliser de vraie carte.
+        <Alert tone="info" title="Mode test — aucun débit réel">
+          Stripe est en mode TEST (clés sk_test). Aucun prélèvement réel n’est
+          effectué. Utilisez les cartes de test Stripe (ex. 4242…), pas une
+          vraie carte.
         </Alert>
       ) : null}
 

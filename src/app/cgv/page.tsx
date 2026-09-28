@@ -1,12 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import {
+  BILLING_PLANS,
+  getPlanQuotaFeatureLines,
+} from "@/config/billing";
 import { legalContactEmail, legalEntityName } from "@/config/legal";
 import { siteConfig } from "@/config/site";
+import type { BillingPlanId } from "@/types/billing";
+
+const PLAN_ORDER: BillingPlanId[] = [
+  "free",
+  "basique",
+  "pro",
+  "premium",
+  "extra",
+];
 
 export const metadata: Metadata = {
   title: "Conditions générales de vente",
-  description: `CGV ${siteConfig.name} — abonnement Premium`,
+  description: `CGV ${siteConfig.name} — offres Gratuit, Basique, Pro, Premium, Extra`,
   robots: { index: true, follow: true },
 };
 
@@ -22,54 +35,80 @@ export default function CgvPage() {
         Conditions générales de vente
       </h1>
       <p className="text-sm text-[var(--muted)]">
-        Dernière mise à jour : 30 juillet 2026 · {legalEntityName()}
+        Dernière mise à jour : 28 septembre 2026 · {legalEntityName()}
       </p>
 
       <section className="space-y-2 text-sm leading-relaxed">
-        <h2 className="font-display text-2xl">Offre Premium</h2>
+        <h2 className="font-display text-2xl">Offres</h2>
         <p>
-          L’abonnement Premium est un service en ligne à durée mensuelle (ou
-          selon le prix Stripe configuré), renouvelé automatiquement tant
-          qu’il n’est pas résilié. Le prix TTC est affiché sur la page
-          Facturation avant paiement.
+          DocMind propose une offre Gratuite et des abonnements payants
+          mensuels (Basique, Pro, Premium, Extra). Les prix TTC, quotas
+          (analyses, recherches, courriers) et fonctionnalités sont affichés
+          sur la page d’accueil et sur{" "}
+          <Link href="/facturation" className="text-[var(--accent)] hover:underline">
+            Facturation
+          </Link>{" "}
+          avant tout paiement. Il n’y a pas d’engagement de durée : chaque
+          abonnement se renouvelle automatiquement jusqu’à résiliation.
         </p>
+        <ul className="mt-3 list-disc space-y-2 pl-5">
+          {PLAN_ORDER.map((id) => {
+            const plan = BILLING_PLANS[id];
+            const price =
+              plan.priceMonthlyEur == null
+                ? "Gratuit"
+                : `${plan.priceMonthlyEur.toLocaleString("fr-FR", {
+                    minimumFractionDigits: 2,
+                  })} € / mois`;
+            return (
+              <li key={id}>
+                <strong>{plan.name}</strong> — {price}.{" "}
+                {getPlanQuotaFeatureLines(id).join(" · ")}.
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Paiement</h2>
         <p>
           Les paiements sont traités par Stripe. DocMind ne stocke pas les
-          numéros de carte. En cas d’échec de paiement, l’accès Premium peut
-          être suspendu après les relances Stripe.
+          numéros de carte. En cas d’échec de paiement, l’accès au plan payant
+          est suspendu (quotas de l’offre Gratuite) jusqu’à régularisation via
+          le portail de facturation. Le statut « paiement en retard » reste
+          visible sur Facturation.
         </p>
       </section>
 
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Résiliation</h2>
         <p>
-          Vous pouvez annuler le renouvellement depuis Facturation. L’accès
-          Premium reste actif jusqu’à la fin de la période déjà payée, sauf
-          résiliation immédiate via le portail Stripe ou cas prévus (fraude,
-          litige).
+          Vous pouvez résilier à tout moment depuis Facturation → « Gérer /
+          Annuler l’abonnement » (portail Stripe). L’annulation prend effet à
+          la fin de la période déjà payée : vous conservez l’accès jusqu’à
+          cette date, sans renouvellement ensuite. Aucun engagement minimum.
         </p>
       </section>
 
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Remboursements</h2>
         <p>
-          Les demandes de remboursement sont examinées au cas par cas. Un
-          remboursement intégral du dernier paiement peut entraîner la
-          révocation immédiate de l’accès Premium.
+          Les demandes de remboursement sont examinées au cas par cas
+          (manuel). Un remboursement intégral du dernier paiement peut
+          entraîner la révocation immédiate de l’accès payant.
         </p>
       </section>
 
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Droit de rétractation</h2>
         <p>
-          Conformément au Code de la consommation, pour un contenu numérique
-          fourni immédiatement après acceptation, vous reconnaissez démarrer
-          l’exécution du service et, le cas échéant, renoncer au délai de
-          rétractation de 14 jours lorsque la loi le permet.
+          Conformément au Code de la consommation, pour un service numérique
+          fourni immédiatement, vous pouvez disposer d’un délai de
+          rétractation de 14 jours. En cochant la case d’acceptation avant le
+          paiement Stripe, vous demandez l’exécution immédiate du service et
+          reconnaissez renoncer à ce délai de rétractation pour la période
+          déjà consommée, dans les conditions prévues par la loi.
         </p>
       </section>
 

@@ -5,6 +5,7 @@ import {
   legalAddress,
   legalContactEmail,
   legalEntityName,
+  legalSiret,
 } from "@/config/legal";
 import { siteConfig } from "@/config/site";
 
@@ -22,9 +23,11 @@ export default function MentionsLegalesPage() {
           ← Accueil
         </Link>
       </p>
-      <h1 className="font-display text-3xl tracking-tight md:text-4xl">Mentions légales</h1>
+      <h1 className="font-display text-3xl tracking-tight md:text-4xl">
+        Mentions légales
+      </h1>
       <p className="text-sm text-[var(--muted)]">
-        Dernière mise à jour : 30 juillet 2026
+        Dernière mise à jour : 28 septembre 2026
       </p>
 
       <section className="space-y-2 text-sm leading-relaxed">
@@ -32,7 +35,11 @@ export default function MentionsLegalesPage() {
         <p>
           {legalEntityName()}
           <br />
-          {legalAddress()}
+          Statut : particulier — France
+          <br />
+          Adresse : {legalAddress()}
+          <br />
+          SIRET : {legalSiret()}
           <br />
           Contact :{" "}
           <a
@@ -42,13 +49,20 @@ export default function MentionsLegalesPage() {
             {legalContactEmail()}
           </a>
         </p>
-
+        <p className="text-xs text-[var(--muted)]">
+          Les champs entre crochets ([…]) sont des placeholders tant que
+          l’éditeur n’a pas renseigné les variables d’environnement
+          correspondantes — ne constituent pas une identité inventée.
+        </p>
       </section>
 
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Hébergement</h2>
         <p>
-          Application web hébergée par Vercel Inc. (340 S Lemon Ave #4133, Walnut, CA 91789, États-Unis). Base de données et authentification : Supabase (supabase.com). Paiements : Stripe (stripe.com).
+          Application web hébergée par Vercel Inc. (340 S Lemon Ave #4133,
+          Walnut, CA 91789, États-Unis). Base de données et authentification :
+          Supabase (supabase.com). Paiements : Stripe (stripe.com). Analyse IA :
+          Groq (groq.com, États-Unis).
         </p>
       </section>
 

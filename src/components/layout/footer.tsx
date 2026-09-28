@@ -11,6 +11,18 @@ export function Footer() {
         </p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs md:text-sm">
           <Link
+            href="/mentions-legales"
+            className="hover:text-[var(--accent)] hover:underline"
+          >
+            Mentions
+          </Link>
+          <Link
+            href="/cgv"
+            className="hover:text-[var(--accent)] hover:underline"
+          >
+            CGV
+          </Link>
+          <Link
             href="/confidentialite"
             className="hover:text-[var(--accent)] hover:underline"
           >
@@ -23,28 +35,22 @@ export function Footer() {
             CGU
           </Link>
           <Link
-            href="/cgv"
+            href="/cookies"
             className="hover:text-[var(--accent)] hover:underline"
           >
-            CGV
-          </Link>
-          <Link
-            href="/mentions-legales"
-            className="hover:text-[var(--accent)] hover:underline"
-          >
-            Mentions légales
-          </Link>
-          <Link
-            href="/feedback"
-            className="hover:text-[var(--accent)] hover:underline"
-          >
-            Avis
+            Cookies
           </Link>
           <Link
             href="/guide"
             className="hover:text-[var(--accent)] hover:underline"
           >
             Guide
+          </Link>
+          <Link
+            href="/feedback"
+            className="hover:text-[var(--accent)] hover:underline"
+          >
+            Avis
           </Link>
           <Link
             href="/signalement"

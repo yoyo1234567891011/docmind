@@ -13,8 +13,8 @@ export function LandingFinalCta() {
             Prêt à lire votre prochain PDF autrement
           </h2>
           <p className="mt-3 text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-            Créez un compte, déposez un document, obtenez risques et actions —
-            sans l’envoyer à ChatGPT.
+            Créez un compte, déposez un PDF texte, obtenez risques et actions —
+            sans coller le fichier dans ChatGPT. Analyse via Groq (API dédiée).
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link

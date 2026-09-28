@@ -56,8 +56,8 @@ export function LandingPricing() {
             Tarifs simples
           </h2>
           <p className="mt-3 text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-            Commencez gratuitement. L’agent courrier est inclus dès Basique ;
-            choisissez le volume qui vous convient.
+            Commencez gratuitement. PDF texte uniquement (pas de scans).
+            L’agent courrier est inclus dès Basique.
           </p>
         </div>
 

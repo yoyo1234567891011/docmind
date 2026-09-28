@@ -22,7 +22,7 @@ export default function CguPage() {
         Conditions générales d’utilisation
       </h1>
       <p className="text-sm text-[var(--muted)]">
-        Dernière mise à jour : 30 juillet 2026 · {legalEntityName()}
+        Dernière mise à jour : 28 septembre 2026 · {legalEntityName()}
       </p>
 
       <section className="space-y-2 text-sm leading-relaxed">
@@ -51,19 +51,21 @@ export default function CguPage() {
       </section>
 
       <section className="space-y-2 text-sm leading-relaxed">
-        <h2 className="font-display text-2xl">Service</h2>
+        <h2 className="font-display text-2xl">Service & analyse</h2>
         <p>
-          Les analyses et suggestions sont fournies à titre d’aide à la
-          décision. Elles ne constituent pas un conseil juridique
-          personnalisé. En cas de doute, consultez un professionnel.
+          Vous téléversez un PDF avec texte sélectionnable (pas de scans /
+          OCR pour l’instant). Le texte est extrait sur nos serveurs, puis
+          analysé via un prestataire IA (Groq, États-Unis) — pas via ChatGPT
+          public. Les analyses et suggestions sont une aide à la décision :
+          elles ne constituent pas un conseil juridique personnalisé.
         </p>
       </section>
 
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Abonnement payant</h2>
         <p>
-          Les conditions tarifaires et de résiliation de l’offre Premium sont
-          précisées dans les{" "}
+          Les conditions tarifaires et de résiliation des offres Basique, Pro,
+          Premium et Extra sont précisées dans les{" "}
           <Link href="/cgv" className="text-[var(--accent)] hover:underline">
             CGV
           </Link>

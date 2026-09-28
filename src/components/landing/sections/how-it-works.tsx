@@ -2,17 +2,17 @@ const STEPS = [
   {
     n: "01",
     title: "Importez",
-    text: "Déposez un PDF. Le texte est extrait localement, page par page.",
+    text: "Déposez un PDF texte (pas de scan). Le texte est extrait sur nos serveurs.",
   },
   {
     n: "02",
     title: "Analysez",
-    text: "L’IA structure le document : type, montants, échéances, risques.",
+    text: "L’IA structure le document via un prestataire dédié (Groq) : type, montants, échéances, risques — pas ChatGPT public.",
   },
   {
     n: "03",
     title: "Agissez",
-    text: "Alertes, recherche en français et courriers prêts à envoyer.",
+    text: "Alertes, recherche en français et courriers prêts à envoyer (~1 à 3 min pour l’analyse complète).",
   },
 ] as const;
 
@@ -28,7 +28,7 @@ export function LandingHowItWorks() {
             En 3 étapes
           </h2>
           <p className="mt-3 text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-            Du PDF à l’action — sans coller le document dans un chat.
+            Du PDF à l’action — sans coller le document dans un chat public.
           </p>
         </div>
 

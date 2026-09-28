@@ -1,15 +1,15 @@
 const REASONS = [
   {
     title: "Pas ChatGPT sur vos PDF",
-    text: "ChatGPT résume un fichier qu’il faut lui coller. DocMind structure chaque document dans une mémoire privée : fiches, alertes, recherche, historique — sans coller le contenu dans un chat public.",
+    text: "Vous n’avez pas à coller votre document dans un chat public. DocMind structure chaque PDF dans une mémoire privée (fiches, alertes, recherche, historique).",
   },
   {
-    title: "Privé par conception",
-    text: "Vos documents restent dans votre espace isolé. L’analyse IA est dédiée à votre compte — vos PDF ne sont pas collés dans un chat public ni partagés entre utilisateurs.",
+    title: "Analyse dédiée, pas un chat grand public",
+    text: "Le texte est extrait sur nos serveurs, puis analysé via une API IA dédiée (Groq, États-Unis). Ce n’est pas ChatGPT. Vos fichiers restent isolés par compte.",
   },
   {
     title: "Décision, pas résumé",
-    text: "Score de risque, échéances datées, actions et courriers : vous savez quoi faire avant un renouvellement ou un paiement.",
+    text: "Score de risque, échéances datées, actions et courriers : vous savez quoi faire avant un renouvellement ou un paiement. PDF texte uniquement (pas de scans).",
   },
 ] as const;
 

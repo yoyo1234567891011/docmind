@@ -16,6 +16,14 @@ export function legalEntityName(): string {
 export function legalAddress(): string {
   return (
     process.env.NEXT_PUBLIC_LEGAL_ADDRESS?.trim() ||
-    "Adresse de l’éditeur à compléter avant mise en production"
+    "[Adresse à compléter]"
+  );
+}
+
+/** SIRET si renseigné ; sinon placeholder explicite (ne pas inventer). */
+export function legalSiret(): string {
+  return (
+    process.env.NEXT_PUBLIC_LEGAL_SIRET?.trim() ||
+    "[SIRET à compléter]"
   );
 }
