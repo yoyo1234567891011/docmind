@@ -909,6 +909,65 @@ export async function markAnalysisJobQuotaPrepaid(jobId: string): Promise<void> 
   await writeFsJobs(jobs);
 }
 
+/**
+ * Claim remboursement analyze après échec définitif (prepaid enqueue).
+ * Retourne userId si ce caller doit appeler refundQuota.
+ */
+export async function tryClaimAnalysisJobQuotaRefund(
+  jobId: string,
+): Promise<{ userId: string } | null> {
+  if (usePersistentStorage()) {
+    const result = await query<{ user_id: string }>(
+      `update public.app_analysis_jobs
+       set metrics = jsonb_set(
+             coalesce(metrics, '{}'::jsonb),
+             '{quotaRefunded}',
+             'true'::jsonb,
+             true
+           ),
+           updated_at = timezone('utc', now())
+       where id = $1
+         and status = 'failed'
+         and coalesce((metrics->>'quotaPrepaidAtEnqueue')::boolean, false) = true
+         and coalesce((metrics->>'quotaRefunded')::boolean, false) = false
+       returning user_id`,
+      [jobId],
+    );
+    const row = result.rows[0];
+    return row ? { userId: row.user_id } : null;
+  }
+  const jobs = await readFsJobs();
+  const idx = jobs.findIndex(
+    (j) =>
+      j.id === jobId &&
+      j.status === "failed" &&
+      j.metrics?.quotaPrepaidAtEnqueue === true &&
+      !j.metrics?.quotaRefunded,
+  );
+  if (idx < 0) return null;
+  const prev = jobs[idx]!;
+  const m = prev.metrics;
+  jobs[idx] = {
+    ...prev,
+    metrics: {
+      queueWaitMs: m?.queueWaitMs ?? 0,
+      lockWaitMs: m?.lockWaitMs ?? 0,
+      generateMs: m?.generateMs ?? 0,
+      historyMs: m?.historyMs ?? 0,
+      memoryMs: m?.memoryMs ?? null,
+      totalMs: m?.totalMs ?? 0,
+      totalTokens: m?.totalTokens,
+      latencyDiag: m?.latencyDiag,
+      quotaCharged: m?.quotaCharged,
+      quotaPrepaidAtEnqueue: true,
+      quotaRefunded: true,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+  await writeFsJobs(jobs);
+  return { userId: prev.userId };
+}
+
 /** Annule le claim quota (si consumeQuota a échoué après claim). */
 export async function releaseAnalysisJobQuotaCharge(
   jobId: string,
@@ -959,8 +1018,9 @@ export async function failAnalysisJob(
   const msg = /^runtime_error:/i.test(errorMessage.trim())
     ? errorMessage.trim().slice(0, 500)
     : sanitizeAnalysisFailureMessage(errorMessage).slice(0, 500);
+  let transitioned = false;
   if (usePersistentStorage()) {
-    await query(
+    const result = await query(
       `update public.app_analysis_jobs
        set status = 'failed',
            completed_at = timezone('utc', now()),
@@ -968,32 +1028,77 @@ export async function failAnalysisJob(
            claimed_at = null,
            claimed_by = null,
            last_error = $2,
-           metrics = coalesce($3::jsonb, metrics),
+           metrics = case
+             when $3::jsonb is null then metrics
+             else coalesce(metrics, '{}'::jsonb) || $3::jsonb
+           end,
            updated_at = timezone('utc', now())
-       where id = $1 and status in ('pending', 'processing')`,
+       where id = $1 and status in ('pending', 'processing')
+       returning id`,
       [jobId, msg, metrics ? JSON.stringify(metrics) : null],
     );
-    return;
+    transitioned = (result.rowCount ?? 0) > 0;
+  } else {
+    const jobs = await readFsJobs();
+    const idx = jobs.findIndex(
+      (j) =>
+        j.id === jobId &&
+        (j.status === "pending" || j.status === "processing"),
+    );
+    if (idx >= 0) {
+      const prev = jobs[idx]!;
+      const merged: AnalysisJobMetrics | undefined = metrics
+        ? {
+            queueWaitMs: metrics.queueWaitMs ?? prev.metrics?.queueWaitMs ?? 0,
+            lockWaitMs: metrics.lockWaitMs ?? prev.metrics?.lockWaitMs ?? 0,
+            generateMs: metrics.generateMs ?? prev.metrics?.generateMs ?? 0,
+            historyMs: metrics.historyMs ?? prev.metrics?.historyMs ?? 0,
+            memoryMs:
+              metrics.memoryMs !== undefined
+                ? metrics.memoryMs
+                : (prev.metrics?.memoryMs ?? null),
+            totalMs: metrics.totalMs ?? prev.metrics?.totalMs ?? 0,
+            totalTokens: metrics.totalTokens ?? prev.metrics?.totalTokens,
+            promptTokens: metrics.promptTokens ?? prev.metrics?.promptTokens,
+            completionTokens:
+              metrics.completionTokens ?? prev.metrics?.completionTokens,
+            latencyDiag: metrics.latencyDiag ?? prev.metrics?.latencyDiag,
+            quotaCharged: metrics.quotaCharged ?? prev.metrics?.quotaCharged,
+            quotaPrepaidAtEnqueue:
+              metrics.quotaPrepaidAtEnqueue ??
+              prev.metrics?.quotaPrepaidAtEnqueue,
+            quotaRefunded: metrics.quotaRefunded ?? prev.metrics?.quotaRefunded,
+          }
+        : prev.metrics;
+      jobs[idx] = {
+        ...prev,
+        status: "failed",
+        completedAt: now,
+        leaseExpiresAt: undefined,
+        claimedAt: undefined,
+        claimedBy: undefined,
+        lastError: msg,
+        metrics: merged,
+        updatedAt: now,
+      };
+      await writeFsJobs(jobs);
+      transitioned = true;
+    }
   }
-  const jobs = await readFsJobs();
-  const idx = jobs.findIndex(
-    (j) =>
-      j.id === jobId &&
-      (j.status === "pending" || j.status === "processing"),
-  );
-  if (idx < 0) return;
-  jobs[idx] = {
-    ...jobs[idx]!,
-    status: "failed",
-    completedAt: now,
-    leaseExpiresAt: undefined,
-    claimedAt: undefined,
-    claimedBy: undefined,
-    lastError: msg,
-    metrics: metrics ?? jobs[idx]!.metrics,
-    updatedAt: now,
-  };
-  await writeFsJobs(jobs);
+
+  if (transitioned) {
+    try {
+      const { refundPrepaidAnalyzeQuotaOnDefinitiveFail } = await import(
+        "@/services/quotas/enforce"
+      );
+      await refundPrepaidAnalyzeQuotaOnDefinitiveFail(jobId);
+    } catch (error) {
+      console.error(
+        `[analysis-jobs] prepaid quota refund after fail job=${jobId}`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
 }
 
 /** Échec définitif d’un job expiré (budget global épuisé). */
@@ -1010,6 +1115,7 @@ export async function failExpiredAnalysisJob(job: AnalysisJob): Promise<boolean>
  * Retourne les jobs expirés (pour sync history côté worker/API).
  */
 export async function expireTimedOutAnalysisJobs(): Promise<AnalysisJob[]> {
+  let expired: AnalysisJob[] = [];
   if (usePersistentStorage()) {
     const result = await query<{
       id: string;
@@ -1059,30 +1165,44 @@ export async function expireTimedOutAnalysisJobs(): Promise<AnalysisJob[]> {
         ANALYSIS_JOB_GLOBAL_TIMEOUT_MS,
       ],
     );
-    return result.rows.map((row) => rowToJob(row));
+    expired = result.rows.map((row) => rowToJob(row));
+  } else {
+    const jobs = await readFsJobs();
+    const nowIso = new Date().toISOString();
+    for (let i = 0; i < jobs.length; i += 1) {
+      const job = jobs[i]!;
+      if (job.status !== "pending" && job.status !== "processing") continue;
+      if (!isAnalysisJobGlobalTimeoutExceeded(job)) continue;
+      const failed: AnalysisJob = {
+        ...job,
+        status: "failed",
+        completedAt: nowIso,
+        leaseExpiresAt: undefined,
+        claimedAt: undefined,
+        claimedBy: undefined,
+        lastError: expiredJobFailureMessage(job),
+        updatedAt: nowIso,
+      };
+      jobs[i] = failed;
+      expired.push(failed);
+    }
+    if (expired.length > 0) await writeFsJobs(jobs);
   }
 
-  const jobs = await readFsJobs();
-  const expired: AnalysisJob[] = [];
-  const nowIso = new Date().toISOString();
-  for (let i = 0; i < jobs.length; i += 1) {
-    const job = jobs[i]!;
-    if (job.status !== "pending" && job.status !== "processing") continue;
-    if (!isAnalysisJobGlobalTimeoutExceeded(job)) continue;
-    const failed: AnalysisJob = {
-      ...job,
-      status: "failed",
-      completedAt: nowIso,
-      leaseExpiresAt: undefined,
-      claimedAt: undefined,
-      claimedBy: undefined,
-      lastError: expiredJobFailureMessage(job),
-      updatedAt: nowIso,
-    };
-    jobs[i] = failed;
-    expired.push(failed);
+  if (expired.length > 0) {
+    try {
+      const { refundPrepaidAnalyzeQuotaOnDefinitiveFail } = await import(
+        "@/services/quotas/enforce"
+      );
+      for (const job of expired) {
+        await refundPrepaidAnalyzeQuotaOnDefinitiveFail(job.id).catch(
+          () => undefined,
+        );
+      }
+    } catch {
+      // best-effort
+    }
   }
-  if (expired.length > 0) await writeFsJobs(jobs);
   return expired;
 }
 

@@ -48,8 +48,17 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
   const [longWaitHint, setLongWaitHint] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const formatJobError = (lastError?: string | null) =>
-    analysisJobFailMessageFromLastError(lastError);
+  const formatJobError = (
+    lastError?: string | null,
+    metrics?: {
+      quotaRefunded?: boolean;
+      quotaPrepaidAtEnqueue?: boolean;
+    } | null,
+  ) =>
+    analysisJobFailMessageFromLastError(lastError, {
+      quotaRefunded: metrics?.quotaRefunded,
+      quotaPrepaidAtEnqueue: metrics?.quotaPrepaidAtEnqueue,
+    });
 
   const stopPolling = () => {
     if (pollRef.current) {
@@ -92,7 +101,7 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
               }
               if (byHistory.status === "failed") {
                 setJobUiStatus("failed");
-                setJobError(formatJobError(byHistory.lastError));
+                setJobError(formatJobError(byHistory.lastError, byHistory.metrics));
                 return;
               }
             }
@@ -142,7 +151,7 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
                   setQueuePosition(null);
                   setSaturationWait(false);
                   setLongWaitHint(null);
-                  setJobError(formatJobError(job.lastError));
+                  setJobError(formatJobError(job.lastError, job.metrics));
                   const refreshed = await fetchHistoryRecord(id);
                   setRecord(refreshed);
                 }

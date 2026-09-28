@@ -737,7 +737,7 @@ export function AnalysisResults({
             {isPreviewLoading
               ? "Aperçu disponible — l’analyse approfondie (risques, citations) est encore en cours."
               : isPreview
-                ? "Aperçu disponible — l’analyse approfondie n’a pas abouti."
+                ? "Aperçu disponible — l’analyse approfondie n’a pas abouti. Si un crédit avait été consommé, il a été rendu."
                 : "Résumé et points à surveiller en premier — détails plus bas."}
           </p>
           {isPreviewLoading ? (

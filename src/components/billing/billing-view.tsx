@@ -80,6 +80,9 @@ export function BillingView() {
     targetPlan: PaidBillingPlanId;
     preview: BillingPlanChangePreview;
   } | null>(null);
+  /** Case CGV + renonciation 14j — obligatoire avant nouveau Checkout (Free → payant). */
+  const [acceptedImmediateExecution, setAcceptedImmediateExecution] =
+    useState(false);
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) setIsLoading(true);
@@ -434,10 +437,16 @@ export function BillingView() {
           </Button>
           {!isPremium && !entitlementsDevBypass ? (
             <Button
-              disabled={Boolean(busy) || !stripeConfigured}
+              disabled={
+                Boolean(busy) ||
+                !stripeConfigured ||
+                !acceptedImmediateExecution
+              }
               onClick={() =>
                 void run("checkout-pro", async () => {
-                  const result = await startPlanCheckout("pro");
+                  const result = await startPlanCheckout("pro", {
+                    acceptedImmediateExecution: true,
+                  });
                   if ("url" in result && result.url) {
                     window.location.href = result.url;
                   }
@@ -712,6 +721,29 @@ export function BillingView() {
         </section>
       ) : null}
 
+      {!isPremium && stripeConfigured && !entitlementsDevBypass ? (
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left text-sm leading-relaxed text-[var(--foreground)]">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
+            checked={acceptedImmediateExecution}
+            onChange={(e) => setAcceptedImmediateExecution(e.target.checked)}
+          />
+          <span>
+            J’accepte les{" "}
+            <Link
+              href="/cgv"
+              className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+            >
+              CGV
+            </Link>{" "}
+            et je demande l’exécution immédiate du service. Je reconnais
+            renoncer au délai de rétractation de 14 jours pour la période déjà
+            consommée, conformément au Code de la consommation.
+          </span>
+        </label>
+      ) : null}
+
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {plans.map((item) => {
           const active = item.id === plan.id;
@@ -765,7 +797,10 @@ export function BillingView() {
                 <Button
                   className="mt-5 w-full"
                   variant={highlighted ? "primary" : "secondary"}
-                  disabled={Boolean(busy)}
+                  disabled={
+                    Boolean(busy) ||
+                    (!isPremium && !acceptedImmediateExecution)
+                  }
                   onClick={() => {
                     const checkoutPlan = item.id;
                     if (!isPaidPlanId(checkoutPlan)) return;
@@ -793,8 +828,16 @@ export function BillingView() {
                       })();
                       return;
                     }
+                    if (!acceptedImmediateExecution) {
+                      setError(
+                        "Cochez l’acceptation des CGV et la demande d’exécution immédiate (renonciation au délai de rétractation de 14 jours) avant le paiement.",
+                      );
+                      return;
+                    }
                     void run(`checkout-${checkoutPlan}`, async () => {
-                      const result = await startPlanCheckout(checkoutPlan);
+                      const result = await startPlanCheckout(checkoutPlan, {
+                        acceptedImmediateExecution: true,
+                      });
                       if ("url" in result && result.url) {
                         window.location.href = result.url;
                       }

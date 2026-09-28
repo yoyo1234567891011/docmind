@@ -180,6 +180,31 @@ export async function refundQuota(
 }
 
 /**
+ * Échec P2 définitif (status failed) : rembourse 1 analyze si prépayé à l’enqueue.
+ * Idempotent via claim `quotaRefunded` — pas de double refund ; pas de refund si
+ * requeue / completed / job sans prépaiement.
+ */
+export async function refundPrepaidAnalyzeQuotaOnDefinitiveFail(
+  jobId: string,
+): Promise<boolean> {
+  const { tryClaimAnalysisJobQuotaRefund } = await import(
+    "@/services/analysis-jobs/store"
+  );
+  const claimed = await tryClaimAnalysisJobQuotaRefund(jobId);
+  if (!claimed) return false;
+  try {
+    await refundQuota(claimed.userId, "analyze");
+    return true;
+  } catch (error) {
+    console.error(
+      `[quotas] refund prepaid analyze failed job=${jobId}`,
+      error instanceof Error ? error.message : error,
+    );
+    return false;
+  }
+}
+
+/**
  * Débite 1 analyze avant complete worker (jobs legacy sans prépaiement enqueue).
  * Lève si le quota est indisponible — ne pas livrer l'analyse comme réussie.
  */

@@ -54,6 +54,7 @@ export async function fetchPlanChangePreview(
 
 export async function startPlanCheckout(
   plan: PaidBillingPlanId = "pro",
+  options?: { acceptedImmediateExecution?: boolean },
 ): Promise<
   | { url: string; changed?: false }
   | {
@@ -74,7 +75,11 @@ export async function startPlanCheckout(
     response = await fetch("/api/billing/checkout", {
       method: "POST",
       headers: await csrfHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({
+        plan,
+        acceptedImmediateExecution:
+          options?.acceptedImmediateExecution === true,
+      }),
       credentials: "same-origin",
       signal: abortSignalTimeout(CHECKOUT_TIMEOUT_MS),
     });

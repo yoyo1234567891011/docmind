@@ -27,6 +27,8 @@ export type AnalysisJobMetrics = {
   quotaCharged?: boolean;
   /** Quota consommé à l'enqueue (mode progressif) — le worker ne re-débite pas. */
   quotaPrepaidAtEnqueue?: boolean;
+  /** Remboursement analyze après échec P2 définitif (idempotence). */
+  quotaRefunded?: boolean;
 };
 
 export type AnalysisJob = {

@@ -56,40 +56,51 @@ export function analysisJobSaturationFailMessage(): string {
 /** Mappe last_error classé → message UI d’échec. */
 export function analysisJobFailMessageFromLastError(
   lastError?: string | null,
+  options?: {
+    quotaRefunded?: boolean;
+    quotaPrepaidAtEnqueue?: boolean;
+  },
 ): string {
   const raw = lastError?.trim() ?? "";
+  let base: string;
   if (!raw) {
-    return "L’analyse approfondie a échoué. L’aperçu reste disponible — réessayez plus tard.";
-  }
-  if (/^rate_limit:/i.test(raw) || isAnalysisJobSaturationHint(raw)) {
-    return analysisJobSaturationFailMessage();
-  }
-  if (/^timeout:/i.test(raw)) {
-    return "L’analyse a dépassé le délai autorisé. Réessayez — le document uploadé est conservé.";
-  }
-  if (/^model_error:/i.test(raw)) {
-    return "Modèle d’analyse indisponible. Réessayez dans quelques minutes.";
-  }
-  if (/^parse_error:/i.test(raw)) {
+    base =
+      "L’analyse approfondie a échoué. L’aperçu reste disponible — réessayez plus tard.";
+  } else if (/^rate_limit:/i.test(raw) || isAnalysisJobSaturationHint(raw)) {
+    base = analysisJobSaturationFailMessage();
+  } else if (/^timeout:/i.test(raw)) {
+    base =
+      "L’analyse a dépassé le délai autorisé. Réessayez — le document uploadé est conservé.";
+  } else if (/^model_error:/i.test(raw)) {
+    base = "Modèle d’analyse indisponible. Réessayez dans quelques minutes.";
+  } else if (/^parse_error:/i.test(raw)) {
     if (/empty|strip_no_object/i.test(raw)) {
-      return "L’analyse IA n’a pas renvoyé de JSON exploitable. Réessayez — le document uploadé est conservé.";
+      base =
+        "L’analyse IA n’a pas renvoyé de JSON exploitable. Réessayez — le document uploadé est conservé.";
+    } else if (/truncated|json_parse/i.test(raw)) {
+      base =
+        "La réponse IA était incomplète ou mal formée. Réessayez — le document uploadé est conservé.";
+    } else if (/schema/i.test(raw)) {
+      base =
+        "La réponse IA était incomplète (champs manquants). Réessayez — le document uploadé est conservé.";
+    } else {
+      base =
+        "L’analyse a renvoyé un résultat invalide. Réessayez — le document uploadé est conservé.";
     }
-    if (/truncated|json_parse/i.test(raw)) {
-      return "La réponse IA était incomplète ou mal formée. Réessayez — le document uploadé est conservé.";
-    }
-    if (/schema/i.test(raw)) {
-      return "La réponse IA était incomplète (champs manquants). Réessayez — le document uploadé est conservé.";
-    }
-    return "L’analyse a renvoyé un résultat invalide. Réessayez — le document uploadé est conservé.";
-  }
-  if (/^network:/i.test(raw)) {
-    return "Service d’analyse temporairement injoignable. Réessayez dans un instant.";
-  }
-  if (/^runtime_error:/i.test(raw)) {
+  } else if (/^network:/i.test(raw)) {
+    base =
+      "Service d’analyse temporairement injoignable. Réessayez dans un instant.";
+  } else if (/^runtime_error:/i.test(raw)) {
     // Garder le détail technique visible (sinon on ne peut plus diagnostiquer prod).
-    return `L’analyse a rencontré une erreur interne de traitement : ${raw}`;
+    base = `L’analyse a rencontré une erreur interne de traitement : ${raw}`;
+  } else {
+    base = `L’analyse approfondie a échoué : ${raw}`;
   }
-  return `L’analyse approfondie a échoué : ${raw}`;
+
+  if (options?.quotaRefunded || options?.quotaPrepaidAtEnqueue) {
+    return `${base} Votre crédit d’analyse a été rendu.`;
+  }
+  return base;
 }
 
 /** Message pendant l’appel initial (P1 / démarrage P2). */

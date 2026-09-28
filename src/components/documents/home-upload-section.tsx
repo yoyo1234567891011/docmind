@@ -267,7 +267,10 @@ export function HomeUploadSection() {
               clearPendingAnalysis();
               setJobUiStatus("failed");
               setAnalysisError(
-                analysisJobFailMessageFromLastError(job.lastError),
+                analysisJobFailMessageFromLastError(job.lastError, {
+                  quotaRefunded: job.metrics?.quotaRefunded,
+                  quotaPrepaidAtEnqueue: job.metrics?.quotaPrepaidAtEnqueue,
+                }),
               );
               trackAbandon("p2_failed", input.historyId);
               return;

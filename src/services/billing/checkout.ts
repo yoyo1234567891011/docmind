@@ -69,6 +69,8 @@ export async function createPlanCheckoutSession(input: {
   userId: string;
   email: string | null;
   plan: PaidBillingPlanId;
+  /** Obligatoire pour un nouveau Checkout (Free → payant). */
+  acceptedImmediateExecution?: boolean;
 }): Promise<PlanCheckoutResult> {
   requireStripeConfigured();
 
@@ -119,6 +121,14 @@ export async function createPlanCheckoutSession(input: {
       };
     }
 
+    if (!input.acceptedImmediateExecution) {
+      throw new AppError(
+        "BAD_REQUEST",
+        "Cochez l’acceptation des CGV et la demande d’exécution immédiate (renonciation au délai de rétractation de 14 jours) avant le paiement.",
+        400,
+      );
+    }
+
     if (sub.stripeSubscriptionId && !canStartNewCheckout(sub.status)) {
       throw new AppError("BAD_REQUEST", EXISTING_SUB_CHECKOUT_MSG, 400);
     }
@@ -145,14 +155,20 @@ export async function createPlanCheckoutSession(input: {
         client_reference_id: input.userId,
         metadata: {
           docmind_user_id: input.userId,
+          userId: input.userId,
           plan,
           docmind_plan: plan,
+          priceId,
+          stripe_price_id: priceId,
         },
         subscription_data: {
           metadata: {
             docmind_user_id: input.userId,
+            userId: input.userId,
             plan,
             docmind_plan: plan,
+            priceId,
+            stripe_price_id: priceId,
           },
         },
         allow_promotion_codes: true,
@@ -188,6 +204,7 @@ export async function createPlanCheckoutSession(input: {
 export async function createPremiumCheckoutSession(input: {
   userId: string;
   email: string | null;
+  acceptedImmediateExecution?: boolean;
 }): Promise<PlanCheckoutResult> {
   return createPlanCheckoutSession({ ...input, plan: "pro" });
 }
