@@ -178,6 +178,10 @@ export function LetterDraftPanel({
             Rédige automatiquement un courrier à partir des informations
             extraites du document.
           </p>
+          <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">
+            Assistance à la rédaction uniquement — ce n’est pas un conseil
+            juridique ni un substitut à un avocat.
+          </p>
           {!planBlocked && quotaLabel && !quotaBlocked ? (
             <p className="mt-2 text-xs text-[var(--muted)]">{quotaLabel}</p>
           ) : null}

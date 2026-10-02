@@ -177,21 +177,27 @@ export function PdfDropzone({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "group relative overflow-hidden rounded-[var(--radius-2xl)] border border-dashed px-4 py-10 text-center shadow-[var(--shadow-sm)] transition-all duration-300 ease-[var(--ease-out)] md:px-6 md:py-12",
-          "bg-[color-mix(in_oklab,var(--surface)_94%,transparent)] backdrop-blur-sm",
+          "group relative overflow-hidden rounded-[var(--radius-2xl)] border border-dashed px-4 py-12 text-center shadow-[var(--highlight),var(--shadow-md)] transition-[border-color,background-color,box-shadow,transform] duration-300 ease-[var(--ease-out)] md:px-6 md:py-14",
+          "bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] backdrop-blur-sm",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
           isUploading ? "cursor-wait" : disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
           isDragging
-            ? "scale-[1.005] border-[var(--accent)] bg-[var(--accent-soft)] shadow-[var(--shadow-md)]"
-            : "border-[var(--border-strong)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:shadow-[var(--shadow-md)]",
+            ? "scale-[1.01] border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent-soft)_70%,var(--surface))] shadow-[var(--highlight),0_0_0_4px_var(--ring),var(--shadow-lg)]"
+            : "border-[var(--border-strong)] hover:border-[color-mix(in_oklab,var(--accent)_60%,var(--border-strong))] hover:shadow-[var(--highlight),var(--shadow-lg)]",
         )}
       >
         <div
           aria-hidden
           className={cn(
-            "pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300",
-            "bg-[radial-gradient(circle_at_center,var(--accent-soft),transparent_70%)]",
-            isDragging && "opacity-100",
+            "pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500",
+            "bg-[radial-gradient(ellipse_60%_70%_at_50%_0%,color-mix(in_oklab,var(--accent)_14%,transparent),transparent_70%)]",
+            (isDragging || isUploading) && "opacity-100",
+            !blocked && "group-hover:opacity-70",
           )}
+        />
+        <div
+          aria-hidden
+          className="page-grid pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-40"
         />
 
         <input
@@ -207,9 +213,9 @@ export function PdfDropzone({
         <div className="relative z-10 flex flex-col items-center gap-4">
           <div
             className={cn(
-              "flex h-14 w-14 items-center justify-center rounded-xl border transition-transform duration-300",
-              "border-[var(--border)] bg-[var(--surface)] text-[var(--accent)]",
-              isDragging && "scale-110",
+              "flex h-14 w-14 items-center justify-center rounded-[var(--radius-lg)] border transition-transform duration-300 ease-[var(--ease-spring)]",
+              "border-[color-mix(in_oklab,var(--accent)_25%,var(--border))] bg-[var(--surface)] text-[var(--accent)] shadow-[var(--highlight),var(--shadow-sm)]",
+              isDragging ? "-translate-y-1 scale-110" : !blocked && "group-hover:-translate-y-0.5",
             )}
           >
             {isUploading ? (
@@ -220,7 +226,7 @@ export function PdfDropzone({
           </div>
 
           <div className="space-y-1.5">
-            <p className="font-display text-2xl text-[var(--foreground)]">
+            <p className="font-display text-[1.75rem] leading-tight text-[var(--foreground)]">
               {isUploading ? "Extraction du texte…" : "Déposez votre PDF ici"}
             </p>
             <p className="text-sm text-[var(--muted)]">
@@ -235,7 +241,7 @@ export function PdfDropzone({
               <ProgressBar indeterminate label="Envoi et extraction" />
             </div>
           ) : (
-            <span className="inline-flex items-center justify-center rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors group-hover:border-[var(--accent)] group-hover:text-[var(--accent)]">
+            <span className="inline-flex h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-sm font-medium text-[var(--foreground)] shadow-[var(--highlight),var(--shadow-xs)] transition-[border-color,color,box-shadow] duration-150 group-hover:border-[color-mix(in_oklab,var(--accent)_50%,var(--border-strong))] group-hover:text-[var(--accent)] group-hover:shadow-[var(--highlight),var(--shadow-sm)]">
               Choisir un fichier
             </span>
           )}
@@ -254,16 +260,16 @@ export function PdfDropzone({
       ) : null}
 
       {selectedFile ? (
-        <div className="animate-fade-up surface-panel mt-4 flex flex-col gap-3 rounded-xl px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-4">
+        <div className="animate-fade-up surface-panel mt-4 flex flex-col gap-3 rounded-[var(--radius-lg)] px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-4">
           <div className="flex min-w-0 items-center gap-3 text-left">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[color-mix(in_oklab,var(--accent)_22%,var(--border))] bg-[var(--accent-soft)] text-[var(--accent)]">
               <FileIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[var(--foreground)]">
                 {selectedFile.name}
               </p>
-              <p className="text-xs text-[var(--muted)]">
+              <p className="font-mono text-[11px] tabular-nums text-[var(--muted)]">
                 {formatBytes(selectedFile.size)}
                 {status === "uploading" && " · Extraction…"}
                 {status === "success" &&

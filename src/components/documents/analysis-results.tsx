@@ -29,7 +29,9 @@ import { LetterDraftPanel } from "@/components/documents/letter-draft-panel";
 import { ReadyReplyCard } from "@/components/documents/ready-reply-card";
 import { RiskScoreCard } from "@/components/documents/risk-score-card";
 import { SatisfactionPrompt } from "@/components/documents/satisfaction-prompt";
-import { ProgressBar } from "@/components/ui";
+import { CreateReminderAlert } from "@/components/alerts/create-reminder-alert";
+import { Button, ProgressBar } from "@/components/ui";
+import { AlertIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 import { parseAmountDisplay } from "@/services/extraction/amounts";
 import type {
@@ -80,16 +82,19 @@ function AnalysisCard({ title, tone, children, className }: AnalysisCardProps) {
   return (
     <article
       className={cn(
-        "animate-fade-up surface-panel flex h-full flex-col rounded-2xl text-left",
+        "animate-fade-up surface-panel flex h-full flex-col rounded-[var(--radius-2xl)] text-left",
         className,
       )}
     >
-      <header className="flex items-center gap-3 border-b border-[var(--border)] px-5 py-4 sm:px-6 sm:py-5">
+      <header className="flex items-center gap-3 border-b border-[var(--hairline)] px-5 py-4 sm:px-6 sm:py-5">
         <span
           aria-hidden
-          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", toneAccent[tone])}
+          className={cn(
+            "h-2 w-2 shrink-0 rounded-full shadow-[0_0_0_3px_color-mix(in_oklab,currentColor_14%,transparent)]",
+            toneAccent[tone],
+          )}
         />
-        <h3 className="font-display text-lg tracking-tight text-[var(--foreground)] sm:text-xl">
+        <h3 className="font-display text-xl tracking-tight text-[var(--foreground)] sm:text-[1.375rem]">
           {title}
         </h3>
       </header>
@@ -440,11 +445,17 @@ function WatchPointsSection({
       className="ui-card animate-fade-up rounded-[var(--radius-2xl)] text-left"
       aria-labelledby="watch-points-heading"
     >
-      <header className="border-b border-[var(--border)] px-5 py-5 sm:px-7">
+      <header className="border-b border-[var(--hairline)] px-5 py-5 sm:px-7 sm:py-6">
         <h3
           id="watch-points-heading"
-          className="font-display text-2xl tracking-tight text-[var(--foreground)]"
+          className="flex items-center gap-3 font-display text-[1.625rem] tracking-tight text-[var(--foreground)]"
         >
+          <span
+            aria-hidden
+            className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] bg-[var(--warning-soft)] text-[var(--warning)] shadow-[var(--highlight)]"
+          >
+            <AlertIcon className="h-3.5 w-3.5" />
+          </span>
           Points à surveiller
         </h3>
         <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
@@ -473,7 +484,7 @@ function WatchPointsSection({
             {points.map((point) => (
               <li
                 key={point.key}
-                className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-4 sm:px-5 sm:py-5"
+                className="rounded-[var(--radius-lg)] border border-[var(--hairline)] bg-[color-mix(in_oklab,var(--surface-elevated)_70%,var(--surface))] shadow-[var(--highlight)] transition-[border-color,box-shadow] duration-200 hover:border-[var(--border)] hover:shadow-[var(--highlight),var(--shadow-sm)] px-4 py-4 sm:px-5 sm:py-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -585,7 +596,7 @@ function RiskFindingsList({ findings }: { findings: RiskFinding[] }) {
         return (
           <li
             key={`${index}-${finding.description.slice(0, 24)}`}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-4 text-left sm:px-5"
+            className="rounded-[var(--radius-lg)] border border-[var(--hairline)] bg-[color-mix(in_oklab,var(--surface-elevated)_70%,var(--surface))] shadow-[var(--highlight)] transition-[border-color,box-shadow] duration-200 hover:border-[var(--border)] hover:shadow-[var(--highlight),var(--shadow-sm)] px-4 py-4 text-left sm:px-5"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-[0.9375rem] font-medium leading-snug text-[var(--foreground)]">
@@ -655,7 +666,7 @@ function CitedConclusionsList({ items }: { items: CitedConclusion[] }) {
       {unique.map((item, index) => (
         <li
           key={`${index}-${item.statement.slice(0, 24)}`}
-          className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 text-left"
+          className="rounded-[var(--radius-lg)] border border-[var(--hairline)] bg-[color-mix(in_oklab,var(--surface-elevated)_70%,var(--surface))] shadow-[var(--highlight)] transition-[border-color,box-shadow] duration-200 hover:border-[var(--border)] hover:shadow-[var(--highlight),var(--shadow-sm)] px-4 py-3 text-left"
         >
           <p className="text-sm font-medium text-[var(--foreground)]">
             {cleanTitleForDisplay(item.statement, 160)}
@@ -730,7 +741,7 @@ export function AnalysisResults({
       {/* En-tête léger */}
       <div className="flex flex-wrap items-end justify-between gap-4 text-left">
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-3xl tracking-tight text-[var(--foreground)]">
+          <h2 className="font-display text-[2.25rem] leading-[1.08] tracking-[-0.025em] text-[var(--foreground)] sm:text-[2.5rem]">
             {isPreview ? "Aperçu du document" : "Résultat de l’analyse"}
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--muted)]">
@@ -750,7 +761,7 @@ export function AnalysisResults({
           ) : null}
         </div>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-left">
+        <div className="rounded-[var(--radius-lg)] border border-[var(--hairline)] bg-[var(--surface)] px-4 py-2.5 text-left shadow-[var(--highlight),var(--shadow-xs)]">
           <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
             Type de document
           </p>
@@ -762,9 +773,17 @@ export function AnalysisResults({
 
       {/* 1. Résumé — héros */}
       <section
-        className="ui-card-elevated animate-fade-up rounded-[var(--radius-2xl)] border-[var(--border-strong)] px-5 py-7 text-left sm:px-8 sm:py-8"
+        className="ui-card-elevated animate-fade-up relative isolate overflow-hidden rounded-[var(--radius-2xl)] px-5 py-7 text-left sm:px-9 sm:py-9"
         aria-labelledby="analysis-summary-heading"
       >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_70%_at_0%_0%,color-mix(in_oklab,var(--accent)_9%,transparent),transparent_65%)]"
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,var(--accent),color-mix(in_oklab,var(--accent)_20%,transparent)_60%,transparent)]"
+        />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--accent)]">
             Résumé
@@ -782,7 +801,7 @@ export function AnalysisResults({
         </div>
         <h3
           id="analysis-summary-heading"
-          className="mt-2.5 font-display text-2xl leading-snug tracking-tight text-[var(--foreground)] sm:text-[1.85rem]"
+          className="mt-3 font-display text-[1.75rem] leading-[1.15] tracking-[-0.02em] text-[var(--foreground)] sm:text-[2.125rem]"
         >
           {summaryTitle}
         </h3>
@@ -797,7 +816,7 @@ export function AnalysisResults({
           <EmptyState label="Aucun résumé disponible pour ce document." />
         )}
         {(analysis.date || analysis.amounts?.length > 0) && (
-          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-[var(--border)] pt-5 text-sm leading-relaxed text-[var(--muted)]">
+          <div className="mt-7 flex flex-wrap gap-x-8 gap-y-2 border-t border-[var(--hairline)] pt-5 text-sm leading-relaxed tabular-nums text-[var(--muted)]">
             {analysis.date ? (
               <span>
                 Date repérée :{" "}
@@ -847,6 +866,27 @@ export function AnalysisResults({
             loading={isPreviewLoading}
           />
         </AnalysisCard>
+      ) : null}
+
+      {!isPreview && historyId ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+          <CreateReminderAlert
+            historyId={historyId}
+            defaultDueDate={displayDeadlines[0] ?? null}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              document
+                .getElementById("agent-courrier")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          >
+            Générer un courrier
+          </Button>
+        </div>
       ) : null}
 
       {/* 3. Reste — second plan, tout conservé */}
@@ -956,7 +996,7 @@ export function AnalysisResults({
           ) : null}
 
           {!isPreview && historyId ? (
-            <div className="md:col-span-2 space-y-4">
+            <div id="agent-courrier" className="md:col-span-2 space-y-4">
               <LetterDraftPanel
                 historyId={historyId}
                 initialReply={readyReply}

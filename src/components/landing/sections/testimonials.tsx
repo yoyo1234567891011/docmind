@@ -1,19 +1,24 @@
 /**
- * Preuves orientées résultat (pas d’avis clients inventés).
- * Les faux témoignages “illustratifs” détruisent la confiance en conversion.
+ * Outcomes produit — pas d’avis clients inventés.
  */
+import { LandingSectionHeader } from "@/components/landing/landing-section-header";
+
 const OUTCOMES = [
   {
-    title: "Éviter un renouvellement tacite",
-    text: "Bail ou assurance : Échélia remonte la date limite et l’action à mener avant préavis.",
+    title: "Éviter une reconduction tacite",
+    text: "Bail ou assurance : Échélia remonte la date de préavis et l’action à mener avant renouvellement automatique.",
   },
   {
-    title: "Gagner du temps par dossier",
-    text: "Fiche + risques + prochaines étapes en une lecture — sans relire 20 pages de conditions.",
+    title: "Suivre vos échéances",
+    text: "Paiements, résiliations et renouvellements apparaissent dans vos alertes et votre vue Mes échéances.",
   },
   {
-    title: "Garder le contrôle des données",
-    text: "Espace isolé par compte. Extraction sur nos serveurs ; analyse via Groq (pas ChatGPT). Vos fichiers ne sont pas collés dans un chat public.",
+    title: "Préparer un courrier",
+    text: "Brouillon de résiliation, contestation ou remboursement à partir des faits déjà extraits (dès Basique).",
+  },
+  {
+    title: "Retrouver dans vos documents",
+    text: "Recherche en français sur vos fiches : montants, organisations, dates — sans relire toute la pile PDF.",
   },
 ] as const;
 
@@ -24,20 +29,23 @@ export function LandingTestimonials() {
       className="landing-section border-t border-[var(--border)]"
     >
       <div className="mx-auto max-w-6xl px-5 py-20 sm:px-6 sm:py-28">
-        <div className="max-w-2xl">
-          <h2 className="font-display text-4xl tracking-tight text-[var(--foreground)] sm:text-5xl">
-            Preuves concrètes
-          </h2>
-          <p className="mt-3 text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-            Ce qu’Échélia doit vous permettre de faire dès le premier PDF —
-            sans testimonials inventés.
-          </p>
-        </div>
+        <LandingSectionHeader
+          eyebrow="Résultats"
+          title="Ce qu’Échélia vous permet de faire"
+          description="Des usages concrets dès le premier PDF — sans témoignages inventés."
+        />
 
-        <ul className="mt-14 grid gap-10 md:grid-cols-3">
+        <ul className="mt-12 grid gap-5 sm:mt-14 sm:grid-cols-2">
           {OUTCOMES.map((item) => (
-            <li key={item.title} className="text-left">
-              <h3 className="font-display text-xl leading-snug tracking-tight text-[var(--foreground)] sm:text-2xl">
+            <li
+              key={item.title}
+              className="landing-card landing-card-hover group overflow-hidden p-6 text-left sm:p-7"
+            >
+              <span
+                aria-hidden
+                className="absolute inset-y-6 left-0 w-[2px] rounded-full bg-[var(--accent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+              />
+              <h3 className="font-display text-2xl leading-snug tracking-tight text-[var(--foreground)]">
                 {item.title}
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">

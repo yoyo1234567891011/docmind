@@ -49,13 +49,13 @@ export function DashboardPanel({
         className,
       )}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[color-mix(in_oklab,var(--border)_85%,transparent)] bg-[color-mix(in_oklab,var(--surface-elevated)_65%,transparent)] px-5 py-4 sm:px-6">
-        <div>
-          <h2 className="font-display text-xl tracking-tight text-[var(--foreground)]">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--hairline)] px-5 py-4 sm:px-6 sm:py-5">
+        <div className="min-w-0">
+          <h2 className="font-display text-[1.375rem] leading-tight tracking-tight text-[var(--foreground)]">
             {title}
           </h2>
           {subtitle ? (
-            <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
+            <p className="mt-1 text-[13px] leading-relaxed text-[var(--muted)]">
               {subtitle}
             </p>
           ) : null}

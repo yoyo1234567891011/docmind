@@ -2,6 +2,7 @@ import type {
   AlertKind,
   AlertsListResult,
   ApiResponse,
+  DocumentAlert,
 } from "@/types";
 
 export async function fetchAlerts(options?: {
@@ -52,4 +53,24 @@ export async function markAllAlertsAsRead(): Promise<void> {
   });
   const payload = (await response.json()) as ApiResponse<unknown>;
   if (!payload.success) throw new Error(payload.error.message);
+}
+
+/** Rappel manuel depuis un document analysé (in-app uniquement). */
+export async function createManualAlert(input: {
+  historyId: string;
+  kind: Extract<
+    AlertKind,
+    "deadline_soon" | "renewal" | "important_payment" | "termination"
+  >;
+  dueDate: string;
+  note?: string;
+}): Promise<DocumentAlert> {
+  const response = await fetch("/api/alerts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const payload = (await response.json()) as ApiResponse<{ alert: DocumentAlert }>;
+  if (!payload.success) throw new Error(payload.error.message);
+  return payload.data.alert;
 }

@@ -25,21 +25,21 @@ export function DistributionList({
       {items.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">{emptyLabel}</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-4">
           {items.map((item) => (
-            <li key={item.id}>
-              <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
+            <li key={item.id} className="group">
+              <div className="mb-2 flex items-center justify-between gap-3 text-sm">
                 <span className="font-medium text-[var(--foreground)]">
                   {item.label}
                 </span>
-                <span className="text-[var(--muted)]">
+                <span className="font-mono text-xs tabular-nums text-[var(--muted)] transition-colors group-hover:text-[var(--foreground)]">
                   {item.count} · {item.percent}%
                 </span>
               </div>
-              <div className="h-1.5 overflow-hidden rounded bg-[color-mix(in_oklab,var(--muted)_18%,transparent)]">
+              <div className="h-1.5 overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--muted)_14%,transparent)]">
                 <div
                   className={cn(
-                    "h-full rounded transition-all duration-500",
+                    "h-full rounded-full transition-[width] duration-700 ease-[var(--ease-out)]",
                     toneById ? getRiskBarClass(item.id) : "bg-[var(--accent)]",
                   )}
                   style={{ width: `${item.percent}%` }}

@@ -1,3 +1,5 @@
+import { LandingSectionHeader } from "@/components/landing/landing-section-header";
+
 const STEPS = [
   {
     n: "01",
@@ -23,22 +25,22 @@ export function LandingHowItWorks() {
       className="landing-section border-t border-[var(--border)] bg-[var(--background-deep)]"
     >
       <div className="mx-auto max-w-6xl px-5 py-20 sm:px-6 sm:py-28">
-        <div className="max-w-2xl">
-          <h2 className="font-display text-4xl tracking-tight text-[var(--foreground)] sm:text-5xl">
-            En 3 étapes
-          </h2>
-          <p className="mt-3 text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-            Du PDF à l’action — sans coller le document dans un chat public.
-          </p>
-        </div>
+        <LandingSectionHeader
+          eyebrow="Parcours"
+          title="En trois étapes"
+          description="Du PDF à l’action — sans coller le document dans un chat public."
+        />
 
-        <ol className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
+        <ol className="mt-12 grid gap-5 sm:mt-14 md:grid-cols-3 md:gap-6">
           {STEPS.map((step) => (
-            <li key={step.n} className="text-left">
-              <p className="font-display text-3xl text-[var(--accent)]">
+            <li
+              key={step.n}
+              className="landing-card landing-card-hover p-6 text-left sm:p-7"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--accent)_35%,var(--border))] bg-[var(--accent-soft)] font-mono text-xs font-medium tabular-nums text-[var(--accent)] shadow-[var(--highlight)]">
                 {step.n}
-              </p>
-              <h3 className="mt-3 text-lg font-medium text-[var(--foreground)]">
+              </span>
+              <h3 className="mt-5 font-display text-2xl tracking-tight text-[var(--foreground)]">
                 {step.title}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">

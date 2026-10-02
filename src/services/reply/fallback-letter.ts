@@ -332,6 +332,34 @@ function buildFamilyLetter(input: {
   const refBit = ref ? ` (réf. ${ref})` : "";
 
   if (letterType === "resiliation") {
+    if (family === "bail") {
+      return {
+        subject: shortenLetterSubject(
+          "Congé / résiliation du bail de location",
+          "resiliation",
+          family,
+        ),
+        reason:
+          reason ||
+          "Congé ou résiliation du bail fondée sur le document analysé.",
+        body: [
+          head,
+          "",
+          `Par la présente, je vous notifie mon congé / ma décision de résilier le bail de location auprès de ${orgLabel}, document en date du ${dateDoc}${refBit}.`,
+          "",
+          factsBlock,
+          "",
+          deadline
+            ? `Je vous prie de prendre en compte ce congé en respectant le préavis applicable, notamment : ${deadline}.`
+            : "Je vous prie de prendre en compte ce congé en respectant le préavis contractuel et légal applicable.",
+          "",
+          "Je vous remercie de me confirmer par écrit la date de fin du bail et les modalités de restitution du dépôt de garantie.",
+          closing(),
+        ]
+          .filter((l) => l !== null)
+          .join("\n"),
+      };
+    }
     return {
       subject: shortenLetterSubject(
         family === "abonnement"
@@ -355,6 +383,36 @@ function buildFamilyLetter(input: {
           : "Je vous prie de prendre en compte cette demande dans les délais contractuels applicables.",
         "",
         "Je vous remercie de me confirmer par écrit la prise en compte de cette résiliation et la date effective de fin.",
+        closing(),
+      ]
+        .filter((l) => l !== null)
+        .join("\n"),
+    };
+  }
+
+  if (letterType === "mise_en_demeure") {
+    return {
+      subject: shortenLetterSubject(
+        "Mise en demeure",
+        "mise_en_demeure",
+        family,
+      ),
+      reason:
+        reason ||
+        "Mise en demeure simple fondée sur les faits extraits du document.",
+      body: [
+        head,
+        "",
+        `Par la présente mise en demeure, je vous somme de satisfaire à vos obligations au regard du document de ${orgLabel} en date du ${dateDoc}${refBit}.`,
+        "",
+        factsBlock ??
+          "Objet : exécution des obligations contractuelles / réglementaires concernées.",
+        "",
+        deadline
+          ? `À défaut de régularisation avant le ${deadline}, je me réserve le droit d'engager toute voie de droit utile.`
+          : "À défaut de régularisation sous huit jours à compter de la réception de ce courrier, je me réserve le droit d'engager toute voie de droit utile.",
+        "",
+        "La présente vaut mise en demeure sans préjudice de tout autre droit.",
         closing(),
       ]
         .filter((l) => l !== null)

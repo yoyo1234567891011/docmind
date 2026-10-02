@@ -24,7 +24,9 @@ export function ProgressBar({
       {label ? (
         <div className="mb-2 flex items-center justify-between gap-3 text-xs text-[var(--muted)]">
           <span>{label}</span>
-          {!indeterminate ? <span>{Math.round(clamped)}%</span> : null}
+          {!indeterminate ? (
+            <span className="font-mono tabular-nums">{Math.round(clamped)}%</span>
+          ) : null}
         </div>
       ) : null}
       <div
@@ -34,21 +36,21 @@ export function ProgressBar({
         aria-valuenow={indeterminate ? undefined : Math.round(clamped)}
         aria-label={label || "Progression"}
         className={cn(
-          "relative h-1.5 overflow-hidden rounded bg-[color-mix(in_oklab,var(--muted)_18%,transparent)]",
+          "relative h-1.5 overflow-hidden rounded-full bg-[color-mix(in_oklab,var(--muted)_15%,transparent)] shadow-[inset_0_1px_1px_color-mix(in_oklab,var(--foreground)_6%,transparent)]",
           trackClassName,
         )}
       >
         {indeterminate ? (
           <div
             className={cn(
-              "absolute inset-y-0 w-1/3 rounded bg-[var(--accent)] animate-progress-indeterminate",
+              "absolute inset-y-0 w-1/3 rounded-full bg-[linear-gradient(90deg,transparent,var(--accent)_35%,var(--accent)_65%,transparent)] animate-progress-indeterminate",
               barClassName,
             )}
           />
         ) : (
           <div
             className={cn(
-              "h-full rounded bg-[var(--accent)] transition-[width] duration-500 ease-out",
+              "h-full rounded-full bg-[var(--accent)] shadow-[0_0_10px_color-mix(in_oklab,var(--accent)_45%,transparent)] transition-[width] duration-500 ease-[var(--ease-out)]",
               barClassName,
             )}
             style={{ width: `${clamped}%` }}
@@ -94,7 +96,8 @@ export function AnalysisProgress({
     >
       <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between md:gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[var(--foreground)]">
+          <p className="flex items-center gap-2.5 text-sm font-medium text-[var(--foreground)]">
+            <span aria-hidden className="ui-live-dot" />
             {isAnalyzing ? "Analyse en cours…" : "Traitement en cours"}
           </p>
           {isAnalyzing ? (
@@ -103,8 +106,8 @@ export function AnalysisProgress({
             </p>
           ) : null}
         </div>
-        <p className="shrink-0 text-xs text-[var(--muted)]">
-          {STEPS[activeIndex]?.label}
+        <p className="shrink-0 font-mono text-[11px] tabular-nums text-[var(--muted)]">
+          {activeIndex + 1}/{STEPS.length} · {STEPS[activeIndex]?.label}
         </p>
       </div>
 
@@ -118,9 +121,9 @@ export function AnalysisProgress({
             <li
               key={step.id}
               className={cn(
-                "rounded-lg border px-3 py-2 text-xs transition-colors duration-300",
+                "flex items-center gap-2 rounded-[var(--radius-md)] border px-3 py-2 text-xs transition-colors duration-300",
                 active &&
-                  "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]",
+                  "border-[color-mix(in_oklab,var(--accent)_45%,var(--border))] bg-[var(--accent-soft)] text-[var(--accent)]",
                 done &&
                   "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--foreground)]",
                 !done &&
@@ -128,6 +131,18 @@ export function AnalysisProgress({
                   "border-transparent text-[var(--muted)]",
               )}
             >
+              <span
+                aria-hidden
+                className={cn(
+                  "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border font-mono text-[9px] tabular-nums",
+                  done &&
+                    "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]",
+                  active && "border-[var(--accent)]",
+                  !done && !active && "border-[var(--border-strong)]",
+                )}
+              >
+                {done ? "✓" : index + 1}
+              </span>
               <span className="block font-medium">{step.label}</span>
             </li>
           );

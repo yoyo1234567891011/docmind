@@ -62,7 +62,7 @@ export function DocumentLinkList({
         viewAllHref ? (
           <Link
             href={viewAllHref}
-            className="inline-flex items-center gap-1 text-sm text-[var(--accent)] transition-colors hover:underline"
+            className="ui-link-arrow"
           >
             Tout voir
             <ChevronRightIcon className="h-4 w-4" />
@@ -73,14 +73,14 @@ export function DocumentLinkList({
       {displayItems.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">{emptyLabel}</p>
       ) : (
-        <ul className="divide-y divide-[var(--border)]">
+        <ul className="-mx-2 divide-y divide-[var(--hairline)]">
           {displayItems.map((item) => (
             <li
               key={item.id}
               className={cn(
-                "flex items-start gap-2 py-3 first:pt-0 last:pb-0",
+                "flex items-start gap-2 rounded-[var(--radius-md)] px-2 py-3 transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)]",
                 checkedIds?.has(item.id) &&
-                  "rounded-md bg-[color-mix(in_oklab,var(--accent)_6%,transparent)]",
+                  "bg-[color-mix(in_oklab,var(--accent)_6%,transparent)]",
               )}
             >
               {selectable ? (
@@ -102,7 +102,7 @@ export function DocumentLinkList({
                     {item.title}
                     <DupBadge count={item.duplicateCount} />
                   </p>
-                  <p className="mt-1 truncate text-xs text-[var(--muted)]">
+                  <p className="mt-1 truncate text-xs tabular-nums text-[var(--muted)]">
                     {item.categoryLabel} · {formatDateTime(item.analyzedAt)}
                     {showActions && item.actionCount > 0
                       ? ` · ${item.actionCount} action${item.actionCount > 1 ? "s" : ""}`

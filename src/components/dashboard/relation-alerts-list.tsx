@@ -50,7 +50,7 @@ export function RelationAlertsList({ alerts }: RelationAlertsListProps) {
       action={
         <Link
           href="/alertes"
-          className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"
+          className="ui-link-arrow"
         >
           Alertes
           <ChevronRightIcon className="h-4 w-4" />
@@ -62,16 +62,16 @@ export function RelationAlertsList({ alerts }: RelationAlertsListProps) {
           Aucune relation à surveiller pour le moment.
         </p>
       ) : (
-        <ul className="divide-y divide-[var(--border)]">
+        <ul className="-mx-2 divide-y divide-[var(--hairline)]">
           {displayAlerts.map((alert) => (
             <li key={alert.id}>
               <Link
                 href={`/historique/${alert.historyId}`}
-                className="group flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+                className="group flex items-start gap-3 rounded-[var(--radius-md)] px-2 py-3 transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)]"
               >
                 <span
                   className={cn(
-                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] shadow-[var(--highlight)]",
                     severityClass(alert.severity),
                   )}
                 >
@@ -81,7 +81,7 @@ export function RelationAlertsList({ alerts }: RelationAlertsListProps) {
                   <p className="truncate font-medium text-[var(--foreground)] group-hover:text-[var(--accent)]">
                     {alert.title}
                     {alert.duplicateCount && alert.duplicateCount > 1 ? (
-                      <span className="ml-1.5 rounded-md border border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+                      <span className="ml-1.5 rounded-md border border-[var(--hairline)] px-1.5 py-0.5 font-mono text-[10px] font-medium text-[var(--muted)]">
                         ×{alert.duplicateCount}
                       </span>
                     ) : null}

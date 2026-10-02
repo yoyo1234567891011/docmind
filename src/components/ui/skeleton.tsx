@@ -9,7 +9,7 @@ export function Skeleton({ className }: SkeletonProps) {
     <div
       aria-hidden
       className={cn(
-        "animate-shimmer rounded-lg bg-[color-mix(in_oklab,var(--muted)_16%,transparent)]",
+        "animate-shimmer rounded-md bg-[color-mix(in_oklab,var(--muted)_13%,transparent)]",
         className,
       )}
     />

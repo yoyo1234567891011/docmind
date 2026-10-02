@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { NotificationPreferencesPanel } from "@/components/alerts/notification-preferences-panel";
 import { Alert, Button, HistoryListSkeleton } from "@/components/ui";
@@ -11,6 +12,7 @@ import {
   fetchAlerts,
   markAllAlertsAsRead,
 } from "@/lib/client";
+import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   ALERT_KIND_LABELS,
@@ -37,6 +39,14 @@ const FILTERS: Array<{ id: AlertKind | "all"; label: string }> = [
   { id: "relation_contradiction", label: "Contradictions" },
 ];
 
+const ECHEANCE_KINDS: AlertKind[] = [
+  "deadline_soon",
+  "renewal",
+  "termination",
+  "important_payment",
+  "relation_deadline_conflict",
+];
+
 function severityClass(severity: DocumentAlert["severity"]) {
   switch (severity) {
     case "critical":
@@ -48,18 +58,37 @@ function severityClass(severity: DocumentAlert["severity"]) {
   }
 }
 
+function sortByDueDate(a: DocumentAlert, b: DocumentAlert): number {
+  const da = a.dueDate || a.date || "";
+  const db = b.dueDate || b.date || "";
+  if (da && db) return da.localeCompare(db);
+  if (da) return -1;
+  if (db) return 1;
+  return b.createdAt.localeCompare(a.createdAt);
+}
+
 export function AlertsCenterView() {
-  const [kind, setKind] = useState<AlertKind | "all">("all");
+  const searchParams = useSearchParams();
+  const focusEcheances = searchParams.get("focus") === "echeances";
+  const [kind, setKind] = useState<AlertKind | "all">(
+    focusEcheances ? "deadline_soon" : "all",
+  );
   const [alerts, setAlerts] = useState<DocumentAlert[]>([]);
   const [summary, setSummary] = useState<AlertsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (focusEcheances) setKind("deadline_soon");
+  }, [focusEcheances]);
+
   const load = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchAlerts({ kind });
+      const data = await fetchAlerts({
+        kind: focusEcheances ? "all" : kind,
+      });
       setAlerts(data.alerts);
       setSummary(data.summary);
     } catch (loadError) {
@@ -71,24 +100,48 @@ export function AlertsCenterView() {
     } finally {
       setIsLoading(false);
     }
-  }, [kind]);
+  }, [kind, focusEcheances]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const visibleAlerts = useMemo(() => {
+    if (!focusEcheances) return alerts;
+    return alerts
+      .filter((a) => ECHEANCE_KINDS.includes(a.kind))
+      .slice()
+      .sort(sortByDueDate);
+  }, [alerts, focusEcheances]);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="animate-fade-up text-left">
           <h1 className="font-display text-3xl tracking-tight text-[var(--foreground)] md:text-5xl">
-            Alertes
+            {focusEcheances ? "Mes échéances" : "Alertes"}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--muted)] sm:text-base">
-            Échéances, relations entre documents, paiements et risques —
-            détectés automatiquement à partir de vos fiches et de la mémoire
-            documentaire.
+            {focusEcheances
+              ? "Timeline par date : préavis, renouvellements, paiements et échéances liées — sans changer votre bibliothèque documents."
+              : "Échéances, relations entre documents, paiements et risques — détectés automatiquement à partir de vos fiches et de la mémoire documentaire."}
           </p>
+          {focusEcheances ? (
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              <Link href="/alertes" className="text-[var(--accent)] hover:underline">
+                Voir toutes les alertes
+              </Link>
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              <Link
+                href="/alertes?focus=echeances"
+                className="text-[var(--accent)] hover:underline"
+              >
+                Ouvrir Mes échéances
+              </Link>
+            </p>
+          )}
         </div>
         <Button
           variant="secondary"
@@ -100,7 +153,7 @@ export function AlertsCenterView() {
         </Button>
       </div>
 
-      {summary ? (
+      {summary && !focusEcheances ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <article className="surface-panel rounded-2xl px-5 py-4">
             <p className="text-xs uppercase tracking-[0.08em] text-[var(--muted)]">
@@ -141,23 +194,25 @@ export function AlertsCenterView() {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((filter) => (
-          <button
-            key={filter.id}
-            type="button"
-            onClick={() => setKind(filter.id)}
-            className={cn(
-              "rounded-lg border px-3 py-1.5 text-sm transition-colors",
-              kind === filter.id
-                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--border-strong)] hover:text-[var(--foreground)]",
-            )}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
+      {!focusEcheances ? (
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => setKind(filter.id)}
+              className={cn(
+                "rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                kind === filter.id
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                  : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--border-strong)] hover:text-[var(--foreground)]",
+              )}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {error ? (
         <Alert tone="error" title="Erreur">
@@ -167,96 +222,73 @@ export function AlertsCenterView() {
 
       {isLoading ? (
         <HistoryListSkeleton />
-      ) : alerts.length === 0 ? (
+      ) : visibleAlerts.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-6 py-14 text-center">
           <p className="font-display text-2xl text-[var(--foreground)]">
-            Aucune notification
+            {focusEcheances ? "Aucune échéance" : "Aucune notification"}
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
-            Analysez des documents pour générer automatiquement des
-            notifications (échéance, risque, action).
+            {focusEcheances
+              ? "Rien à surveiller pour le moment — aucune obligation d’utiliser les alertes."
+              : "Analysez des documents pour générer automatiquement des notifications (échéance, risque, action)."}
           </p>
         </div>
       ) : (
         <ul className="space-y-3">
-          {alerts.map((alert) => (
+          {visibleAlerts.map((item) => (
             <li
-              key={alert.id}
-              className="surface-panel animate-fade-up rounded-2xl px-5 py-4 text-left"
+              key={item.id}
+              className={cn(
+                "surface-panel rounded-2xl px-5 py-4 text-left",
+                !item.read &&
+                  "ring-1 ring-[color-mix(in_oklab,var(--accent)_25%,transparent)]",
+              )}
             >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="break-words font-medium text-[var(--foreground)]">
-                      {alert.title}
-                    </p>
                     <span
                       className={cn(
-                        "rounded-md px-2 py-0.5 text-xs font-medium",
-                        severityClass(alert.severity),
+                        "rounded-md px-2 py-0.5 text-[11px] font-medium",
+                        severityClass(item.severity),
                       )}
                     >
-                      {ALERT_PRIORITY_LABELS[alert.priority]}
+                      {ALERT_KIND_LABELS[item.kind]}
                     </span>
-                    <span className="rounded-md border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--muted)]">
-                      {ALERT_KIND_LABELS[alert.kind]}
+                    <span className="text-[11px] text-[var(--muted)]">
+                      {ALERT_PRIORITY_LABELS[item.priority]}
                     </span>
-                    {!alert.read ? (
-                      <span className="rounded-md bg-[var(--accent-soft)] px-2 py-0.5 text-xs text-[var(--accent)]">
-                        Nouveau
+                    {item.dueDate || item.date ? (
+                      <span className="text-[11px] font-medium text-[var(--foreground)]">
+                        {formatDate(item.dueDate || item.date)}
                       </span>
                     ) : null}
                   </div>
-                  <p className="break-words text-sm text-[var(--muted)]">
-                    {alert.message}
+                  <p className="mt-2 font-medium text-[var(--foreground)]">
+                    {item.title}
                   </p>
-                  <p className="break-words text-xs text-[var(--muted)]">
-                    Document : {alert.documentTitle} · {alert.fileName}
-                    {" · "}
-                    Date : {alert.date}
-                    {alert.amount != null
-                      ? ` · ${alert.amount.toLocaleString("fr-FR")} €`
-                      : ""}
+                  <p className="mt-1 text-sm text-[var(--muted)]">{item.message}</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    {item.documentTitle || item.fileName}
+                    {item.recommendedAction
+                      ? ` · ${item.recommendedAction}`
+                      : null}
                   </p>
-                  {alert.recommendedAction ? (
-                    <p className="break-words rounded-lg bg-[var(--accent-soft)] px-3 py-2 text-xs text-[var(--foreground)]">
-                      Action recommandée : {alert.recommendedAction}
-                    </p>
-                  ) : null}
-                  {alert.evidence.length > 0 ? (
-                    <ul className="space-y-1">
-                      {alert.evidence.map((item) => (
-                        <li
-                          key={item}
-                          className="break-words rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)]"
-                        >
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
                 </div>
-
-                <div className="flex shrink-0 flex-wrap gap-2">
+                <div className="flex flex-col items-end gap-2">
                   <Link
-                    href={`/historique/${alert.historyId}`}
-                    className="inline-flex h-9 items-center gap-1 rounded-lg border border-[var(--border-strong)] px-4 text-sm font-medium transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    href={`/historique/${item.historyId}`}
+                    className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"
                   >
                     Ouvrir
                     <ChevronRightIcon className="h-4 w-4" />
                   </Link>
-                  {alert.secondaryHistoryId ? (
-                    <Link
-                      href={`/historique/${alert.secondaryHistoryId}`}
-                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-[var(--border)] px-4 text-sm font-medium text-[var(--muted)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                    >
-                      Document lié
-                    </Link>
-                  ) : null}
                   <Button
+                    type="button"
                     variant="ghost"
+                    size="sm"
                     onClick={() => {
-                      void dismissAlerts([alert.id]).then(() => load());
+                      void dismissAlerts([item.id]).then(() => load());
                     }}
                   >
                     Ignorer

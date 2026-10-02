@@ -31,6 +31,7 @@ export {
   markAlertsAsRead,
   dismissAlerts,
   markAllAlertsAsRead,
+  createManualAlert,
 } from "./alerts";
 export {
   fetchNotificationPreferences,

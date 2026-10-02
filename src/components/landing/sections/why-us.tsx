@@ -1,15 +1,17 @@
+import { LandingSectionHeader } from "@/components/landing/landing-section-header";
+
 const REASONS = [
   {
-    title: "Pas ChatGPT sur vos PDF",
-    text: "Vous n’avez pas à coller votre document dans un chat public. Échélia structure chaque PDF dans une mémoire privée (fiches, alertes, recherche, historique).",
+    title: "Vos PDF restent hors du chat public",
+    text: "Avec ChatGPT, vous collez souvent le document dans un fil généraliste. Avec Échélia, vous téléversez un PDF dans votre compte : le texte est extrait sur nos serveurs, puis seul ce texte est envoyé à une API d’analyse dédiée (Groq). Le fichier PDF n’est pas collé dans un chat public.",
   },
   {
-    title: "Analyse dédiée, pas un chat grand public",
-    text: "Le texte est extrait sur nos serveurs, puis analysé via une API IA dédiée (Groq, États-Unis). Ce n’est pas ChatGPT. Vos fichiers restent isolés par compte.",
+    title: "Une mémoire, pas une conversation jetable",
+    text: "Échélia structure chaque document en fiche (montants, échéances, risques, actions) et la conserve dans votre espace isolé. Vous retrouvez l’historique, les alertes et la recherche — sans recommencer à zéro à chaque PDF.",
   },
   {
-    title: "Décision, pas résumé",
-    text: "Score de risque, échéances datées, actions et courriers : vous savez quoi faire avant un renouvellement ou un paiement. PDF texte uniquement (pas de scans).",
+    title: "Décider avant la date limite",
+    text: "Score de risque, points à surveiller, échéances datées et brouillons de courrier : l’objectif n’est pas un résumé vague, c’est de savoir quoi faire avant un préavis, un renouvellement ou un paiement.",
   },
 ] as const;
 
@@ -20,31 +22,33 @@ export function LandingWhyUs() {
       className="landing-section border-t border-[var(--border)] bg-[var(--background-deep)]"
     >
       <div className="mx-auto max-w-6xl px-5 py-20 sm:px-6 sm:py-28">
-        <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-          <div>
-            <h2 className="font-display text-4xl tracking-tight text-[var(--foreground)] sm:text-5xl">
-              Pourquoi pas ChatGPT
-            </h2>
-            <p className="mt-3 max-w-md text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-              Un assistant généraliste ne remplace pas un outil métier sur vos
-              documents administratifs.
-            </p>
-          </div>
-          <ul className="space-y-8">
-            {REASONS.map((reason) => (
+        <div className="grid gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start lg:gap-20">
+          <LandingSectionHeader
+            eyebrow="Différenciation"
+            title="Pourquoi pas ChatGPT seul ?"
+            description="ChatGPT aide à lire une page. Échélia organise vos documents administratifs dans un parcours privé, durable et orienté action."
+            className="lg:sticky lg:top-24"
+          />
+          <ol className="grid gap-4">
+            {REASONS.map((reason, index) => (
               <li
                 key={reason.title}
-                className="border-t border-[var(--border)] pt-6 text-left first:border-t-0 first:pt-0"
+                className="landing-card landing-card-hover grid grid-cols-[auto_1fr] gap-x-5 p-6 text-left sm:p-7"
               >
-                <h3 className="text-lg font-medium text-[var(--foreground)]">
-                  {reason.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-                  {reason.text}
-                </p>
+                <span className="font-mono text-xs font-medium tabular-nums text-[var(--accent)]">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold tracking-[-0.015em] text-[var(--foreground)]">
+                    {reason.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+                    {reason.text}
+                  </p>
+                </div>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       </div>
     </section>

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Alert, Button, HistoryListSkeleton } from "@/components/ui";
-import { SpinnerIcon } from "@/components/ui/icons";
+import { CheckIcon, SpinnerIcon } from "@/components/ui/icons";
 import {
   cancelSubscription,
   fetchBilling,
@@ -268,14 +268,17 @@ export function BillingView() {
     <div className="mx-auto max-w-5xl space-y-8 px-5 py-10 sm:px-6">
       <header className="text-left">
         <p className="text-sm text-[var(--muted)]">
-          <Link href="/dashboard" className="hover:text-[var(--accent)]">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center rounded-[var(--radius-sm)] text-[13px] transition-colors hover:text-[var(--foreground)]"
+          >
             ← Dashboard
           </Link>
         </p>
-        <h1 className="mt-2 font-display text-4xl tracking-tight">
+        <h1 className="mt-3 font-display text-[2.5rem] leading-[1.05] tracking-[-0.025em] sm:text-[3rem]">
           Facturation
         </h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--muted)] sm:text-[15px]">
           Plan synchronisé avec Stripe. Un changement de plan payant ajuste le
           montant au prorata de la période restante (calcul Stripe).
         </p>
@@ -759,33 +762,45 @@ export function BillingView() {
             <article
               key={item.id}
               className={cn(
-                "flex flex-col rounded-[var(--radius-xl)] border p-5 text-left shadow-[var(--shadow-sm)] transition-[border-color,box-shadow] duration-200 sm:p-6",
+                "relative flex flex-col rounded-[var(--radius-xl)] border p-5 text-left transition-[border-color,box-shadow,transform] duration-200 sm:p-6",
                 active || highlighted
-                  ? "border-[var(--accent)] bg-[var(--surface)] shadow-[var(--shadow-md)] ring-1 ring-[color-mix(in_oklab,var(--accent)_18%,transparent)]"
-                  : "border-[color-mix(in_oklab,var(--border)_88%,transparent)] bg-[var(--surface)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)]",
+                  ? "border-[color-mix(in_oklab,var(--accent)_55%,var(--border))] bg-[linear-gradient(180deg,color-mix(in_oklab,var(--accent)_6%,var(--surface)),var(--surface)_45%)] shadow-[var(--highlight),0_0_0_1px_color-mix(in_oklab,var(--accent)_18%,transparent),var(--shadow-md)]"
+                  : "border-[var(--hairline)] bg-[var(--surface)] shadow-[var(--highlight),var(--shadow-sm)] hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--highlight),var(--shadow-md)]",
               )}
             >
-              <p className="text-sm font-medium text-[var(--muted)]">
+              <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-[var(--foreground)]">
                 {item.name}
-                {active ? " · actuel" : ""}
-                {highlighted && !active ? " · recommandé" : ""}
+                {active ? (
+                  <span className="ui-badge bg-[var(--accent)] text-[var(--accent-foreground)]">
+                    actuel
+                  </span>
+                ) : null}
+                {highlighted && !active ? (
+                  <span className="ui-badge bg-[var(--accent-soft)] text-[var(--accent)]">
+                    recommandé
+                  </span>
+                ) : null}
               </p>
-              <p className="mt-2 font-display text-3xl">
+              <p className="mt-4 flex flex-wrap items-baseline gap-x-1 font-display text-[2.25rem] leading-none tracking-tight">
                 {item.priceMonthlyEur == null
                   ? "Gratuit"
                   : `${item.priceMonthlyEur} €`}
                 {item.priceMonthlyEur != null ? (
-                  <span className="ml-1 text-sm font-sans text-[var(--muted)]">
+                  <span className="font-sans text-sm tracking-normal text-[var(--muted)]">
                     / mois
                   </span>
                 ) : null}
               </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
+              <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
                 {item.description}
               </p>
-              <ul className="mt-4 flex-1 space-y-1.5 text-sm text-[var(--foreground)]">
+              <div aria-hidden className="ui-divider-fade my-4" />
+              <ul className="flex-1 space-y-2 text-sm text-[var(--foreground)]">
                 {item.features.map((feature) => (
-                  <li key={feature}>— {feature}</li>
+                  <li key={feature} className="flex gap-2">
+                    <CheckIcon className="mt-0.5 h-4 w-4 text-[var(--accent)]" />
+                    <span>{feature}</span>
+                  </li>
                 ))}
               </ul>
               {canCheckout && isPremium ? (

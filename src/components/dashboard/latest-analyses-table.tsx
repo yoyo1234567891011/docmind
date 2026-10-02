@@ -55,7 +55,7 @@ export function LatestAnalysesTable({
       action={
         <Link
           href="/historique"
-          className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"
+          className="ui-link-arrow"
         >
           Historique
           <ChevronRightIcon className="h-4 w-4" />
@@ -96,7 +96,7 @@ export function LatestAnalysesTable({
                 <tr
                   key={item.id}
                   className={cn(
-                    "border-b border-[var(--border)] last:border-0",
+                    "group",
                     checkedIds?.has(item.id) &&
                       "bg-[color-mix(in_oklab,var(--accent)_6%,transparent)]",
                   )}
@@ -142,13 +142,13 @@ export function LatestAnalysesTable({
                         : "Oui"
                       : "—"}
                   </td>
-                  <td className="px-2 py-3 whitespace-nowrap text-[var(--muted)]">
+                  <td className="px-2 py-3 whitespace-nowrap font-mono text-xs tabular-nums text-[var(--muted)]">
                     {formatDateTime(item.analyzedAt)}
                   </td>
                   <td className="px-2 py-3 text-right">
                     <Link
                       href={`/historique/${item.id}`}
-                      className="inline-flex items-center gap-1 font-medium text-[var(--accent)] hover:underline"
+                      className="ui-link-arrow font-medium"
                     >
                       Ouvrir
                       <ChevronRightIcon className="h-4 w-4" />

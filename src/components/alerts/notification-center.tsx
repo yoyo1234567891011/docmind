@@ -128,11 +128,11 @@ export function NotificationCenter() {
         onClick={() => {
           void handleOpen();
         }}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--foreground)]"
+        className="group relative inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--hairline)] bg-[var(--surface)] text-[var(--muted)] shadow-[var(--highlight),var(--shadow-xs)] transition-[color,border-color,box-shadow,transform] duration-150 hover:border-[var(--border-strong)] hover:text-[var(--foreground)] hover:shadow-[var(--highlight),var(--shadow-sm)] active:scale-95"
       >
-        <BellIcon className="h-4 w-4" />
+        <BellIcon className="h-4 w-4 origin-top transition-transform duration-300 group-hover:rotate-[8deg]" />
         {unread > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-md bg-[var(--danger)] px-1 text-[10px] font-medium text-white">
+          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--danger)] px-1 font-mono text-[10px] font-medium tabular-nums text-white ring-2 ring-[var(--background)]">
             {unread > 9 ? "9+" : unread}
           </span>
         ) : null}
@@ -141,7 +141,7 @@ export function NotificationCenter() {
       {open ? (
         <div
           className={cn(
-            "z-50 flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)] animate-fade-in",
+            "z-50 flex max-h-[80vh] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-[var(--hairline)] bg-[var(--surface)] shadow-[var(--highlight),var(--shadow-lg)] animate-fade-in",
             // Mobile : quasi plein écran, ancré sous le header
             "fixed inset-x-3 top-16",
             // Desktop : dropdown inchangé à droite de la cloche

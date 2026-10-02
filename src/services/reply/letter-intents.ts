@@ -49,26 +49,38 @@ export const LETTER_FAMILY_RULES: Record<WatchDocFamily, LetterFamilyRule> = {
       "Mise en demeure : contestation du total réclamé ou demande de décompte.",
   },
   facture: {
-    allowed: ["contestation", "remboursement", "resiliation"],
+    allowed: ["contestation", "remboursement", "resiliation", "mise_en_demeure"],
     forbidden: [],
     defaultType: "contestation",
     defaultReason: "Facture : contestation ou demande de remboursement si montant litigieux.",
   },
   abonnement: {
-    allowed: ["resiliation", "contestation", "remboursement"],
+    allowed: ["resiliation", "contestation", "remboursement", "mise_en_demeure"],
     forbidden: [],
     defaultType: "resiliation",
     defaultReason: "Contrat d’abonnement : résiliation ou contestation de facturation.",
   },
   bail: {
-    allowed: ["autre", "contestation", "reponse_administrative", "resiliation"],
+    allowed: [
+      "resiliation",
+      "contestation",
+      "reponse_administrative",
+      "mise_en_demeure",
+      "autre",
+    ],
     forbidden: [],
-    defaultType: "autre",
+    defaultType: "resiliation",
     defaultReason:
       "Bail / location : congé, quittance ou contestation de charges (selon votre objectif).",
   },
   assurance: {
-    allowed: ["resiliation", "contestation", "reponse_administrative", "autre"],
+    allowed: [
+      "resiliation",
+      "contestation",
+      "reponse_administrative",
+      "mise_en_demeure",
+      "autre",
+    ],
     forbidden: [],
     defaultType: "reponse_administrative",
     defaultReason:
@@ -138,6 +150,7 @@ export function shortenLetterSubject(
       remboursement: "Demande de remboursement",
       resiliation: "Résiliation de contrat",
       reponse_administrative: "Réponse à votre courrier",
+      mise_en_demeure: "Mise en demeure",
       autre:
         family === "banque"
           ? "Demande d’information bancaire"

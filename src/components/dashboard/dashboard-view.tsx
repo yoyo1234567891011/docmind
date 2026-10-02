@@ -16,6 +16,7 @@ import { SubscriptionCard } from "@/components/dashboard/subscription-card";
 import { HistoryBulkActionBar } from "@/components/history/history-bulk-action-bar";
 import { useHistoryBulkSelection } from "@/components/history/use-history-bulk-selection";
 import { Alert, AnalysisSkeleton, Button } from "@/components/ui";
+import { UploadIcon } from "@/components/ui/icons";
 import { siteConfig } from "@/config/site";
 import {
   deleteHistoryItemsBulk,
@@ -249,38 +250,39 @@ export function DashboardView() {
 
   return (
     <div className="space-y-8 pb-20 md:pb-8">
-      <header className="relative overflow-hidden rounded-[var(--radius-2xl)] border border-[color-mix(in_oklab,var(--border)_85%,transparent)] bg-[var(--surface)] shadow-[var(--shadow-md)]">
+      <header className="relative isolate overflow-hidden rounded-[var(--radius-2xl)] border border-[var(--hairline)] bg-[var(--surface)] shadow-[var(--highlight),var(--shadow-md)]">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,var(--accent-mist),transparent_55%),linear-gradient(135deg,var(--surface)_0%,var(--surface-elevated)_100%)]"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_80%_at_0%_0%,color-mix(in_oklab,var(--accent)_12%,transparent),transparent_60%),radial-gradient(ellipse_40%_60%_at_100%_100%,color-mix(in_oklab,var(--accent)_6%,transparent),transparent_70%)]"
         />
         <div
           aria-hidden
-          className="page-grid pointer-events-none absolute inset-0 opacity-40"
+          className="page-grid pointer-events-none absolute inset-0 -z-10 opacity-50"
         />
-        <div className="relative flex flex-col gap-6 px-6 py-8 md:flex-row md:items-end md:justify-between md:px-8 md:py-10">
+        <div className="relative flex flex-col gap-6 px-6 py-8 md:flex-row md:items-end md:justify-between md:px-9 md:py-10">
           <div className="animate-fade-up max-w-2xl text-left">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--accent)]">
+            <p className="ui-kicker flex items-center gap-2 text-[var(--accent)]">
+              <span aria-hidden className="ui-live-dot h-1.5 w-1.5" />
               {siteConfig.name}
             </p>
-            <h1 className="mt-3 font-display text-4xl tracking-tight text-[var(--foreground)] sm:text-5xl">
+            <h1 className="mt-4 font-display text-[2.5rem] leading-[1.05] tracking-[-0.025em] text-[var(--foreground)] sm:text-[3.25rem]">
               Tableau de bord
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--muted)] sm:text-base">
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--muted)] sm:text-[15px]">
               Documents récents, risques, échéances et activité — une vue claire
               pour piloter vos analyses.
             </p>
           </div>
-          <div className="animate-fade-up-delay-1 flex flex-wrap gap-2">
+          <div className="animate-fade-up-delay-1 flex flex-wrap items-center gap-2">
             <Link
               href="/analyser"
-              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent)] px-4 text-sm font-medium tracking-[-0.01em] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[var(--accent-hover)] hover:shadow-[var(--shadow-md)] active:translate-y-px"
+              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent)] px-4 text-sm font-medium tracking-[-0.01em] text-[var(--accent-foreground)] shadow-[inset_0_1px_0_color-mix(in_oklab,white_18%,transparent),var(--shadow-accent)] transition-[background-color,transform] duration-150 hover:bg-[var(--accent-hover)] active:scale-[0.98]"
             >
               Analyser un PDF
             </Link>
             <Link
               href="/recherche"
-              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-sm font-medium tracking-[-0.01em] text-[var(--foreground)] shadow-[var(--shadow-sm)] transition-[border-color,color,box-shadow,transform] duration-200 hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-[var(--shadow-md)] active:translate-y-px"
+              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-sm font-medium tracking-[-0.01em] text-[var(--foreground)] shadow-[var(--highlight),var(--shadow-xs)] transition-[border-color,color,box-shadow,transform] duration-150 hover:border-[color-mix(in_oklab,var(--accent)_45%,var(--border-strong))] hover:text-[var(--accent)] hover:shadow-[var(--highlight),var(--shadow-sm)] active:scale-[0.98]"
             >
               Recherche
             </Link>
@@ -323,12 +325,12 @@ export function DashboardView() {
         <AnalysisSkeleton />
       ) : (
         <>
-          <section className="space-y-3">
+          <section className="space-y-4">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between md:gap-3">
-              <h2 className="font-display text-2xl tracking-tight">
+              <h2 className="font-display text-[1.75rem] tracking-tight">
                 Statistiques
               </h2>
-              <p className="text-xs text-[var(--muted)]">
+              <p className="font-mono text-[11px] tabular-nums text-[var(--muted)]">
                 {stats.totalAnalyses} analyse
                 {stats.totalAnalyses > 1 ? "s" : ""} au total
               </p>
@@ -338,7 +340,17 @@ export function DashboardView() {
 
           {items.length === 0 ? (
             <>
-              <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--surface)] px-6 py-16 text-center">
+              <div className="relative isolate overflow-hidden rounded-[var(--radius-2xl)] border border-dashed border-[var(--border-strong)] bg-[color-mix(in_oklab,var(--surface)_80%,transparent)] px-6 py-16 text-center">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_50%_60%_at_50%_0%,color-mix(in_oklab,var(--accent)_10%,transparent),transparent_70%)]"
+                />
+                <span
+                  aria-hidden
+                  className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-[var(--radius-lg)] border border-[color-mix(in_oklab,var(--accent)_25%,var(--border))] bg-[var(--surface)] text-[var(--accent)] shadow-[var(--highlight),var(--shadow-sm)]"
+                >
+                  <UploadIcon className="h-5 w-5" />
+                </span>
                 <p className="font-display text-3xl text-[var(--foreground)]">
                   Votre espace est prêt
                 </p>
@@ -348,7 +360,7 @@ export function DashboardView() {
                 </p>
                 <Link
                   href="/analyser"
-                  className="mt-6 inline-flex h-10 items-center justify-center rounded-lg bg-[var(--accent)] px-5 text-sm font-medium text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
+                  className="mt-7 inline-flex h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent)] px-5 text-sm font-medium text-[var(--accent-foreground)] shadow-[inset_0_1px_0_color-mix(in_oklab,white_18%,transparent),var(--shadow-accent)] transition-[background-color,transform] duration-150 hover:bg-[var(--accent-hover)] active:scale-[0.98]"
                 >
                   Analyser un PDF
                 </Link>
@@ -399,8 +411,8 @@ export function DashboardView() {
                 </div>
               </div>
 
-              <section className="space-y-3">
-                <h2 className="font-display text-2xl tracking-tight">
+              <section className="space-y-4">
+                <h2 className="font-display text-[1.75rem] tracking-tight">
                   Répartitions
                 </h2>
                 <div className="grid gap-4 lg:grid-cols-2">

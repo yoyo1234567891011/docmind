@@ -19,7 +19,7 @@ export function RecentSearchesList({ searches }: RecentSearchesListProps) {
       action={
         <Link
           href="/recherche"
-          className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"
+          className="ui-link-arrow"
         >
           Rechercher
           <ChevronRightIcon className="h-4 w-4" />
@@ -31,7 +31,7 @@ export function RecentSearchesList({ searches }: RecentSearchesListProps) {
           Aucune recherche récente. Essayez la recherche intelligente.
         </p>
       ) : (
-        <ul className="divide-y divide-[var(--border)]">
+        <ul className="divide-y divide-[var(--hairline)]">
           {searches.map((item) => (
             <li key={`${item.at}-${item.query}`}>
               <Link

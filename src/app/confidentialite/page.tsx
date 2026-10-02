@@ -70,12 +70,24 @@ export default function PrivacyPage() {
         <h2 className="font-display text-2xl">Hébergement & sous-traitants</h2>
         <p>
           Le PDF est stocké sur l’infrastructure Échélia (Vercel / stockage
-          associé). Le texte est extrait sur nos serveurs, puis analysé via
-          l’API Groq (États-Unis) — pas via ChatGPT public. Échélia n’utilise
-          pas vos documents pour entraîner un modèle grand public. Pour
-          l’usage des données côté Groq, consultez la politique de
-          confidentialité de Groq. Authentification : Supabase. Paiements :
-          Stripe.
+          associé). Le texte est extrait sur nos serveurs. Pour l’analyse,{" "}
+          <strong className="font-medium">seul le texte extrait</strong> est
+          envoyé à l’API Groq (États-Unis) —{" "}
+          <strong className="font-medium">
+            le fichier PDF n’est pas transmis à Groq
+          </strong>
+          . Ce n’est pas ChatGPT public. Échélia n’entraîne pas de modèles sur
+          vos documents. Pour l’usage des données côté Groq, consultez la{" "}
+          <a
+            href="https://groq.com/privacy-policy/"
+            className="text-[var(--accent)] hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            politique de confidentialité de Groq
+          </a>
+          . Authentification : Supabase. Paiements : Stripe. Comptes isolés :
+          pas de partage de documents entre utilisateurs.
         </p>
       </section>
 

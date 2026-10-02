@@ -45,7 +45,7 @@ export function CounterpartiesPanel({
       action={
         <Link
           href="/contreparties"
-          className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"
+          className="ui-link-arrow"
         >
           Voir tout
           <ChevronRightIcon className="h-4 w-4" />
@@ -59,7 +59,7 @@ export function CounterpartiesPanel({
           Aucune contrepartie indexée pour le moment.
         </p>
       ) : (
-        <ul className="divide-y divide-[var(--border)]">
+        <ul className="divide-y divide-[var(--hairline)]">
           {items.map((item) => (
             <li key={item.entityId} className="py-3 first:pt-0 last:pb-0">
               <div className="flex items-start justify-between gap-3">

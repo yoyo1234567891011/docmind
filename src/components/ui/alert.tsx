@@ -12,12 +12,25 @@ interface AlertProps {
   className?: string;
 }
 
-const toneStyles: Record<AlertTone, string> = {
-  error:
-    "border-[color-mix(in_oklab,var(--danger)_28%,var(--border))] bg-[var(--danger-soft)] text-[var(--danger)] shadow-[var(--shadow-sm)]",
-  success:
-    "border-[color-mix(in_oklab,var(--success)_28%,var(--border))] bg-[var(--success-soft)] text-[var(--success)] shadow-[var(--shadow-sm)]",
-  info: "border-[color-mix(in_oklab,var(--accent)_28%,var(--border))] bg-[var(--accent-soft)] text-[var(--accent)] shadow-[var(--shadow-sm)]",
+const toneStyles: Record<
+  AlertTone,
+  { root: string; icon: string; rail: string }
+> = {
+  error: {
+    root: "border-[color-mix(in_oklab,var(--danger)_24%,var(--border))] bg-[color-mix(in_oklab,var(--danger-soft)_70%,var(--surface))]",
+    icon: "bg-[color-mix(in_oklab,var(--danger)_14%,transparent)] text-[var(--danger)]",
+    rail: "bg-[var(--danger)]",
+  },
+  success: {
+    root: "border-[color-mix(in_oklab,var(--success)_24%,var(--border))] bg-[color-mix(in_oklab,var(--success-soft)_70%,var(--surface))]",
+    icon: "bg-[color-mix(in_oklab,var(--success)_14%,transparent)] text-[var(--success)]",
+    rail: "bg-[var(--success)]",
+  },
+  info: {
+    root: "border-[color-mix(in_oklab,var(--accent)_24%,var(--border))] bg-[color-mix(in_oklab,var(--accent-soft)_70%,var(--surface))]",
+    icon: "bg-[color-mix(in_oklab,var(--accent)_14%,transparent)] text-[var(--accent)]",
+    rail: "bg-[var(--accent)]",
+  },
 };
 
 export function Alert({
@@ -26,29 +39,39 @@ export function Alert({
   children,
   className,
 }: AlertProps) {
+  const styles = toneStyles[tone];
   return (
     <div
       role="alert"
       className={cn(
-        "animate-fade-up flex gap-3 rounded-[var(--radius-lg)] border px-4 py-3.5 text-left",
-        toneStyles[tone],
+        "animate-fade-up relative flex gap-3 overflow-hidden rounded-[var(--radius-lg)] border py-3.5 pl-4 pr-4 text-left shadow-[var(--highlight),var(--shadow-xs)]",
+        styles.root,
         className,
       )}
     >
-      <span className="mt-0.5 shrink-0 opacity-90">
+      <span
+        aria-hidden
+        className={cn("absolute inset-y-0 left-0 w-[3px]", styles.rail)}
+      />
+      <span
+        className={cn(
+          "mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+          styles.icon,
+        )}
+      >
         {tone === "success" ? (
-          <CheckIcon className="h-4 w-4" />
+          <CheckIcon className="h-3.5 w-3.5" />
         ) : (
-          <AlertIcon className="h-4 w-4" />
+          <AlertIcon className="h-3.5 w-3.5" />
         )}
       </span>
-      <div className="min-w-0 space-y-1">
+      <div className="min-w-0 space-y-0.5 pt-0.5">
         {title ? (
-          <p className="text-sm font-medium tracking-[-0.01em] text-[var(--foreground)]">
+          <p className="text-sm font-semibold tracking-[-0.01em] text-[var(--foreground)]">
             {title}
           </p>
         ) : null}
-        <div className="text-sm leading-relaxed text-[var(--foreground)]">
+        <div className="text-sm leading-relaxed text-[color-mix(in_oklab,var(--foreground)_86%,var(--muted))]">
           {children}
         </div>
       </div>

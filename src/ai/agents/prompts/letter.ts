@@ -27,13 +27,15 @@ interface LetterPromptInput {
 
 const TYPE_INSTRUCTIONS: Record<LetterType, string> = {
   resiliation:
-    "Rédige une lettre de RÉSILATION ou de CONGÉ : intention claire, référence du contrat/abonnement/bail, date d’effet souhaitée si connue, demande de confirmation écrite. N’utilise JAMAIS ce type pour un relevé bancaire.",
+    "Rédige une lettre de RÉSILATION ou de CONGÉ : intention claire, référence du contrat/abonnement/bail, date d’effet souhaitée si connue, demande de confirmation écrite. N’utilise JAMAIS ce type pour un relevé bancaire. Pour un bail : congé / préavis, dépôt de garantie.",
   remboursement:
     "Rédige une DEMANDE DE REMBOURSEMENT : tous les montants pertinents du contexte, motif factuel, référence facture/opération, délai de réponse souhaité (ex. 30 jours).",
   contestation:
-    "Rédige une CONTESTATION formelle : cite TOUS les montants/frais listés dans FAITS_AUTORISES (relevé bancaire = chaque commission/frais distinct), demande de réexamen et de réponse écrite sous 30 jours.",
+    "Rédige une CONTESTATION formelle : cite TOUS les montants/frais listés dans FAITS_AUTORISES (relevé bancaire = chaque commission/frais distinct ; facture énergie = lignes contestées), demande de réexamen et de réponse écrite sous 30 jours.",
   reponse_administrative:
     "Rédige une RÉPONSE ADMINISTRATIVE professionnelle : reprise des références, réponse point par point, pièces éventuelles, ton courtois et factuel.",
+  mise_en_demeure:
+    "Rédige une MISE EN DEMEURE SIMPLE : sommation claire d’exécuter une obligation (paiement, restitution, information), références du document, délai court, réserve des droits. Ton ferme et factuel, sans menaces excessives.",
   autre:
     "Rédige une DEMANDE D’INFORMATION ou de CLARIFICATION : question précise, références du document, sans inventer de litige ni de résiliation.",
 };

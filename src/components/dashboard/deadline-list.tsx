@@ -29,10 +29,10 @@ export function DeadlineList({ alerts }: DeadlineListProps) {
       subtitle="Dates et renouvellements à surveiller"
       action={
         <Link
-          href="/alertes"
-          className="inline-flex items-center gap-1 text-sm text-[var(--accent)] hover:underline"
+          href="/alertes?focus=echeances"
+          className="ui-link-arrow"
         >
-          Alertes
+          Mes échéances
           <ChevronRightIcon className="h-4 w-4" />
         </Link>
       }
@@ -42,16 +42,16 @@ export function DeadlineList({ alerts }: DeadlineListProps) {
           Aucune échéance proche pour le moment.
         </p>
       ) : (
-        <ul className="divide-y divide-[var(--border)]">
+        <ul className="-mx-2 divide-y divide-[var(--hairline)]">
           {alerts.map((alert) => (
             <li key={alert.id}>
               <Link
                 href={`/historique/${alert.historyId}`}
-                className="group flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+                className="group flex items-start gap-3 rounded-[var(--radius-md)] px-2 py-3 transition-colors duration-150 hover:bg-[color-mix(in_oklab,var(--foreground)_3%,transparent)]"
               >
                 <span
                   className={cn(
-                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] shadow-[var(--highlight)]",
                     severityClass(alert.severity),
                   )}
                 >
@@ -61,7 +61,7 @@ export function DeadlineList({ alerts }: DeadlineListProps) {
                   <p className="truncate font-medium text-[var(--foreground)] group-hover:text-[var(--accent)]">
                     {alert.documentTitle || alert.title}
                   </p>
-                  <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
+                  <p className="mt-0.5 truncate text-xs tabular-nums text-[var(--muted)]">
                     {ALERT_KIND_LABELS[alert.kind]}
                     {alert.dueDate ? ` · ${formatDate(alert.dueDate)}` : null}
                   </p>

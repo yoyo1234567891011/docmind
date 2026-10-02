@@ -20,16 +20,17 @@ export default function AnalyserPage() {
         className="pointer-events-none absolute inset-0 -z-10 page-grid"
       />
 
-      <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-5xl flex-col items-center px-5 py-10 text-center sm:px-6 md:py-20">
-        <p className="animate-fade-up font-display text-4xl tracking-tight text-[var(--foreground)] md:text-6xl">
+      <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-5xl flex-col items-center px-5 py-12 text-center sm:px-6 md:py-20">
+        <p className="animate-fade-up ui-kicker inline-flex items-center gap-2 rounded-full border border-[var(--hairline)] bg-[color-mix(in_oklab,var(--surface)_80%,transparent)] px-3 py-1 text-[var(--accent)] shadow-[var(--highlight),var(--shadow-xs)] backdrop-blur-sm">
+          <span aria-hidden className="ui-live-dot h-1.5 w-1.5" />
           {siteConfig.name}
         </p>
 
-        <h1 className="animate-fade-up-delay-1 mt-5 max-w-2xl text-balance text-lg font-medium text-[var(--foreground)] md:text-2xl">
+        <h1 className="animate-fade-up-delay-1 mt-6 max-w-3xl text-balance font-display text-[2.25rem] leading-[1.06] tracking-[-0.025em] text-[var(--foreground)] md:text-[3.5rem]">
           Déposez un document. Obtenez un aperçu immédiat, puis une analyse IA.
         </h1>
 
-        <p className="animate-fade-up-delay-2 mt-3 max-w-xl text-pretty text-base leading-relaxed text-[var(--muted)]">
+        <p className="animate-fade-up-delay-2 mt-5 max-w-xl text-pretty text-base leading-relaxed text-[var(--muted)]">
           Contrats, factures, courriers — import local. L’aperçu arrive vite ;
           l’analyse IA prend en général 1 à 3 minutes.
         </p>
@@ -38,7 +39,7 @@ export default function AnalyserPage() {
           photos ne sont pas pris en charge pour l’instant.
         </p>
 
-        <div className="animate-fade-up-delay-3 mt-10 w-full max-w-3xl">
+        <div className="animate-fade-up-delay-3 mt-12 w-full max-w-3xl">
           <HomeUploadSection />
         </div>
       </div>

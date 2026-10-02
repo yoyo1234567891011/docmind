@@ -33,11 +33,15 @@ export function ReadyReplyCard({ reply }: ReadyReplyCardProps) {
 
       <section className="animate-fade-up surface-panel rounded-2xl px-5 py-4 text-left">
 
-        <h3 className="font-display text-xl text-[var(--foreground)]">
+          <h3 className="font-display text-xl text-[var(--foreground)]">
 
-          Courrier
+            Courrier
 
-        </h3>
+          </h3>
+
+          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+            Assistance à la rédaction — pas un conseil d’avocat.
+          </p>
 
         <p className="mt-2 text-sm text-[var(--muted)]">{reply.reason}</p>
 

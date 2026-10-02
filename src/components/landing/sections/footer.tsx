@@ -5,11 +5,11 @@ import { siteConfig } from "@/config/site";
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-[var(--border)] bg-[var(--background-deep)]">
-      <div className="mx-auto max-w-6xl px-5 py-14 sm:px-6">
-        <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
+    <footer className="border-t border-[var(--hairline)] bg-[var(--background-deep)]">
+      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-6">
+        <div className="flex flex-col gap-12 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="font-display text-3xl tracking-tight text-[var(--foreground)]">
+            <p className="font-display text-4xl tracking-tight text-[var(--foreground)]">
               {siteConfig.name}
             </p>
             <p className="mt-2 max-w-sm text-sm leading-relaxed text-[var(--muted)]">
@@ -27,7 +27,7 @@ export function LandingFooter() {
                 <li>
                   <LandingSectionLink
                     sectionId="fonctionnalites"
-                    className="hover:text-[var(--accent)]"
+                    className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]"
                   >
                     Fonctionnalités
                   </LandingSectionLink>
@@ -35,18 +35,18 @@ export function LandingFooter() {
                 <li>
                   <LandingSectionLink
                     sectionId="tarifs"
-                    className="hover:text-[var(--accent)]"
+                    className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]"
                   >
                     Tarifs
                   </LandingSectionLink>
                 </li>
                 <li>
-                  <Link href="/analyser" className="hover:text-[var(--accent)]">
+                  <Link href="/analyser" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     Analyser
                   </Link>
                 </li>
                 <li>
-                  <Link href="/guide" className="hover:text-[var(--accent)]">
+                  <Link href="/guide" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     Guide
                   </Link>
                 </li>
@@ -58,17 +58,17 @@ export function LandingFooter() {
               </p>
               <ul className="mt-3 space-y-2 text-sm text-[var(--foreground)]">
                 <li>
-                  <Link href="/auth/login" className="hover:text-[var(--accent)]">
+                  <Link href="/auth/login" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     Connexion
                   </Link>
                 </li>
                 <li>
-                  <Link href="/auth/signup" className="hover:text-[var(--accent)]">
+                  <Link href="/auth/signup" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     Inscription
                   </Link>
                 </li>
                 <li>
-                  <Link href="/dashboard" className="hover:text-[var(--accent)]">
+                  <Link href="/dashboard" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     Tableau de bord
                   </Link>
                 </li>
@@ -82,31 +82,31 @@ export function LandingFooter() {
                 <li>
                   <Link
                     href="/mentions-legales"
-                    className="hover:text-[var(--accent)]"
+                    className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]"
                   >
                     Mentions légales
                   </Link>
                 </li>
                 <li>
-                  <Link href="/cgv" className="hover:text-[var(--accent)]">
+                  <Link href="/cgv" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     CGV
                   </Link>
                 </li>
                 <li>
                   <Link
                     href="/confidentialite"
-                    className="hover:text-[var(--accent)]"
+                    className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]"
                   >
                     Confidentialité
                   </Link>
                 </li>
                 <li>
-                  <Link href="/cgu" className="hover:text-[var(--accent)]">
+                  <Link href="/cgu" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     CGU
                   </Link>
                 </li>
                 <li>
-                  <Link href="/cookies" className="hover:text-[var(--accent)]">
+                  <Link href="/cookies" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     Cookies
                   </Link>
                 </li>
@@ -120,18 +120,18 @@ export function LandingFooter() {
                 <li>
                   <LandingSectionLink
                     sectionId="faq"
-                    className="hover:text-[var(--accent)]"
+                    className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]"
                   >
                     FAQ
                   </LandingSectionLink>
                 </li>
                 <li>
-                  <Link href="/feedback" className="hover:text-[var(--accent)]">
+                  <Link href="/feedback" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     Avis
                   </Link>
                 </li>
                 <li>
-                  <Link href="/signalement" className="hover:text-[var(--accent)]">
+                  <Link href="/signalement" className="text-[var(--muted)] transition-colors duration-150 hover:text-[var(--foreground)]">
                     Signalement
                   </Link>
                 </li>
@@ -140,7 +140,7 @@ export function LandingFooter() {
           </div>
         </div>
 
-        <p className="mt-12 border-t border-[var(--border)] pt-6 text-xs text-[var(--muted)]">
+        <p className="mt-14 border-t border-[var(--hairline)] pt-6 text-xs leading-relaxed text-[var(--muted)]">
           © {new Date().getFullYear()} {siteConfig.name}. Extraction du texte
           sur nos serveurs ; analyse IA via Groq —{" "}
           <Link href="/confidentialite" className="hover:underline">

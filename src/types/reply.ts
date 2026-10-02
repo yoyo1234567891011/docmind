@@ -4,6 +4,7 @@ export type LetterType =
   | "remboursement"
   | "contestation"
   | "reponse_administrative"
+  | "mise_en_demeure"
   | "autre";
 
 export interface ReadyReply {
@@ -34,6 +35,7 @@ export const LETTER_TYPES: LetterType[] = [
   "remboursement",
   "contestation",
   "reponse_administrative",
+  "mise_en_demeure",
   "autre",
 ];
 
@@ -42,6 +44,7 @@ export const LETTER_TYPE_LABELS: Record<LetterType, string> = {
   remboursement: "Demande de remboursement",
   contestation: "Contestation",
   reponse_administrative: "Réponse administrative",
+  mise_en_demeure: "Mise en demeure simple",
   autre: "Autre courrier",
 };
 

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Outfit } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { AppChrome } from "@/components/layout/app-chrome";
@@ -8,15 +8,24 @@ import { siteConfig } from "@/config/site";
 
 import "./globals.css";
 
-const outfit = Outfit({
+const geist = Geist({
   variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 const instrumentSerif = Instrument_Serif({
   variable: "--font-display",
   subsets: ["latin"],
   weight: "400",
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -48,7 +57,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <body
-        className={`${outfit.variable} ${instrumentSerif.variable} min-h-screen font-sans antialiased`}
+        className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} min-h-screen font-sans antialiased`}
         suppressHydrationWarning
       >
         <script
