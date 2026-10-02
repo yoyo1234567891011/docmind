@@ -81,18 +81,18 @@ export function Header() {
   const navItems = baseNav.filter((item) => !item.adminOnly || isAdmin);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--border)]/80 bg-[color-mix(in_oklab,var(--background)_82%,transparent)] backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-[color-mix(in_oklab,var(--border)_75%,transparent)] bg-[color-mix(in_oklab,var(--background)_78%,transparent)] shadow-[0_1px_0_color-mix(in_oklab,var(--foreground)_3%,transparent)] backdrop-blur-xl backdrop-saturate-150">
       {/*
         Desktop (xl ≥1280) : [logo] [onglets texte, sans scroll] [actions]
         Mobile / tablette (&lt;1280) : [logo] …… [actions + hamburger] + panneau vertical
         Pas de overflow-x / barre de glissement sur les onglets.
       */}
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6 xl:gap-5">
+      <div className="mx-auto flex h-[3.75rem] max-w-6xl items-center gap-4 px-4 sm:px-6 xl:gap-5">
         <Link
           href="/dashboard"
           className="relative z-10 flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-90"
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-[var(--accent-foreground)]">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)]">
             <AnalyzeIcon className="h-4 w-4" />
           </span>
           <span className="font-display text-xl tracking-tight text-[var(--foreground)]">
@@ -113,9 +113,9 @@ export function Header() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-lg px-2.5 py-1.5 text-sm transition-colors duration-200",
+                  "rounded-[var(--radius-md)] px-2.5 py-1.5 text-[13px] tracking-[-0.01em] transition-[color,background-color] duration-200",
                   active
-                    ? "bg-[var(--accent-soft)] font-medium text-[var(--accent)]"
+                    ? "bg-[var(--accent-soft)] font-medium text-[var(--accent)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_18%,transparent)]"
                     : "text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]",
                 )}
               >
@@ -131,7 +131,7 @@ export function Header() {
           <ThemeToggle />
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[var(--foreground)] hover:bg-[var(--surface)] xl:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] text-[var(--foreground)] transition-colors hover:bg-[var(--surface)] xl:hidden"
             aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
             aria-expanded={menuOpen}
             aria-controls="app-mobile-nav"

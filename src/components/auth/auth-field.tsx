@@ -11,14 +11,10 @@ export function AuthField({
 }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
     <label className="block space-y-1.5 text-sm">
-      <span className="text-[var(--muted)]">{label}</span>
-      <input
-        className={cn(
-          "w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)] outline-none ring-[var(--ring)] focus:ring-2",
-          className,
-        )}
-        {...props}
-      />
+      <span className="text-[13px] font-medium tracking-[-0.01em] text-[var(--muted)]">
+        {label}
+      </span>
+      <input className={cn("ui-input bg-[var(--background)]", className)} {...props} />
     </label>
   );
 }

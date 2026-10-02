@@ -249,14 +249,14 @@ export function DashboardView() {
 
   return (
     <div className="space-y-8 pb-20 md:pb-8">
-      <header className="relative overflow-hidden rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)]">
+      <header className="relative overflow-hidden rounded-[var(--radius-2xl)] border border-[color-mix(in_oklab,var(--border)_85%,transparent)] bg-[var(--surface)] shadow-[var(--shadow-md)]">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,var(--accent-mist),transparent_55%),linear-gradient(135deg,var(--surface)_0%,var(--surface-elevated)_100%)]"
         />
         <div
           aria-hidden
-          className="page-grid pointer-events-none absolute inset-0 opacity-50"
+          className="page-grid pointer-events-none absolute inset-0 opacity-40"
         />
         <div className="relative flex flex-col gap-6 px-6 py-8 md:flex-row md:items-end md:justify-between md:px-8 md:py-10">
           <div className="animate-fade-up max-w-2xl text-left">
@@ -274,13 +274,13 @@ export function DashboardView() {
           <div className="animate-fade-up-delay-1 flex flex-wrap gap-2">
             <Link
               href="/analyser"
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-[var(--accent)] px-4 text-sm font-medium text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
+              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent)] px-4 text-sm font-medium tracking-[-0.01em] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[var(--accent-hover)] hover:shadow-[var(--shadow-md)] active:translate-y-px"
             >
               Analyser un PDF
             </Link>
             <Link
               href="/recherche"
-              className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-sm font-medium text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              className="inline-flex h-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface)] px-4 text-sm font-medium tracking-[-0.01em] text-[var(--foreground)] shadow-[var(--shadow-sm)] transition-[border-color,color,box-shadow,transform] duration-200 hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-[var(--shadow-md)] active:translate-y-px"
             >
               Recherche
             </Link>

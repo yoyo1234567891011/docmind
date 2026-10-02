@@ -14,7 +14,7 @@ export function AnalysisPhaseBadge({
     return (
       <span
         className={cn(
-          "rounded-md bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]",
+          "ui-badge border-[color-mix(in_oklab,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]",
           className,
         )}
       >
@@ -26,7 +26,7 @@ export function AnalysisPhaseBadge({
     return (
       <span
         className={cn(
-          "rounded-md bg-[var(--danger-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--danger)]",
+          "ui-badge border-[color-mix(in_oklab,var(--danger)_22%,transparent)] bg-[var(--danger-soft)] text-[var(--danger)]",
           className,
         )}
       >

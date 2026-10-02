@@ -19,13 +19,13 @@ export function LandingFinalCta() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/auth/signup"
-              className="inline-flex h-11 items-center rounded-md bg-[var(--accent)] px-5 text-sm font-medium text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
+              className="inline-flex h-11 items-center rounded-[var(--radius-md)] bg-[var(--accent)] px-5 text-sm font-medium tracking-[-0.01em] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[var(--accent-hover)] hover:shadow-[var(--shadow-md)] active:translate-y-px"
             >
               Créer mon compte gratuit
             </Link>
             <LandingSectionLink
               sectionId="tarifs"
-              className="inline-flex h-11 items-center rounded-md border border-[var(--border-strong)] px-5 text-sm font-medium text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              className="inline-flex h-11 items-center rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface)] px-5 text-sm font-medium tracking-[-0.01em] text-[var(--foreground)] shadow-[var(--shadow-sm)] transition-[border-color,color,box-shadow,transform] duration-200 hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-[var(--shadow-md)] active:translate-y-px"
             >
               Voir les tarifs
             </LandingSectionLink>

@@ -40,11 +40,11 @@ export function LandingNav() {
       className={cn(
         "fixed inset-x-0 top-0 z-40 transition-[background,border-color,backdrop-filter] duration-300",
         scrolled || menuOpen
-          ? "border-b border-[var(--border)]/70 bg-[color-mix(in_oklab,var(--background)_88%,transparent)] backdrop-blur-xl"
+          ? "border-b border-[color-mix(in_oklab,var(--border)_75%,transparent)] bg-[color-mix(in_oklab,var(--background)_82%,transparent)] shadow-[0_1px_0_color-mix(in_oklab,var(--foreground)_3%,transparent)] backdrop-blur-xl backdrop-saturate-150"
           : "border-b border-transparent bg-transparent",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 sm:px-6">
+      <div className="mx-auto flex h-[3.75rem] max-w-6xl items-center justify-between gap-4 px-5 sm:px-6">
         <LandingSectionLink
           sectionId="top"
           className="font-display text-2xl tracking-tight text-[var(--foreground)]"
@@ -53,12 +53,12 @@ export function LandingNav() {
           {siteConfig.name}
         </LandingSectionLink>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-0.5 md:flex">
           {LINKS.map((link) => (
             <LandingSectionLink
               key={link.sectionId}
               sectionId={link.sectionId}
-              className="rounded-md px-3 py-1.5 text-sm text-[var(--muted)] transition-colors hover:text-[var(--foreground)]"
+              className="rounded-[var(--radius-md)] px-3 py-1.5 text-[13px] tracking-[-0.01em] text-[var(--muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
             >
               {link.label}
             </LandingSectionLink>
@@ -68,13 +68,13 @@ export function LandingNav() {
         <div className="flex min-w-0 items-center gap-2">
           <Link
             href="/auth/login"
-            className="hidden h-9 items-center px-3 text-sm text-[var(--muted)] transition-colors hover:text-[var(--foreground)] sm:inline-flex"
+            className="hidden h-9 items-center rounded-[var(--radius-md)] px-3 text-[13px] tracking-[-0.01em] text-[var(--muted)] transition-colors hover:text-[var(--foreground)] sm:inline-flex"
           >
             Connexion
           </Link>
           <Link
             href="/auth/signup"
-            className="inline-flex h-9 shrink-0 items-center rounded-md bg-[var(--accent)] px-2.5 text-xs font-medium text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] sm:px-3.5 sm:text-sm"
+            className="inline-flex h-9 shrink-0 items-center rounded-[var(--radius-md)] bg-[var(--accent)] px-2.5 text-xs font-medium tracking-[-0.01em] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[var(--accent-hover)] hover:shadow-[var(--shadow-md)] active:translate-y-px sm:px-3.5 sm:text-sm"
           >
             <span className="md:hidden">Essayer</span>
             <span className="hidden md:inline">Essayer gratuitement</span>

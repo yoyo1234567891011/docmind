@@ -437,7 +437,7 @@ function WatchPointsSection({
 }) {
   return (
     <section
-      className="animate-fade-up rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-left shadow-[var(--shadow-sm)]"
+      className="ui-card animate-fade-up rounded-[var(--radius-2xl)] text-left"
       aria-labelledby="watch-points-heading"
     >
       <header className="border-b border-[var(--border)] px-5 py-5 sm:px-7">
@@ -488,7 +488,7 @@ function WatchPointsSection({
                   </div>
                   <span
                     className={cn(
-                      "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium",
+                      "ui-badge shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium",
                       severityBadgeClass(point.severity),
                     )}
                   >
@@ -762,7 +762,7 @@ export function AnalysisResults({
 
       {/* 1. Résumé — héros */}
       <section
-        className="animate-fade-up rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] px-5 py-7 text-left shadow-[var(--shadow-sm)] sm:px-8 sm:py-8"
+        className="ui-card-elevated animate-fade-up rounded-[var(--radius-2xl)] border-[var(--border-strong)] px-5 py-7 text-left sm:px-8 sm:py-8"
         aria-labelledby="analysis-summary-heading"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

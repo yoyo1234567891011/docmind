@@ -71,12 +71,12 @@ export function LandingPricing() {
                 key={id}
                 className={
                   highlight
-                    ? "flex h-full flex-col rounded-xl border border-[var(--accent)] bg-[var(--surface)] p-5 sm:p-6"
-                    : "flex h-full flex-col rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6"
+                    ? "flex h-full flex-col rounded-[var(--radius-xl)] border border-[var(--accent)] bg-[var(--surface)] p-5 shadow-[var(--shadow-md)] ring-1 ring-[color-mix(in_oklab,var(--accent)_22%,transparent)] sm:p-6"
+                    : "flex h-full flex-col rounded-[var(--radius-xl)] border border-[color-mix(in_oklab,var(--border)_88%,transparent)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] transition-[border-color,box-shadow] duration-200 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] sm:p-6"
                 }
               >
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <p className="text-sm font-medium text-[var(--muted)]">
+                  <p className="text-sm font-medium tracking-[-0.01em] text-[var(--muted)]">
                     {plan.name}
                     {highlight ? " · recommandé" : ""}
                   </p>
@@ -90,10 +90,10 @@ export function LandingPricing() {
                       </span>
                     ) : null}
                   </p>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
+                  <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
                     {plan.description}
                   </p>
-                  <ul className="mt-5 space-y-2 text-sm text-[var(--foreground)]">
+                  <ul className="mt-5 space-y-2.5 text-sm leading-relaxed text-[var(--foreground)]">
                     {getPlanCardFeatures(id).map((feature) => (
                       <li key={feature} className="flex gap-2">
                         <span className="text-[var(--accent)]" aria-hidden>
@@ -108,8 +108,8 @@ export function LandingPricing() {
                   href={extra.href}
                   className={
                     highlight
-                      ? "mt-6 inline-flex h-12 w-full shrink-0 items-center justify-center rounded-md bg-[var(--accent)] px-3 text-center text-sm font-medium leading-tight text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] whitespace-normal sm:whitespace-nowrap"
-                      : "mt-6 inline-flex h-12 w-full shrink-0 items-center justify-center rounded-md border border-[var(--border-strong)] px-3 text-center text-sm font-medium leading-tight text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] whitespace-normal sm:whitespace-nowrap"
+                      ? "mt-6 inline-flex h-11 w-full shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent)] px-3 text-center text-sm font-medium leading-tight tracking-[-0.01em] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[var(--accent-hover)] hover:shadow-[var(--shadow-md)] active:translate-y-px whitespace-normal sm:whitespace-nowrap"
+                      : "mt-6 inline-flex h-11 w-full shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-center text-sm font-medium leading-tight tracking-[-0.01em] text-[var(--foreground)] shadow-[var(--shadow-sm)] transition-[border-color,color,box-shadow,transform] duration-200 hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-[var(--shadow-md)] active:translate-y-px whitespace-normal sm:whitespace-nowrap"
                   }
                 >
                   {extra.cta}

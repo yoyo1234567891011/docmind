@@ -137,7 +137,7 @@ export function SmartSearchView() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder='Ex. "Quels contrats expirent cette année ?"'
-                className="h-11 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] py-2 pl-10 pr-3 text-sm outline-none transition-colors focus:border-[var(--accent)]"
+                className="ui-input h-11 py-2 pl-10 pr-3"
               />
             </div>
             <Button

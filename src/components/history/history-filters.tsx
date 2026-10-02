@@ -24,12 +24,11 @@ const riskLabels: Record<RiskAssessment["risk_level"] | "all", string> = {
   critique: "Critique",
 };
 
-const fieldClassName =
-  "w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--accent)]";
+const fieldClassName = "ui-input";
 
 export function HistoryFilters({ query, onChange }: HistoryFiltersProps) {
   return (
-    <div className="surface-panel animate-fade-up grid gap-3 rounded-2xl p-4 md:grid-cols-[1.4fr_1fr_1fr]">
+    <div className="surface-panel animate-fade-up grid gap-3 rounded-[var(--radius-2xl)] p-4 sm:p-5 md:grid-cols-[1.4fr_1fr_1fr]">
       <label className="block text-left">
         <span className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
           Recherche

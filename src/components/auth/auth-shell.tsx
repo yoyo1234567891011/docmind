@@ -24,19 +24,21 @@ export function AuthShell({
       />
       <div className="relative w-full max-w-md space-y-6">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--accent-foreground)]">
+          <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[var(--shadow-md)]">
             <AnalyzeIcon className="h-5 w-5" />
           </div>
           <p className="font-display text-2xl tracking-tight">{siteConfig.name}</p>
-          <h1 className="mt-3 text-xl font-semibold text-[var(--foreground)]">
+          <h1 className="mt-3 text-xl font-semibold tracking-[-0.02em] text-[var(--foreground)]">
             {title}
           </h1>
           {subtitle ? (
-            <p className="mt-1.5 text-sm text-[var(--muted)]">{subtitle}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-[var(--muted)]">
+              {subtitle}
+            </p>
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-sm)]">
+        <div className="ui-card-elevated rounded-[var(--radius-2xl)] p-6 sm:p-7">
           {children}
         </div>
 

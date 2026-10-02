@@ -177,12 +177,12 @@ export function PdfDropzone({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "group relative overflow-hidden rounded-2xl border border-dashed px-4 py-10 text-center transition-all duration-300 ease-out md:px-6 md:py-12",
-          "bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] backdrop-blur-sm",
+          "group relative overflow-hidden rounded-[var(--radius-2xl)] border border-dashed px-4 py-10 text-center shadow-[var(--shadow-sm)] transition-all duration-300 ease-[var(--ease-out)] md:px-6 md:py-12",
+          "bg-[color-mix(in_oklab,var(--surface)_94%,transparent)] backdrop-blur-sm",
           isUploading ? "cursor-wait" : disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
           isDragging
-            ? "scale-[1.01] border-[var(--accent)] bg-[var(--accent-soft)]"
-            : "border-[var(--border-strong)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]",
+            ? "scale-[1.005] border-[var(--accent)] bg-[var(--accent-soft)] shadow-[var(--shadow-md)]"
+            : "border-[var(--border-strong)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:shadow-[var(--shadow-md)]",
         )}
       >
         <div

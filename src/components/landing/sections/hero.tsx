@@ -30,13 +30,13 @@ export function LandingHero() {
         <div className="landing-reveal landing-reveal-delay-3 mt-8 flex flex-wrap items-center gap-3">
           <Link
             href="/auth/signup"
-            className="inline-flex h-11 items-center rounded-md bg-[var(--accent)] px-5 text-sm font-medium text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
+            className="inline-flex h-11 items-center rounded-[var(--radius-md)] bg-[var(--accent)] px-5 text-sm font-medium tracking-[-0.01em] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)] transition-[background-color,box-shadow,transform] duration-200 hover:bg-[var(--accent-hover)] hover:shadow-[var(--shadow-md)] active:translate-y-px"
           >
             Analyser un PDF gratuitement
           </Link>
           <LandingSectionLink
             sectionId="demo"
-            className="inline-flex h-11 items-center rounded-md border border-[var(--border-strong)] bg-[color-mix(in_oklab,var(--surface)_70%,transparent)] px-5 text-sm font-medium text-[var(--foreground)] backdrop-blur-sm transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            className="inline-flex h-11 items-center rounded-[var(--radius-md)] border border-[var(--border-strong)] bg-[color-mix(in_oklab,var(--surface)_78%,transparent)] px-5 text-sm font-medium tracking-[-0.01em] text-[var(--foreground)] shadow-[var(--shadow-sm)] backdrop-blur-sm transition-[border-color,color,background-color,box-shadow,transform] duration-200 hover:border-[var(--accent)] hover:text-[var(--accent)] hover:shadow-[var(--shadow-md)] active:translate-y-px"
           >
             Voir un exemple
           </LandingSectionLink>

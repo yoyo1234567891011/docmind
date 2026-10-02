@@ -30,15 +30,15 @@ import type { BillingPlanChangePreview, PaidBillingPlanId } from "@/types";
 function badgeClass(tone: string): string {
   switch (tone) {
     case "success":
-      return "bg-[var(--accent-soft)] text-[var(--accent)]";
+      return "ui-badge border-[color-mix(in_oklab,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]";
     case "info":
-      return "bg-[var(--surface-elevated)] text-[var(--foreground)]";
+      return "ui-badge border-[color-mix(in_oklab,var(--border)_80%,transparent)] bg-[var(--surface-elevated)] text-[var(--foreground)]";
     case "warning":
-      return "bg-[var(--warning-soft)] text-[var(--warning)]";
+      return "ui-badge border-[color-mix(in_oklab,var(--warning)_22%,transparent)] bg-[var(--warning-soft)] text-[var(--warning)]";
     case "danger":
-      return "bg-[var(--danger-soft)] text-[var(--danger)]";
+      return "ui-badge border-[color-mix(in_oklab,var(--danger)_22%,transparent)] bg-[var(--danger-soft)] text-[var(--danger)]";
     default:
-      return "bg-[var(--surface-elevated)] text-[var(--muted)]";
+      return "ui-badge bg-[var(--surface-elevated)] text-[var(--muted)]";
   }
 }
 
@@ -348,7 +348,7 @@ export function BillingView() {
         </Alert>
       ) : null}
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
+      <section className="ui-card rounded-[var(--radius-xl)] p-6 sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
             Abonnement
@@ -523,10 +523,10 @@ export function BillingView() {
       {showUpcomingBilling && upcomingView ? (
         <section
           className={cn(
-            "rounded-xl border p-6",
+            "rounded-[var(--radius-xl)] border p-6 shadow-[var(--shadow-sm)] sm:p-7",
             upcomingView.tone === "warning" || upcomingInvoice.status === "open"
               ? "border-[var(--warning)] bg-[var(--warning-soft)]"
-              : "border-[var(--border)] bg-[var(--surface)]",
+              : "border-[color-mix(in_oklab,var(--border)_88%,transparent)] bg-[var(--surface)]",
           )}
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -589,7 +589,7 @@ export function BillingView() {
       ) : null}
 
       {planChangeConfirm ? (
-        <section className="rounded-xl border border-[var(--accent)] bg-[var(--surface)] p-6">
+        <section className="ui-card-elevated rounded-[var(--radius-xl)] border border-[var(--accent)] p-6 ring-1 ring-[color-mix(in_oklab,var(--accent)_18%,transparent)] sm:p-7">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
             Confirmer le changement de plan
           </p>
@@ -722,7 +722,7 @@ export function BillingView() {
       ) : null}
 
       {!isPremium && stripeConfigured && !entitlementsDevBypass ? (
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left text-sm leading-relaxed text-[var(--foreground)]">
+        <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-lg)] border border-[color-mix(in_oklab,var(--border)_88%,transparent)] bg-[var(--surface)] p-4 text-left text-sm leading-relaxed text-[var(--foreground)] shadow-[var(--shadow-sm)] transition-[border-color,box-shadow] hover:border-[var(--border-strong)]">
           <input
             type="checkbox"
             className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
@@ -759,10 +759,10 @@ export function BillingView() {
             <article
               key={item.id}
               className={cn(
-                "flex flex-col rounded-xl border p-5 text-left",
+                "flex flex-col rounded-[var(--radius-xl)] border p-5 text-left shadow-[var(--shadow-sm)] transition-[border-color,box-shadow] duration-200 sm:p-6",
                 active || highlighted
-                  ? "border-[var(--accent)] bg-[var(--surface)]"
-                  : "border-[var(--border)] bg-[var(--surface)]",
+                  ? "border-[var(--accent)] bg-[var(--surface)] shadow-[var(--shadow-md)] ring-1 ring-[color-mix(in_oklab,var(--accent)_18%,transparent)]"
+                  : "border-[color-mix(in_oklab,var(--border)_88%,transparent)] bg-[var(--surface)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)]",
               )}
             >
               <p className="text-sm font-medium text-[var(--muted)]">
@@ -862,7 +862,7 @@ export function BillingView() {
         })}
       </section>
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
+      <section className="ui-card rounded-[var(--radius-xl)] p-6 sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-2xl">Factures</h2>
           {isPremium && stripeConfigured ? (

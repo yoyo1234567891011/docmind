@@ -68,7 +68,7 @@ export function LatestAnalysesTable({
         </p>
       ) : (
         <div className="-mx-1 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className="ui-table min-w-[640px]">
             <thead>
               <tr className="border-b border-[var(--border)] text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
                 {selectable ? (
@@ -128,7 +128,7 @@ export function LatestAnalysesTable({
                   <td className="px-2 py-3">
                     <span
                       className={cn(
-                        "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
+                        "ui-badge rounded-full px-2.5 py-0.5 text-xs font-medium",
                         getRiskToneClass(item.riskLevel),
                       )}
                     >

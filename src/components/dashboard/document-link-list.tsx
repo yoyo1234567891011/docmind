@@ -114,7 +114,7 @@ export function DocumentLinkList({
                 </div>
                 <span
                   className={cn(
-                    "shrink-0 rounded-md px-2 py-0.5 text-xs font-medium",
+                    "ui-badge shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium",
                     getRiskToneClass(item.riskLevel),
                   )}
                 >
