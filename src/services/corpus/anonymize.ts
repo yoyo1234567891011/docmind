@@ -386,7 +386,7 @@ export function anonymizeDocumentText(
 /** Construit un markdown multi-pages en conservant la structure des pages. */
 export function pagesToMarkdown(pages: string[], title?: string): string {
   const header = [
-    "<!-- Document anonymisé — corpus DocMind (réel anonymisé) -->",
+    "<!-- Document anonymisé — corpus Échélia (réel anonymisé) -->",
     title ? `# ${title}` : "# Document anonymisé",
     "",
     "> Document issu d’un original réel, anonymisé automatiquement. Montants, dates et clauses conservés.",

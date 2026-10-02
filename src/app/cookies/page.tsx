@@ -33,7 +33,7 @@ export default function CookiesPage() {
           d’authentification (Supabase), sécurité (CSRF), préférences
           d’affichage (thème), et paiement / portail (Stripe). Aucun cookie
           publicitaire ou de mesure d’audience marketing n’est déposé par
-          DocMind.
+          Échélia.
         </p>
       </section>
 

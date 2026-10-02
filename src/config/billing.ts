@@ -50,7 +50,7 @@ export function getPlanQuotaFeatureLines(planId: BillingPlanId): string[] {
 }
 
 /**
- * Catalogue offres DocMind (5 plans).
+ * Catalogue offres Échélia (5 plans).
  * Prix Stripe : STRIPE_PRICE_BASIQUE | PRO | PREMIUM | EXTRA (price_xxx).
  * `features` = extras marketing ; quotas via getPlanCardFeatures / withLiveQuotaFeatures.
  */

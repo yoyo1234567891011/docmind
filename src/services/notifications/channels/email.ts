@@ -1,8 +1,12 @@
+import { siteConfig } from "@/config/site";
+import {
+  DEFAULT_RESEND_FROM_EMAIL,
+  resolvePublicAppUrl,
+} from "@/config/domains";
 import type { AppNotification } from "@/types/notification";
 
 /**
- * Email delivery channel — swap StubEmailChannel for Resend/SMTP later
- * without changing the dispatcher.
+ * Email delivery channel — Resend si RESEND_API_KEY, sinon stub.
  */
 export interface EmailChannel {
   readonly id: "email";
@@ -14,10 +18,6 @@ export interface EmailChannel {
   }): Promise<{ ok: boolean; error?: string }>;
 }
 
-/**
- * Stub: does not send mail. Real provider will implement this interface.
- * Dispatcher enqueues to outbox instead of calling send() in production MVP.
- */
 export class StubEmailChannel implements EmailChannel {
   readonly id = "email" as const;
 
@@ -29,16 +29,73 @@ export class StubEmailChannel implements EmailChannel {
   }
 }
 
+/**
+ * Envoi via API Resend (https://resend.com).
+ * Prérequis : domaine échélia.com vérifié + RESEND_API_KEY + RESEND_FROM_EMAIL.
+ */
+export class ResendEmailChannel implements EmailChannel {
+  readonly id = "email" as const;
+
+  constructor(
+    private readonly apiKey: string,
+    private readonly from: string,
+  ) {}
+
+  async send(input: {
+    to: string;
+    subject: string;
+    body: string;
+    notification: AppNotification;
+  }): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: this.from,
+          to: [input.to],
+          subject: input.subject,
+          text: input.body,
+        }),
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        return {
+          ok: false,
+          error: `Resend HTTP ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`,
+        };
+      }
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Échec d’envoi Resend.",
+      };
+    }
+  }
+}
+
 export function createEmailChannel(): EmailChannel {
-  // Future: if (process.env.RESEND_API_KEY) return new ResendEmailChannel(...)
-  return new StubEmailChannel();
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) return new StubEmailChannel();
+  const from =
+    process.env.RESEND_FROM_EMAIL?.trim() || DEFAULT_RESEND_FROM_EMAIL;
+  return new ResendEmailChannel(apiKey, from);
 }
 
 export function buildEmailContent(notification: AppNotification): {
   subject: string;
   body: string;
 } {
-  const subject = `[DocMind] ${notification.title}`;
+  const brand = siteConfig.name;
+  const appUrl = resolvePublicAppUrl();
+  const subject = `[${brand}] ${notification.title}`;
   const body = [
     notification.title,
     "",
@@ -47,7 +104,7 @@ export function buildEmailContent(notification: AppNotification): {
     `Document : ${notification.documentTitle || notification.fileName}`,
     notification.dueDate ? `Échéance : ${notification.dueDate}` : null,
     "",
-    "Ouvrez DocMind pour traiter cette notification.",
+    `Ouvrez ${brand} : ${appUrl}`,
     `(Réf. analyse : ${notification.historyId})`,
   ]
     .filter((line) => line !== null)

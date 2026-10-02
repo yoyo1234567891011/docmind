@@ -5,7 +5,7 @@
 const OUTCOMES = [
   {
     title: "Éviter un renouvellement tacite",
-    text: "Bail ou assurance : DocMind remonte la date limite et l’action à mener avant préavis.",
+    text: "Bail ou assurance : Échélia remonte la date limite et l’action à mener avant préavis.",
   },
   {
     title: "Gagner du temps par dossier",
@@ -29,7 +29,7 @@ export function LandingTestimonials() {
             Preuves concrètes
           </h2>
           <p className="mt-3 text-base leading-relaxed text-[var(--muted)] sm:text-lg">
-            Ce que DocMind doit vous permettre de faire dès le premier PDF —
+            Ce qu’Échélia doit vous permettre de faire dès le premier PDF —
             sans testimonials inventés.
           </p>
         </div>

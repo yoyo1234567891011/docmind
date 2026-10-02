@@ -6,6 +6,24 @@ import type {
 } from "@/types/billing";
 import { isPaidBillingPlanId, normalizeBillingPlanId } from "@/config/billing";
 
+/** Date courte JJ/MM/AAAA (Europe/Paris) pour badges résiliation. */
+function formatBadgeCancelDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Paris",
+  }).formatToParts(d);
+  const day = parts.find((p) => p.type === "day")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const year = parts.find((p) => p.type === "year")?.value;
+  if (!day || !month || !year) return null;
+  return `${day}/${month}/${year}`;
+}
+
 /**
  * Statuts qui ouvrent les quotas / entitlements payants.
  * `past_due` exclus volontairement : dès échec de prélèvement → quotas Free
@@ -120,12 +138,14 @@ export function resolveAccessBadge(
     (status === "active" || status === "trialing") &&
     cancelAtPeriodEnd
   ) {
+    const endLabel = formatBadgeCancelDate(subscription.currentPeriodEnd);
     return {
       id: "canceling",
-      label: "Expire bientôt",
+      label: endLabel ? `Résilié le ${endLabel}` : "Résilié fin de période",
       tone: "warning",
-      description:
-        "Renouvellement annulé — accès actif jusqu’à la date indiquée.",
+      description: endLabel
+        ? `Vous gardez l’accès jusqu’au ${endLabel}. Pas de renouvellement ensuite.`
+        : "Renouvellement annulé — accès actif jusqu’à la fin de période déjà payée.",
     };
   }
 

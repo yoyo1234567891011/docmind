@@ -19,19 +19,17 @@ export function LoginForm() {
     docmindConfig.auth.afterLoginPath,
   );
   const configError = searchParams.get("error") === "supabase_config";
-  const callbackError = searchParams.get("error") === "auth_callback";
+  const callbackInfo = searchParams.get("error") === "auth_callback";
+  const authUnavailable = searchParams.get("error") === "auth_unavailable";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const authUnavailable = searchParams.get("error") === "auth_unavailable";
   const [error, setError] = useState<string | null>(
     configError
       ? "Supabase non configuré. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local."
       : authUnavailable
-        ? "Authentification temporairement indisponible. Ce n'est pas un problème de mot de passe — réessayez dans quelques minutes."
-        : callbackError
-          ? "Lien invalide ou déjà utilisé. Renvoyez l’e-mail de confirmation."
-          : null,
+        ? "Authentification temporairement indisponible. Réessayez dans quelques minutes."
+        : null,
   );
   const [loading, setLoading] = useState(false);
 
@@ -88,6 +86,27 @@ export function LoginForm() {
       }
     >
       <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
+        {callbackInfo ? (
+          <div
+            role="status"
+            className="rounded-lg border border-[color-mix(in_oklab,var(--accent)_35%,var(--border))] bg-[var(--accent-soft)] px-3 py-2.5 text-left text-sm leading-relaxed text-[var(--foreground)]"
+          >
+            <p>
+              Votre e-mail est déjà confirmé, ou ce lien a déjà été ouvert.
+              Connectez-vous avec votre mot de passe.
+            </p>
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              Pas reçu le mail ?{" "}
+              <Link
+                href="/auth/signup"
+                className="text-[var(--accent)] hover:underline"
+              >
+                Renvoyer l’e-mail
+              </Link>
+            </p>
+          </div>
+        ) : null}
+
         <AuthField
           label="Email"
           type="email"
@@ -115,24 +134,9 @@ export function LoginForm() {
         </div>
 
         {error ? (
-          <div className="space-y-2">
-            <p className="rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
-              {error}
-            </p>
-            {callbackError ? (
-              <p className="text-sm text-[var(--muted)]">
-                Pas reçu le mail ?{" "}
-                <Link
-                  href="/auth/signup"
-                  className="text-[var(--accent)] hover:underline"
-                >
-                  Renvoyer depuis l’inscription
-                </Link>
-                {" · "}
-                pensez aux spams (expéditeur : Échélia).
-              </p>
-            ) : null}
-          </div>
+          <p className="rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
+            {error}
+          </p>
         ) : null}
 
         <Button type="submit" className="w-full" disabled={loading}>

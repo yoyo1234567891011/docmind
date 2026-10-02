@@ -216,6 +216,7 @@ async function testFreeCheckoutSessionCreated() {
       userId,
       email,
       plan: "pro",
+      acceptedImmediateExecution: true,
     });
     assert.equal(session.mode, "redirect");
     assert.ok(session.url?.includes("checkout.stripe.com"));

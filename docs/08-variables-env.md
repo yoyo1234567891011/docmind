@@ -9,7 +9,10 @@ Copier vers `.env.local` en développement.
 |----------|-------------|
 | `NEXT_PUBLIC_APP_ENV` | `development` \| `beta` \| `staging` \| `production` |
 | `NEXT_PUBLIC_APP_VERSION` | Version affichée / health |
-| `NEXT_PUBLIC_APP_URL` | URL publique (Stripe redirects) — **obligatoire** en deploy |
+| `NEXT_PUBLIC_APP_URL` | URL publique (Stripe redirects) — **obligatoire** en deploy. Prod : `https://xn--chlia-9rac.com` (échélia.com) |
+| `EXTRA_APP_ORIGINS` | Origines CSRF additionnelles (virgules), ex. `https://xn--chlia-9rac.fr` |
+| `RESEND_API_KEY` | Clé API Resend (emails) |
+| `RESEND_FROM_EMAIL` | Expéditeur vérifié, ex. `DocMind <notifications@échélia.com>` |
 | `DOCMIND_SKIP_ENV_ASSERT` | `1` = saute l’assert boot (CI seulement) |
 | `MAINTENANCE_MODE` | Active la page maintenance |
 | `MAINTENANCE_MESSAGE` | Message affiché |
@@ -32,7 +35,24 @@ Copier vers `.env.local` en développement.
 
 ## Légal (pages publiques)
 
-`NEXT_PUBLIC_LEGAL_CONTACT_EMAIL`, `NEXT_PUBLIC_LEGAL_ENTITY_NAME`, `NEXT_PUBLIC_LEGAL_ADDRESS`
+`NEXT_PUBLIC_LEGAL_CONTACT_EMAIL`, `NEXT_PUBLIC_LEGAL_ENTITY_NAME`, `NEXT_PUBLIC_LEGAL_ADDRESS`, `NEXT_PUBLIC_LEGAL_SIRET`
+
+Défaut contact : `contact@échélia.com`
+
+## Emails (Resend)
+
+| Variable | Description |
+|----------|-------------|
+| `RESEND_API_KEY` | Clé API Resend |
+| `RESEND_FROM_EMAIL` | Expéditeur, ex. `DocMind <notifications@échélia.com>` |
+
+### Setup Resend (échélia.com)
+
+1. Resend → Domains → Add `échélia.com` (ou sous-domaine `notifications.échélia.com`).
+2. Ajouter les enregistrements DNS (SPF, DKIM, éventuellement DMARC) indiqués par Resend.
+3. Attendre le statut **Verified**.
+4. Sur Vercel : `RESEND_API_KEY` + `RESEND_FROM_EMAIL=DocMind <notifications@échélia.com>`.
+5. Redeploy. Sans clé → canal email reste en stub (outbox seulement).
 
 ## Ollama
 

@@ -10,7 +10,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const BASE = "https://docmind-blond.vercel.app";
+const BASE = "https://xn--chlia-9rac.com";
 const DOCS = [
   { id: "bail", pdf: "e2e/fixtures/smoke-tmp/table-bail.pdf" },
   { id: "med", pdf: "e2e/fixtures/smoke-tmp/table-med.pdf" },

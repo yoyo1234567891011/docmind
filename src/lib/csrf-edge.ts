@@ -25,18 +25,30 @@ const CRITICAL = [
 
 const CRITICAL_GET = ["/api/account/export"];
 
+/** Origines prod hardcodées (Edge n’importe pas @/config pour rester léger). */
+const KNOWN_PROD_ORIGINS = [
+  "https://xn--chlia-9rac.com",
+  "https://xn--chlia-9rac.fr",
+  "https://échélia.com",
+  "https://échélia.fr",
+];
+
 function appOrigins(): string[] {
-  const origins = new Set<string>();
+  const origins = new Set<string>(KNOWN_PROD_ORIGINS);
   for (const raw of [
     process.env.NEXT_PUBLIC_APP_URL,
     process.env.EVAL_BASE_URL,
+    process.env.EXTRA_APP_ORIGINS,
   ]) {
-    const value = raw?.trim();
-    if (!value) continue;
-    try {
-      origins.add(new URL(value).origin);
-    } catch {
-      /* ignore */
+    if (!raw?.trim()) continue;
+    for (const part of raw.split(",")) {
+      const value = part.trim();
+      if (!value) continue;
+      try {
+        origins.add(new URL(value).origin);
+      } catch {
+        /* ignore */
+      }
     }
   }
   origins.add("http://127.0.0.1:3000");

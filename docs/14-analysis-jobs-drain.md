@@ -30,7 +30,7 @@ Créer une clé Groq : https://console.groq.com/keys
 
 Si **aucune** clé cloud : Vercel **ne doit pas** dépendre d’un tunnel Cloudflare (URL instable / 403).
 
-1. L’utilisateur upload sur `docmind-blond.vercel.app` → P1 + job `pending` en Postgres.
+1. L’utilisateur upload sur `échélia.com` (`xn--chlia-9rac.com`) → P1 + job `pending` en Postgres.
 2. Sur **ce PC** : Ollama + `npm run jobs:worker` (ou Startup `DocMindAnalysisWorker`).
 3. Le worker drain la file avec `OLLAMA_BASE_URL=http://127.0.0.1:11434` et le pooler `DATABASE_URL`.
 4. L’UI Vercel poll le job → passe en `complete`.

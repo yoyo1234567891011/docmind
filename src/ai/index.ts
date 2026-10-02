@@ -1,5 +1,5 @@
 /**
- * DocMind AI layer — modular, independently swappable pieces.
+ * Échélia AI layer — modular, independently swappable pieces.
  *
  * | Module            | Change when you want to…                    |
  * |-------------------|---------------------------------------------|

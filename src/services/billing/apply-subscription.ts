@@ -51,7 +51,7 @@ export function readSubscriptionPriceId(
 }
 
 /**
- * Mappe un abonnement Stripe → plan DocMind via price_id configurés.
+ * Mappe un abonnement Stripe → plan Échélia via price_id configurés.
  * Ancien price Premium 10 € (non listé dans les 4 nouveaux) → free.
  *
  * Fail-closed : en déployé, ou dès qu’un STRIPE_PRICE_* est présent,

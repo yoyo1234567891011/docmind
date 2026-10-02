@@ -109,7 +109,7 @@ export function SmartSearchView() {
           Recherche intelligente
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--muted)] sm:text-base">
-          Posez votre question en langage naturel. DocMind interroge d’abord vos
+          Posez votre question en langage naturel. Échélia interroge d’abord vos
           fiches structurées, puis le texte des documents seulement si besoin.
         </p>
         {!result && !error && !isLoading ? (

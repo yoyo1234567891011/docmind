@@ -70,7 +70,7 @@ export async function ensurePlanChangePortalConfiguration(
 
   const created = await stripe.billingPortal.configurations.create({
     business_profile: {
-      headline: "Confirmer votre changement de plan DocMind",
+      headline: "Confirmer votre changement de plan Échélia",
     },
     features,
     metadata: { [CONFIG_META]: "true" },

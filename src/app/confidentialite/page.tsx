@@ -47,7 +47,7 @@ export default function PrivacyPage() {
           Compte (email, nom), documents PDF que vous téléversez, textes
           extraits, analyses, alertes, préférences, et données de facturation
           Stripe (identifiants client / abonnement — pas le numéro de carte
-          stocké chez DocMind). Des cookies techniques de session sont utilisés
+          stocké chez Échélia). Des cookies techniques de session sont utilisés
           pour l’authentification (détail :{" "}
           <Link href="/cookies" className="text-[var(--accent)] hover:underline">
             Cookies
@@ -69,9 +69,9 @@ export default function PrivacyPage() {
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Hébergement & sous-traitants</h2>
         <p>
-          Le PDF est stocké sur l’infrastructure DocMind (Vercel / stockage
+          Le PDF est stocké sur l’infrastructure Échélia (Vercel / stockage
           associé). Le texte est extrait sur nos serveurs, puis analysé via
-          l’API Groq (États-Unis) — pas via ChatGPT public. DocMind n’utilise
+          l’API Groq (États-Unis) — pas via ChatGPT public. Échélia n’utilise
           pas vos documents pour entraîner un modèle grand public. Pour
           l’usage des données côté Groq, consultez la politique de
           confidentialité de Groq. Authentification : Supabase. Paiements :

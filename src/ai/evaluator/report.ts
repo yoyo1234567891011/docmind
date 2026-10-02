@@ -288,7 +288,7 @@ export async function writeHtmlReport(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Rapport d'évaluation DocMind</title>
+  <title>Rapport d'évaluation Échélia</title>
   <style>
     :root {
       --bg: #f3f6f4;
@@ -401,7 +401,7 @@ export async function writeHtmlReport(
 </head>
 <body>
   <main>
-    <h1>Rapport d'évaluation DocMind</h1>
+    <h1>Rapport d'évaluation Échélia</h1>
     <p class="muted">Généré le ${escapeHtml(new Date().toLocaleString("fr-FR"))} · comparaison sémantique pour summary / important_points / risks / actions</p>
 
     <div class="summary">

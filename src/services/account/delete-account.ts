@@ -56,7 +56,7 @@ async function wipePersistentUserData(userId: string): Promise<{
 }
 
 /**
- * Efface les données DocMind d’un utilisateur (RGPD Art. 17).
+ * Efface les données Échélia d’un utilisateur (RGPD Art. 17).
  * Annule l’abonnement Stripe si possible — bloque le wipe si l’annulation échoue.
  * La suppression Auth Supabase nécessite SUPABASE_SERVICE_ROLE_KEY.
  */

@@ -270,8 +270,8 @@ async function testUiBillingFields() {
   const badge = resolveAccessBadge(sub);
   const ok =
     badge.id === "canceling" &&
-    badge.label === "Expire bientôt" &&
-    badge.description.includes("jusqu");
+    /^Résilié le \d{2}\/\d{2}\/\d{4}$/.test(badge.label) &&
+    badge.description.includes("Pas de renouvellement");
   log({
     scenario: "UI /facturation — badge annulation programmée",
     verdict: ok ? "OK" : "KO",

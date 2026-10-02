@@ -1,4 +1,4 @@
-/** Événements produit DocMind (instrumentation). */
+/** Événements produit Échélia (instrumentation). */
 
 export const ANALYTICS_EVENT_NAMES = [
   /* Funnel analyse */

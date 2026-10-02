@@ -10,7 +10,7 @@ export const NO_EXTRACTABLE_TEXT_MESSAGE =
   "Ce document semble être une image scannée ou ne contient pas de texte extractible. Pour l’instant, seuls les PDF avec du texte sélectionnable sont supportés. Essayez un PDF natif (non scanné) ou une version texte.";
 
 export const LIKELY_SCANNED_PDF_MESSAGE =
-  "Ce PDF ressemble à un scan (images de pages) : très peu de texte sélectionnable. DocMind ne lit pas encore les scans automatiquement. Solutions : ré-exporter le PDF avec OCR (Adobe Acrobat, Google Drive « Ouvrir avec Google Docs », ou l’app de votre scanner), ou utiliser un PDF généré depuis Word/LibreOffice.";
+  "Ce PDF ressemble à un scan (images de pages) : très peu de texte sélectionnable. Échélia ne lit pas encore les scans automatiquement. Solutions : ré-exporter le PDF avec OCR (Adobe Acrobat, Google Drive « Ouvrir avec Google Docs », ou l’app de votre scanner), ou utiliser un PDF généré depuis Word/LibreOffice.";
 
 /** Longueur utile du texte extrait (ignore espaces et marqueurs <<<PAGE n>>>). */
 export function countExtractableChars(text: string): number {

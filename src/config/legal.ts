@@ -1,15 +1,17 @@
+import { DEFAULT_LEGAL_CONTACT_EMAIL } from "@/config/domains";
+
 /** Infos légales exposées via env (pages publiques). */
 export function legalContactEmail(): string {
   return (
     process.env.NEXT_PUBLIC_LEGAL_CONTACT_EMAIL?.trim() ||
-    "contact@docmind.app"
+    DEFAULT_LEGAL_CONTACT_EMAIL
   );
 }
 
 export function legalEntityName(): string {
   return (
     process.env.NEXT_PUBLIC_LEGAL_ENTITY_NAME?.trim() ||
-    "DocMind (éditeur à compléter)"
+    "Échélia (éditeur à compléter)"
   );
 }
 

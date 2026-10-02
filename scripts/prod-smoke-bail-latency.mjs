@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const BASE = "https://docmind-blond.vercel.app";
+const BASE = "https://xn--chlia-9rac.com";
 const PDF = path.join(root, "e2e/fixtures/smoke-tmp/table-bail.pdf");
 
 function loadEnv() {

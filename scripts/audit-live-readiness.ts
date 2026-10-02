@@ -103,7 +103,7 @@ async function main() {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
           ? "SET"
           : "ABSENT",
-        webhookEndpoint: `${(process.env.NEXT_PUBLIC_APP_URL ?? "https://docmind-blond.vercel.app").replace(/\/$/, "")}/api/stripe/webhook`,
+        webhookEndpoint: `${(process.env.NEXT_PUBLIC_APP_URL ?? "https://xn--chlia-9rac.com").replace(/\/$/, "")}/api/stripe/webhook`,
       },
       null,
       2,

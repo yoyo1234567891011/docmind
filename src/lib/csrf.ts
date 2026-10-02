@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 
+import { knownProductionOrigins } from "@/config/domains";
 import { AppError } from "@/lib/errors";
 import { matchEvalApiKey } from "@/lib/auth/eval-key";
 
@@ -32,17 +33,21 @@ const CRITICAL_CSRF_PREFIXES = [
 const CRITICAL_CSRF_GET_PATHS = ["/api/account/export"];
 
 function appOrigins(): string[] {
-  const origins = new Set<string>();
+  const origins = new Set<string>(knownProductionOrigins());
   for (const raw of [
     process.env.NEXT_PUBLIC_APP_URL,
     process.env.EVAL_BASE_URL,
+    process.env.EXTRA_APP_ORIGINS,
   ]) {
-    const value = raw?.trim();
-    if (!value) continue;
-    try {
-      origins.add(new URL(value).origin);
-    } catch {
-      /* ignore */
+    if (!raw?.trim()) continue;
+    for (const part of raw.split(",")) {
+      const value = part.trim();
+      if (!value) continue;
+      try {
+        origins.add(new URL(value).origin);
+      } catch {
+        /* ignore */
+      }
     }
   }
   origins.add("http://127.0.0.1:3000");

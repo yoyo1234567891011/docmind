@@ -44,7 +44,7 @@ export function resolveCatalogRenewalAmountDue(
 }
 
 /**
- * Supprime les lignes en attente DocMind — elles polluent les factures de
+ * Supprime les lignes en attente Échélia — elles polluent les factures de
  * changement de plan (ex. +1,06 € + 34,99 € = 36,05 €).
  */
 export async function clearPendingDocmindAdjustmentItems(
@@ -120,7 +120,7 @@ export async function offsetDraftRenewalInvoiceToCatalog(
     invoice: invoice.id,
     amount: deltaCents,
     currency: (invoice.currency || "eur").toLowerCase(),
-    description: "Ajustement renouvellement — prix catalogue DocMind",
+    description: "Ajustement renouvellement — prix catalogue Échélia",
     metadata: { [DOCMIND_RENEWAL_OFFSET_META]: "true" },
   });
 

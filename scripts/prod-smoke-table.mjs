@@ -12,7 +12,7 @@ import PDFDocument from "pdfkit";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const BASE = "https://docmind-blond.vercel.app";
+const BASE = "https://xn--chlia-9rac.com";
 const OUT_DIR = path.join(root, "e2e", "fixtures", "smoke-tmp");
 
 const LABELS = {

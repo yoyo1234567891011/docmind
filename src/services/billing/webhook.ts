@@ -373,7 +373,7 @@ export async function processStripeWebhookEvent(
 }
 
 /**
- * Traite les événements Stripe utiles à l’abonnement DocMind.
+ * Traite les événements Stripe utiles à l’abonnement Échélia.
  * Les droits Premium sont toujours dérivés de l’état synchronisé (webhooks).
  */
 export async function handleStripeWebhookEvent(

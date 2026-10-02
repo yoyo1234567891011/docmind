@@ -6,7 +6,7 @@ import {
 } from "@/services/billing/store";
 
 /**
- * Crée ou récupère le customer Stripe lié au user DocMind.
+ * Crée ou récupère le customer Stripe lié au user Échélia.
  * Sous mutex : évite deux customers Stripe pour le même user.
  */
 export async function getOrCreateStripeCustomer(input: {

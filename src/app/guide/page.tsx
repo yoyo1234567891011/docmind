@@ -38,7 +38,7 @@ export default function GuidePage() {
               À quoi ça sert
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-[var(--foreground)]">
-              DocMind analyse vos documents pour faire ressortir les frais
+              Échélia analyse vos documents pour faire ressortir les frais
               cachés, délais, obligations et points à surveiller.
             </p>
           </article>

@@ -1,4 +1,4 @@
-import { getBillingPlan } from "@/config/billing";
+import { getBillingPlan, isPaidBillingPlanId } from "@/config/billing";
 import { isStripeConfigured } from "@/lib/stripe";
 import {
   hasPaidAccess,
@@ -64,7 +64,15 @@ export async function getBillingOverview(
     : hasPaidAccess(subscription.plan, subscription.status, {
         currentPeriodEnd: subscription.currentPeriodEnd,
       });
-  const plan = getBillingPlan(effectivePlan);
+  // Affichage : garder le nom du plan catalogue si past_due (pas « Gratuit silencieux »).
+  const displayPlanId =
+    entitlementsDevBypass
+      ? ("pro" as const)
+      : subscription.status === "past_due" &&
+          isPaidBillingPlanId(subscription.plan)
+        ? subscription.plan
+        : effectivePlan;
+  const plan = getBillingPlan(displayPlanId);
   const [invoices, upcomingInvoice] = await Promise.all([
     listUserInvoices(userId),
     getUserUpcomingInvoice(userId),

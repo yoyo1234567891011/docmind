@@ -2,12 +2,12 @@
 
 const FAQ_ITEMS = [
   {
-    q: "En quoi DocMind est différent de ChatGPT ?",
-    a: "ChatGPT est un chat généraliste où vous collez un PDF. DocMind construit une mémoire (fiches, alertes, recherche, historique) et prépare des actions. L’analyse passe par une API dédiée (Groq), pas par ChatGPT public.",
+    q: "En quoi Échélia est différent de ChatGPT ?",
+    a: "ChatGPT est un chat généraliste où vous collez un PDF. Échélia construit une mémoire (fiches, alertes, recherche, historique) et prépare des actions. L’analyse passe par une API dédiée (Groq), pas par ChatGPT public.",
   },
   {
     q: "Où vont mes documents ?",
-    a: "Vous téléversez un PDF : le texte est extrait sur nos serveurs, puis envoyé à Groq (États-Unis) pour l’analyse. DocMind n’utilise pas vos documents pour entraîner un modèle grand public. Consultez aussi la politique de confidentialité de Groq. Compte isolé : pas de partage entre utilisateurs.",
+    a: "Vous téléversez un PDF : le texte est extrait sur nos serveurs, puis envoyé à Groq (États-Unis) pour l’analyse. Échélia n’utilise pas vos documents pour entraîner un modèle grand public. Consultez aussi la politique de confidentialité de Groq. Compte isolé : pas de partage entre utilisateurs.",
   },
   {
     q: "Quels PDF sont acceptés ?",
@@ -15,7 +15,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Dois-je installer un logiciel ?",
-    a: "Non. DocMind fonctionne dans le navigateur. Créez un compte, déposez un PDF texte — l’analyse démarre automatiquement.",
+    a: "Non. Échélia fonctionne dans le navigateur. Créez un compte, déposez un PDF texte — l’analyse démarre automatiquement.",
   },
   {
     q: "Faut-il une carte bancaire pour commencer ?",
@@ -26,7 +26,7 @@ const FAQ_ITEMS = [
     a: "Oui. Depuis Facturation → portail Stripe : annulation en fin de période déjà payée. Aucun engagement long. Détails dans les CGV.",
   },
   {
-    q: "DocMind remplace-t-il un avocat ?",
+    q: "Échélia remplace-t-il un avocat ?",
     a: "Non. C’est un outil d’aide à la lecture et à l’organisation. Les conclusions restent à valider selon votre situation.",
   },
 ] as const;

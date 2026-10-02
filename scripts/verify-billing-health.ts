@@ -95,7 +95,7 @@ async function main() {
       );
     }
     if (scheduled && badge.id !== "canceling") {
-      issues.push(`badge attendu Expire bientôt, reçu ${badge.label}`);
+      issues.push(`badge attendu Résilié le JJ/MM, reçu ${badge.label}`);
     }
     if (
       !scheduled &&

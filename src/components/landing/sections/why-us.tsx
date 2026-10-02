@@ -1,7 +1,7 @@
 const REASONS = [
   {
     title: "Pas ChatGPT sur vos PDF",
-    text: "Vous n’avez pas à coller votre document dans un chat public. DocMind structure chaque PDF dans une mémoire privée (fiches, alertes, recherche, historique).",
+    text: "Vous n’avez pas à coller votre document dans un chat public. Échélia structure chaque PDF dans une mémoire privée (fiches, alertes, recherche, historique).",
   },
   {
     title: "Analyse dédiée, pas un chat grand public",

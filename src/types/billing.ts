@@ -1,4 +1,4 @@
-/** Plans produit DocMind. */
+/** Plans produit Échélia. */
 export type BillingPlanId =
   | "free"
   | "basique"

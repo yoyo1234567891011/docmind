@@ -460,7 +460,7 @@ export function AdminPanel() {
             <div className="space-y-3 rounded-xl border border-[var(--accent)]/30 bg-[var(--accent-soft)]/30 p-4">
               <p className="font-medium">IA cloud (production)</p>
               <p className="text-sm text-[var(--muted)]">
-                DocMind utilise{" "}
+                Échélia utilise{" "}
                 <strong>{data.llmRuntime.provider.toUpperCase()}</strong> en
                 production. Le modèle actif est{" "}
                 <code className="text-xs">{data.llmRuntime.model}</code>.

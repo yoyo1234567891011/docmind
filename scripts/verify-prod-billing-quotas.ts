@@ -12,7 +12,7 @@ loadEnvFiles();
 const BASE = (
   process.env.PROD_BASE_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  "https://docmind-blond.vercel.app"
+  "https://xn--chlia-9rac.com"
 ).replace(/\/$/, "");
 
 const PRICE_ID =

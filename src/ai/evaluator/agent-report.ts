@@ -133,7 +133,7 @@ export async function writeAgentHtmlReport(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Évaluation par agent — DocMind</title>
+  <title>Évaluation par agent — Échélia</title>
   <style>
     :root {
       --bg: #eef3f0;

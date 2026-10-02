@@ -41,7 +41,7 @@ export default function CgvPage() {
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Offres</h2>
         <p>
-          DocMind propose une offre Gratuite et des abonnements payants
+          Échélia propose une offre Gratuite et des abonnements payants
           mensuels (Basique, Pro, Premium, Extra). Les prix TTC, quotas
           (analyses, recherches, courriers) et fonctionnalités sont affichés
           sur la page d’accueil et sur{" "}
@@ -73,7 +73,7 @@ export default function CgvPage() {
       <section className="space-y-2 text-sm leading-relaxed">
         <h2 className="font-display text-2xl">Paiement</h2>
         <p>
-          Les paiements sont traités par Stripe. DocMind ne stocke pas les
+          Les paiements sont traités par Stripe. Échélia ne stocke pas les
           numéros de carte. En cas d’échec de paiement, l’accès au plan payant
           est suspendu (quotas de l’offre Gratuite) jusqu’à régularisation via
           le portail de facturation. Le statut « paiement en retard » reste

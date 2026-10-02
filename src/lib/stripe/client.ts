@@ -34,7 +34,7 @@ export function getStripe(): Stripe {
       apiVersion: "2026-06-24.dahlia",
       typescript: true,
       appInfo: {
-        name: "DocMind",
+        name: "Échélia",
         version: process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0",
       },
     });

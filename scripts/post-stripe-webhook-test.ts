@@ -8,7 +8,7 @@ loadEnvFiles();
 
 import Stripe from "stripe";
 
-const BASE = (process.argv[2] || "https://docmind-blond.vercel.app").replace(
+const BASE = (process.argv[2] || "https://xn--chlia-9rac.com").replace(
   /\/$/,
   "",
 );

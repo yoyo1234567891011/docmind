@@ -293,7 +293,7 @@ export function describePlanChangePreview(
   }
 
   lines.push(
-    "La confirmation et le paiement (carte / 3DS) se font sur une page Stripe — pas de prélèvement silencieux dans DocMind.",
+    "La confirmation et le paiement (carte / 3DS) se font sur une page Stripe — pas de prélèvement silencieux dans Échélia.",
   );
   lines.push(
     "Si vous refusez ou abandonnez la page Stripe, votre plan actuel reste inchangé.",

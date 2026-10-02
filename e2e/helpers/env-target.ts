@@ -78,9 +78,14 @@ export function assertNotProductionContamination(env: Record<string, string>): v
     );
   }
   const appUrl = env.NEXT_PUBLIC_APP_URL || "";
-  if (/docmind-blond\.vercel\.app/i.test(appUrl)) {
+  if (
+    /docmind-blond\.vercel\.app/i.test(appUrl) ||
+    /xn--chlia-9rac\.(com|fr)/i.test(appUrl) ||
+    /échélia\.(com|fr)/i.test(appUrl) ||
+    /echelia\.(com|fr)/i.test(appUrl)
+  ) {
     throw new Error(
-      "Refus E2E : NEXT_PUBLIC_APP_URL pointe vers l’hôte production/bêta Vercel. " +
+      "Refus E2E : NEXT_PUBLIC_APP_URL pointe vers l’hôte production (échélia / Vercel). " +
         "Utilisez http://127.0.0.1:<port> uniquement.",
     );
   }

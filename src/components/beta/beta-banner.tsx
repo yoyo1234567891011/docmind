@@ -36,7 +36,7 @@ export function BetaBanner() {
           <span className="font-medium text-[var(--accent)]">Bêta</span>
           {version ? ` · v${version}` : null}
           {" — "}
-          Merci de tester DocMind. Vos retours comptent.
+          Merci de tester Échélia. Vos retours comptent.
         </p>
         <div className="flex gap-3">
           <Link href="/feedback" className="text-[var(--accent)] hover:underline">

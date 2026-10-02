@@ -105,7 +105,7 @@ export function SignupForm() {
         {isLocalAuthOrigin(getAuthEmailRedirectOrigin()) ? (
           <p className="mt-3 rounded-lg bg-[var(--warning-soft)] px-3 py-2 text-sm text-[var(--warning)]">
             En local, le lien pointe vers <strong>127.0.0.1</strong>. Ouvrez-le
-            sur <strong>cet ordinateur</strong> (pas le téléphone), avec DocMind
+            sur <strong>cet ordinateur</strong> (pas le téléphone), avec Échélia
             démarré (<code className="text-xs">npm run dev</code>).
           </p>
         ) : null}

@@ -8,7 +8,7 @@ import { loadEnvFiles } from "./lib/load-env-files";
 
 loadEnvFiles();
 
-const BASE = "https://docmind-blond.vercel.app";
+const BASE = "https://xn--chlia-9rac.com";
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!.trim();

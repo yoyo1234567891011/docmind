@@ -1,6 +1,6 @@
 /**
  * ╔══════════════════════════════════════════════════════════════════════════╗
- * ║  DocMind — CONFIGURATION UNIQUE                                          ║
+ * ║  Échélia — CONFIGURATION UNIQUE                                          ║
  * ║  Édite CE FICHIER uniquement. Ne disperse plus les réglages ailleurs.    ║
  * ╚══════════════════════════════════════════════════════════════════════════╝
  *
@@ -218,9 +218,9 @@ export const docmindConfig = {
   },
 
   site: {
-    name: "DocMind",
+    name: "Échélia",
     description:
-      "Analysez vos PDF avec une IA locale : résumé, points clés, risques et actions.",
+      "Analysez vos PDF avec une IA : résumé, points clés, risques et actions.",
     locale: "fr-FR",
   },
 

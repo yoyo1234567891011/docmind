@@ -45,7 +45,7 @@ export function isMaintenanceMode(): boolean {
 export function getMaintenanceMessage(): string {
   return (
     process.env.MAINTENANCE_MESSAGE?.trim() ||
-    "DocMind est en maintenance. Merci de réessayer dans quelques minutes."
+    "Échélia est en maintenance. Merci de réessayer dans quelques minutes."
   );
 }
 

@@ -82,7 +82,7 @@ export async function clearCustomerBalanceBeforeFullPriceChange(
 }
 
 /**
- * Sanity check prorata : pas de ligne d’ajustement DocMind.
+ * Sanity check prorata : pas de ligne d’ajustement Échélia.
  * Ne compare PAS au prix catalogue plein.
  */
 export function assertProrationInvoiceSane(
@@ -93,7 +93,7 @@ export function assertProrationInvoiceSane(
     if (line.metadata?.docmind_renewal_offset === "true") {
       throw new AppError(
         "INTERNAL_ERROR",
-        `Ligne d'ajustement DocMind interdite sur une facture de changement de plan (${targetPlan}).`,
+        `Ligne d'ajustement Échélia interdite sur une facture de changement de plan (${targetPlan}).`,
         502,
       );
     }
@@ -134,7 +134,7 @@ export function assertFullCatalogInvoiceCharged(
     if (line.metadata?.docmind_renewal_offset === "true") {
       throw new AppError(
         "INTERNAL_ERROR",
-        `Ligne d'ajustement DocMind interdite sur une facture de changement de plan.`,
+        `Ligne d'ajustement Échélia interdite sur une facture de changement de plan.`,
         502,
       );
     }

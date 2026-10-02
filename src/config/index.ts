@@ -1,5 +1,5 @@
 /**
- * DocMind configuration barrel.
+ * Échélia configuration barrel.
  *
  * ▶ Edit all app settings in: `src/config/docmind.ts`
  */

@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function sitemap(): MetadataRoute.Sitemap {
   const base =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-    "http://127.0.0.1:3000";
+    "https://xn--chlia-9rac.com";
   const now = new Date();
   const paths: Array<{ path: string; priority: number; freq: "weekly" | "monthly" }> = [
     { path: "/", priority: 1, freq: "weekly" },
