@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { docmindConfig } from "@/config/docmind";
 import { trackClientAnalytics } from "@/lib/client/analytics";
 import {
-  getAuthEmailRedirectOrigin,
+  getAuthEmailRedirectTo,
   isLocalAuthOrigin,
+  getAuthEmailRedirectOrigin,
 } from "@/lib/auth/email-redirect";
 import { createClient } from "@/lib/supabase/client";
 
@@ -42,13 +43,16 @@ export function SignupForm() {
 
     try {
       const supabase = createClient();
-      const origin = getAuthEmailRedirectOrigin();
+      // Absolu → /auth/callback (jamais relatif / localhost / Vercel en dur)
+      const emailRedirectTo = getAuthEmailRedirectTo(
+        docmindConfig.auth.callbackPath,
+      );
       const { error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: { full_name: fullName.trim() },
-          emailRedirectTo: `${origin}${docmindConfig.auth.callbackPath}`,
+          emailRedirectTo,
         },
       });
 

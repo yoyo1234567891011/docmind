@@ -19,6 +19,7 @@ export function LoginForm() {
     docmindConfig.auth.afterLoginPath,
   );
   const configError = searchParams.get("error") === "supabase_config";
+  const callbackError = searchParams.get("error") === "auth_callback";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +29,9 @@ export function LoginForm() {
       ? "Supabase non configuré. Ajoutez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local."
       : authUnavailable
         ? "Authentification temporairement indisponible. Ce n'est pas un problème de mot de passe — réessayez dans quelques minutes."
-        : null,
+        : callbackError
+          ? "Lien invalide ou déjà utilisé. Renvoyez l’e-mail de confirmation."
+          : null,
   );
   const [loading, setLoading] = useState(false);
 
@@ -112,9 +115,24 @@ export function LoginForm() {
         </div>
 
         {error ? (
-          <p className="rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
-            {error}
-          </p>
+          <div className="space-y-2">
+            <p className="rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
+              {error}
+            </p>
+            {callbackError ? (
+              <p className="text-sm text-[var(--muted)]">
+                Pas reçu le mail ?{" "}
+                <Link
+                  href="/auth/signup"
+                  className="text-[var(--accent)] hover:underline"
+                >
+                  Renvoyer depuis l’inscription
+                </Link>
+                {" · "}
+                pensez aux spams (expéditeur : Échélia).
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         <Button type="submit" className="w-full" disabled={loading}>

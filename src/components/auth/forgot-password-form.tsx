@@ -7,7 +7,7 @@ import { AuthField } from "@/components/auth/auth-field";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { docmindConfig } from "@/config/docmind";
-import { getAuthEmailRedirectOrigin } from "@/lib/auth/email-redirect";
+import { getAuthEmailRedirectTo } from "@/lib/auth/email-redirect";
 import { createClient } from "@/lib/supabase/client";
 
 export function ForgotPasswordForm() {
@@ -23,11 +23,10 @@ export function ForgotPasswordForm() {
 
     try {
       const supabase = createClient();
-      const origin = getAuthEmailRedirectOrigin();
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
-          redirectTo: `${origin}${docmindConfig.auth.callbackPath}?next=/auth/reset-password`,
+          redirectTo: `${getAuthEmailRedirectTo(docmindConfig.auth.callbackPath)}?next=/auth/reset-password`,
         },
       );
 
