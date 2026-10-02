@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { AppChrome } from "@/components/layout/app-chrome";
@@ -69,6 +70,7 @@ export default function RootLayout({
           <PageViewTracker />
           <AppChrome>{children}</AppChrome>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
