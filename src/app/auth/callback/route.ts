@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Redirect créé d’abord — les cookies session y sont écrits (pattern SSR).
-  let redirectResponse = NextResponse.redirect(
+  const redirectResponse = NextResponse.redirect(
     new URL(
       `/auth/continue?next=${encodeURIComponent(next)}`,
       origin,
