@@ -74,7 +74,7 @@ export function SignupForm() {
     return (
       <AuthShell
         title="Vérifiez votre email"
-        subtitle="Un lien de confirmation vous a été envoyé."
+        subtitle="Un e-mail de confirmation vous a été envoyé."
         footer={
           <Link
             href="/auth/login"
@@ -84,10 +84,20 @@ export function SignupForm() {
           </Link>
         }
       >
-        <p className="text-sm text-[var(--muted)]">
-          Ouvrez le message envoyé à <strong>{email}</strong> pour activer votre
-          compte, puis connectez-vous.
-        </p>
+        <div
+          role="status"
+          className="rounded-xl border border-[color-mix(in_oklab,var(--warning)_45%,var(--border))] bg-[var(--warning-soft)] px-4 py-3 text-left text-sm leading-relaxed text-[var(--foreground)]"
+        >
+          <p>
+            Un e-mail de confirmation a été envoyé à{" "}
+            <strong className="break-all">{email.trim()}</strong>.
+          </p>
+          <p className="mt-2">Ouvrez-le pour activer votre compte.</p>
+          <p className="mt-2 font-medium">
+            S’il n’arrive pas en 1–2 minutes, regardez vos spams / courrier
+            indésirable (expéditeur : Échélia).
+          </p>
+        </div>
         {isLocalAuthOrigin(getAuthEmailRedirectOrigin()) ? (
           <p className="mt-3 rounded-lg bg-[var(--warning-soft)] px-3 py-2 text-sm text-[var(--warning)]">
             En local, le lien pointe vers <strong>127.0.0.1</strong>. Ouvrez-le

@@ -47,7 +47,7 @@ export function LoginForm() {
       if (signInError) {
         setError(
           signInError.message.includes("Email not confirmed")
-            ? "Confirmez votre email avant de vous connecter."
+            ? "Confirmez d’abord votre e-mail. Pensez à vérifier les spams (expéditeur : Échélia)."
             : "Email ou mot de passe incorrect.",
         );
         return;
