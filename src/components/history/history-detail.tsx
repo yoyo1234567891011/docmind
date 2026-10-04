@@ -375,6 +375,7 @@ export function HistoryDetail({ id }: HistoryDetailProps) {
         sheet={record.sheet}
         historyId={record.id}
         documentId={record.documentId}
+        fileName={record.fileName}
         relationsPhase={record.relationsPhase}
         phase={phase}
         backgroundPending={

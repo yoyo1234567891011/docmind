@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { Alert, Button, Skeleton } from "@/components/ui";
+import { filterRelationsForDisplay } from "@/lib/client/relations-display";
 import {
   applyDocumentRelationAction,
   fetchDocumentRelations,
@@ -15,6 +16,8 @@ import { cn } from "@/lib/utils";
 
 interface DocumentRelationsPanelProps {
   documentId: string;
+  /** Nom du PDF courant — ignore les auto-liens même fichier. */
+  fileName?: string | null;
   /** Phase initiale (history) — poll tant que pending. */
   relationsPhase?: "pending" | "ready" | "failed";
   className?: string;
@@ -187,6 +190,7 @@ function RelationCard({
 
 export function DocumentRelationsPanel({
   documentId,
+  fileName,
   relationsPhase: initialPhase,
   className,
 }: DocumentRelationsPanelProps) {
@@ -249,30 +253,15 @@ export function DocumentRelationsPanel({
   };
 
   const phase = data?.relationsPhase ?? initialPhase ?? "pending";
-  const relationsRaw = data?.relations ?? [];
-  // Ignorer auto-relations + une carte par (type, otherId).
-  const relations = (() => {
-    const seen = new Set<string>();
-    const out: RelationListItem[] = [];
-    for (const r of relationsRaw) {
-      const otherId =
-        [r.peer?.documentId, r.toDocId, r.fromDocId].find(
-          (id) => Boolean(id) && id !== documentId,
-        ) ?? null;
-      if (!otherId) continue;
-      if (r.fromDocId && r.toDocId && r.fromDocId === r.toDocId) continue;
-      if (r.peer?.documentId && r.peer.documentId === documentId) continue;
-      const key = `${r.type}::${otherId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(r);
-    }
-    return out;
-  })();
+  const relations = filterRelationsForDisplay(
+    data?.relations ?? [],
+    documentId,
+    fileName,
+  );
   const showSkeleton = loading || phase === "pending";
   const showFailed = !showSkeleton && phase === "failed" && relations.length === 0;
 
-  // Aucune relation réelle → ne pas afficher le bloc (pas de liste / puces vides).
+  // Aucune relation réelle → ne pas afficher la section.
   if (!showSkeleton && !error && !showFailed && relations.length === 0) {
     return null;
   }

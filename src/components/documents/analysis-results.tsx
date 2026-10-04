@@ -53,6 +53,8 @@ interface AnalysisResultsProps {
   /** Si présent, active l’agent de rédaction de courrier. */
   historyId?: string;
   documentId?: string;
+  /** Nom du PDF (filtre auto-relations à l’affichage). */
+  fileName?: string | null;
   /** preview = P1 locale ; complete = P2 juridique */
   phase?: "preview" | "complete";
   /** Analyse P2 encore en cours (false si échec ou terminé). */
@@ -713,6 +715,7 @@ export function AnalysisResults({
   sheet,
   historyId,
   documentId,
+  fileName,
   phase = "complete",
   backgroundPending,
   relationsPhase,
@@ -992,6 +995,7 @@ export function AnalysisResults({
             <div className="md:col-span-2">
               <DocumentRelationsPanel
                 documentId={documentId}
+                fileName={fileName ?? sheet?.fileName ?? null}
                 relationsPhase={relationsPhase}
               />
               <DocumentTimelinePanel documentId={documentId} className="mt-4" />

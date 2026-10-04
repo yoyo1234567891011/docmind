@@ -3,28 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { normalizeDisplayKey } from "@/ai/post-processing/display-cleanup";
 import { Alert, Skeleton } from "@/components/ui";
+import { dedupeTimelineEventsForDisplay } from "@/lib/client/relations-display";
 import {
   fetchDocumentTimeline,
   type TimelineEvent,
 } from "@/lib/client/memory-timeline";
 import { cn } from "@/lib/utils";
-
-/** Un événement par (type, date, docId, libellé normalisé). */
-function dedupeTimelineEvents(events: TimelineEvent[]): TimelineEvent[] {
-  const seen = new Set<string>();
-  const out: TimelineEvent[] = [];
-  for (const event of events) {
-    const dateKey = (event.at || "").slice(0, 10);
-    const labelKey = normalizeDisplayKey(event.label || "");
-    const key = `${event.kind}::${dateKey}::${event.documentId}::${labelKey}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(event);
-  }
-  return out;
-}
 
 interface DocumentTimelinePanelProps {
   documentId: string;
@@ -68,7 +53,7 @@ export function DocumentTimelinePanel({
     setError(null);
     try {
       const data = await fetchDocumentTimeline(documentId);
-      setEvents(dedupeTimelineEvents(data.events ?? []));
+      setEvents(dedupeTimelineEventsForDisplay(data.events ?? []));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Impossible de charger la timeline.",

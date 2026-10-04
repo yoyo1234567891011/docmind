@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/errors";
+import { normalizeRelationFileName } from "@/lib/client/relations-display";
 import { getMemoryDocument } from "@/services/memory/document-store";
 import { getDocsByCategory } from "@/services/memory/indexes";
 import {
@@ -219,14 +220,33 @@ export async function getRelationsForUi(
   const raw = await listRelationsForDoc(userId, documentId);
   const visible = raw.filter((r) => isVisible(r));
 
+  const currentFileName = normalizeRelationFileName(node?.fileName);
   const items: RelationListItem[] = [];
+  const seenTypePeer = new Set<string>();
   for (const rel of visible) {
+    // Auto-relation (même id) — jamais exposée à l’UI.
+    if (!rel.fromDocId || !rel.toDocId || rel.fromDocId === rel.toDocId) {
+      continue;
+    }
     const peerDocId =
       rel.fromDocId === documentId ? rel.toDocId : rel.fromDocId;
+    if (!peerDocId || peerDocId === documentId) continue;
+
+    const dedupeKey = `${rel.type}::${peerDocId}`;
+    if (seenTypePeer.has(dedupeKey)) continue;
+
     if (await isNegativeEdge(userId, documentId, peerDocId)) {
       if (rel.status === "proposed") continue;
     }
     const peer = await peerView(userId, peerDocId);
+    // Même nom de fichier que le document courant → auto-lien d’affichage.
+    if (
+      currentFileName &&
+      normalizeRelationFileName(peer.fileName) === currentFileName
+    ) {
+      continue;
+    }
+    seenTypePeer.add(dedupeKey);
     items.push({
       id: rel.id,
       type: rel.type,

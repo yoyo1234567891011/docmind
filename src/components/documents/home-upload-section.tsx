@@ -659,6 +659,11 @@ export function HomeUploadSection() {
             sheet={analysisResult.sheet}
             historyId={analysisResult.historyId}
             documentId={analysisResult.documentId}
+            fileName={
+              analysisResult.sheet?.fileName ??
+              uploadResult?.document.fileName ??
+              null
+            }
             phase={analysisResult.phase === "preview" ? "preview" : "complete"}
             backgroundPending={backgroundPending}
             onLetterDrafted={(letter) => {
