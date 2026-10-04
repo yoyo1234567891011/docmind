@@ -28,6 +28,7 @@ import type {
   DocumentAnalysis,
   DocumentClassification,
   RiskCriterionResult,
+  RiskFinding,
 } from "@/types";
 
 export const SUMMARY_PLACEHOLDER_RE =
@@ -66,9 +67,54 @@ const PRET_PRIORITY_AMOUNT_RE =
 const ASSURANCE_PRIORITY_AMOUNT_RE =
   /cotisation|franchise|prime|exclusion/i;
 
-/** Montants / libellés qui ne sont PAS des « frais cachés ». */
+/**
+ * Montants / libellés qui ne sont PAS des « frais cachés ».
+ * Attention : ne pas matcher « hors cotisation » (frais de gestion mutuelle).
+ */
 const NOT_HIDDEN_FEE_RE =
-  /principal(?:\s+d[ûu])?|taxe\s+fonci[eè]re|montant\s+[àa]\s+pr[ée]lever|montant\s+[àa]\s+(?:payer|r[ée]gler)|total\s+[àa]\s+r[ée]gler|total\s+r[ée]clam|total\s+ttc|net\s+[àa]\s+payer|solde\s+arr[eê]t|^\s*solde\b|salaire|loyer(?:\s+mensuel)?|charges\s+locatives|provisions?\s+pour\s+charges|d[ée]p[ôo]t\s+de\s+garantie|capital\s+emprunt|mensualit[ée]|aide\s+mensuelle|cotisation/i;
+  /principal(?:\s+d[ûu])?|taxe\s+fonci[eè]re|montant\s+[àa]\s+pr[ée]lever|montant\s+[àa]\s+(?:payer|r[ée]gler)|total\s+[àa]\s+r[ée]gler|total\s+r[ée]clam|total\s+ttc|net\s+[àa]\s+payer|solde\s+arr[eê]t|^\s*solde\b|salaire|loyer(?:\s+mensuel)?|charges\s+locatives|provisions?\s+pour\s+charges|d[ée]p[ôo]t\s+de\s+garantie|capital\s+emprunt|mensualit[ée]|aide\s+mensuelle|cotisation\s+(?:mensuelle|annuelle|[àa]\s+payer)/i;
+
+/** Vrais frais annexes / gestion — rester sous frais_caches (mutuelle / assurance). */
+export const REAL_HIDDEN_FEE_RE =
+  /frais\s+(?:de\s+)?gestion|frais\s+cach[eé]s|frais\s+annexes|contribution\s+aux\s+frais|hors\s+cotisation|frais\s+de\s+(?:dossier|adh[ée]sion|courtier)/i;
+
+/** Pénalité chiffrée assurance / mutuelle (radiation, résiliation…). */
+export const ASSURANCE_PENALTY_SIGNAL_RE =
+  /p[ée]nalit[ée].{0,40}\d|radiation|frais\s+de\s+r[ée]siliation.{0,20}\d|\d[\d\s.,]*\s*€.{0,40}(?:radiation|r[ée]siliation|p[ée]nalit)/i;
+
+/**
+ * Corrige le critère d’affichage pour un finding déjà persisté
+ * (ex. frais de gestion classés « obligations » via « hors cotisation »).
+ */
+export function normalizeFindingCriterionForDisplay(
+  finding: RiskFinding,
+): RiskFinding {
+  const blob = [
+    finding.description,
+    finding.why,
+    finding.excerpt,
+    finding.implication,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (!blob.trim()) return finding;
+
+  if (
+    finding.criterion_id === "obligations_importantes" &&
+    REAL_HIDDEN_FEE_RE.test(blob) &&
+    /\d/.test(blob)
+  ) {
+    return { ...finding, criterion_id: "frais_caches" };
+  }
+  if (
+    (finding.criterion_id === "obligations_importantes" ||
+      finding.criterion_id === "sanctions") &&
+    ASSURANCE_PENALTY_SIGNAL_RE.test(blob)
+  ) {
+    return { ...finding, criterion_id: "penalites" };
+  }
+  return finding;
+}
 
 /** Critères souvent déclenchés par le glossaire boilerplate des relevés bancaires. */
 const BANQUE_GLOSSARY_CRITERIA = new Set([
@@ -945,9 +991,11 @@ function finalizeAnalysisForProdUnchecked(
         return { ...finding, status: "rejected" as const };
       }
       // Principal / loyer / solde ne doivent jamais rester sous « frais cachés ».
+      // Exception : frais de gestion / hors cotisation (mutuelle) restent des frais.
       if (
         finding.criterion_id === "frais_caches" &&
         NOT_HIDDEN_FEE_RE.test(blob) &&
+        !REAL_HIDDEN_FEE_RE.test(blob) &&
         !/frais\s+de\s+relance|commission|franchise|frais\s+de\s+recouvrement|honoraires/i.test(
           blob,
         )
@@ -955,6 +1003,17 @@ function finalizeAnalysisForProdUnchecked(
         return {
           ...finding,
           criterion_id: "obligations_importantes" as const,
+        };
+      }
+      // Données déjà persistées : reclasse l’affichage métier (sans relancer P2).
+      if (
+        finding.criterion_id === "obligations_importantes" &&
+        REAL_HIDDEN_FEE_RE.test(blob) &&
+        /\d/.test(blob)
+      ) {
+        return {
+          ...finding,
+          criterion_id: "frais_caches" as const,
         };
       }
       // Copy « ce que ça change » hors contexte (huissier sur CAF, matériel sur fiscal…).

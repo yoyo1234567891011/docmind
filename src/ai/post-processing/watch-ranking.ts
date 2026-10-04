@@ -606,6 +606,37 @@ function factureTitlePriority(description: string): number {
   return 50;
 }
 
+/** Mutuelle / assurance : tacite, frais chiffrés, pénalités, carence. */
+export function assuranceTitlePriority(description: string): number {
+  const t = description.toLowerCase();
+  if (/tacite|reconduction|renouvellement\s+auto/.test(t)) return 0;
+  if (
+    /frais\s+(?:de\s+)?gestion|frais\s+cach[eé]s|frais\s+annexes|contribution\s+aux\s+frais|hors\s+cotisation/.test(
+      t,
+    ) &&
+    /\d/.test(t)
+  ) {
+    return 1;
+  }
+  if (
+    (/p[ée]nalit|radiation|frais\s+de\s+r[ée]siliation/.test(t) && /\d/.test(t)) ||
+    /\d[\d\s.,]*\s*€.{0,30}(?:radiation|p[ée]nalit)/.test(t)
+  ) {
+    return 2;
+  }
+  if (/carence/.test(t)) return 3;
+  if (/franchise|exclusion/.test(t)) return 4;
+  return 50;
+}
+
+export function isAssuranceFeeWatchTitle(description: string): boolean {
+  return assuranceTitlePriority(description) === 1;
+}
+
+export function isAssurancePenaltyWatchTitle(description: string): boolean {
+  return assuranceTitlePriority(description) === 2;
+}
+
 /** Titre hors sujet (totaux nationaux, TH, VL cadastrale…). */
 export function isNationalTaxNoiseTitle(description: string): boolean {
   if (
@@ -638,8 +669,35 @@ export function watchRankScore(
     }
   }
 
+  // Assurance / mutuelle : frais gestion + pénalités chiffrées dans le top.
+  if (family === "assurance") {
+    const ap = assuranceTitlePriority(finding.description);
+    if (ap < 50) {
+      return (
+        ap * 10 +
+        severityBoost(finding.severity) * 0.05 +
+        (1 - Math.min(1, Math.max(0, finding.confidence ?? 0.5)))
+      );
+    }
+  }
+
   const order = WATCH_CRITERION_ORDER_BY_FAMILY[family];
-  const id = finding.criterion_id;
+  // Affichage : frais mal classés en obligations restent traités comme frais_caches.
+  let id = finding.criterion_id;
+  if (
+    family === "assurance" &&
+    id === "obligations_importantes" &&
+    isAssuranceFeeWatchTitle(finding.description)
+  ) {
+    id = "frais_caches";
+  }
+  if (
+    family === "assurance" &&
+    (id === "obligations_importantes" || id === "sanctions") &&
+    isAssurancePenaltyWatchTitle(finding.description)
+  ) {
+    id = "penalites";
+  }
   const criterionIdx = id ? order.indexOf(id) : -1;
   const base =
     criterionIdx >= 0 ? criterionIdx * 10 : 200 + severityBoost(finding.severity);
@@ -908,6 +966,16 @@ export function rankFindingsForWatch(
     const ttc = out.filter((f) => isFactureTtcWatchTitle(f.description));
     const rest = out.filter((f) => !isFactureTtcWatchTitle(f.description));
     return [...ttc, ...rest].slice(0, limit);
+  }
+
+  if (family === "assurance" && out.length > 0) {
+    return [...out].sort((a, b) => {
+      const diff =
+        assuranceTitlePriority(a.description) -
+        assuranceTitlePriority(b.description);
+      if (diff !== 0) return diff;
+      return watchRankScore(a, family) - watchRankScore(b, family);
+    });
   }
 
   return out;

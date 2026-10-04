@@ -10,12 +10,17 @@ import {
   dedupeStringList,
 } from "@/ai/post-processing/display-cleanup";
 import {
+  assuranceTitlePriority,
   filterGenericImportantPoints,
+  isAssuranceFeeWatchTitle,
+  isAssurancePenaltyWatchTitle,
   rankFindingsForWatch,
+  resolveWatchDocFamily,
 } from "@/ai/post-processing/watch-ranking";
 import {
   buildWatchPointsFromCriteria,
   isProdDisplayNoise,
+  normalizeFindingCriterionForDisplay,
   resolveDisplaySummary,
   sanitizeProductionDeadlines,
   shouldShowWatchEmptyState,
@@ -266,6 +271,22 @@ function criterionPlainLabel(id: RiskCriterionId | undefined): string | null {
   }
 }
 
+/** Libellé UI : frais / pénalités mutuelle même si mal classés en obligations. */
+function watchCategoryLabel(
+  finding: RiskFinding,
+  family: ReturnType<typeof resolveWatchDocFamily>,
+): string | null {
+  if (family === "assurance") {
+    if (isAssuranceFeeWatchTitle(finding.description)) return "Frais cachés";
+    if (isAssurancePenaltyWatchTitle(finding.description)) return "Pénalités";
+    if (/carence/i.test(finding.description)) return "Délais";
+    if (/tacite|reconduction/i.test(finding.description)) {
+      return "Reconduction tacite";
+    }
+  }
+  return criterionPlainLabel(finding.criterion_id);
+}
+
 /** Titre court lisible (1 ligne). */
 function shortTitle(raw: string, max = 90): string {
   return cleanTitleForDisplay(raw, max);
@@ -306,13 +327,151 @@ type WatchPoint = {
   excerpt?: string;
 };
 
+/**
+ * Si le top persisté n’a que tacite/carence, remonte frais / pénalités
+ * depuis les findings restants ou les critères détectés (sans relancer P2).
+ */
+function supplementAssuranceWatchPoints(
+  points: WatchPoint[],
+  analysis: DocumentAnalysis,
+  family: ReturnType<typeof resolveWatchDocFamily>,
+): WatchPoint[] {
+  const hasFee = points.some((p) => isAssuranceFeeWatchTitle(p.title));
+  const hasPenalty = points.some((p) => isAssurancePenaltyWatchTitle(p.title));
+  if (hasFee && hasPenalty) return points;
+
+  const extras: WatchPoint[] = [];
+  const seen = new Set(points.map((p) => p.title.toLowerCase()));
+
+  const pushFinding = (finding: RiskFinding, keyPrefix: string) => {
+    const normalized = normalizeFindingCriterionForDisplay(finding);
+    const title = shortTitle(normalized.description);
+    if (!title || isProdDisplayNoise(title)) return;
+    if (seen.has(title.toLowerCase())) return;
+    const explanation = shortExplanation(normalized);
+    if (isProdDisplayNoise(explanation)) return;
+    seen.add(title.toLowerCase());
+    extras.push({
+      key: `${keyPrefix}-${title.slice(0, 24)}`,
+      category: watchCategoryLabel(normalized, family),
+      title,
+      explanation,
+      severity: normalized.severity,
+      finding: normalized,
+      excerpt:
+        cleanExcerptForDisplay(
+          normalized.citation?.excerpt || normalized.excerpt,
+        ) || undefined,
+    });
+  };
+
+  for (const finding of analysis.risk_findings ?? []) {
+    if (finding.status === "rejected") continue;
+    const desc = finding.description || "";
+    if (!hasFee && isAssuranceFeeWatchTitle(desc)) {
+      pushFinding(finding, "as-fee");
+    }
+    if (!hasPenalty && isAssurancePenaltyWatchTitle(desc)) {
+      pushFinding(finding, "as-pen");
+    }
+  }
+
+  for (const criterion of analysis.risk_criteria ?? []) {
+    if (!criterion.detected || criterion.score <= 0) continue;
+    const reason = (criterion.reasons ?? []).find(
+      (r) => typeof r === "string" && r.trim().length > 8,
+    );
+    if (!reason) continue;
+    if (
+      !hasFee &&
+      criterion.id === "frais_caches" &&
+      (isAssuranceFeeWatchTitle(reason) || /\d/.test(reason))
+    ) {
+      const title = shortTitle(
+        isAssuranceFeeWatchTitle(reason)
+          ? reason
+          : `Frais de gestion : ${reason.match(/[\d\s.,]+\s*€(?:\s*\/\s*mois)?/i)?.[0] ?? reason}`,
+      );
+      if (title && !seen.has(title.toLowerCase()) && !isProdDisplayNoise(title)) {
+        seen.add(title.toLowerCase());
+        extras.push({
+          key: `as-crit-fee-${title.slice(0, 20)}`,
+          category: "Frais cachés",
+          title,
+          explanation:
+            "Frais annexes ou de gestion repérés dans le contrat — à intégrer au coût réel.",
+          severity: criterion.score >= 8 ? "eleve" : "modere",
+        });
+      }
+    }
+    if (
+      !hasPenalty &&
+      criterion.id === "penalites" &&
+      (isAssurancePenaltyWatchTitle(reason) ||
+        (/p[ée]nalit|radiation/i.test(reason) && /\d/.test(reason)))
+    ) {
+      const title = shortTitle(reason);
+      if (title && !seen.has(title.toLowerCase()) && !isProdDisplayNoise(title)) {
+        seen.add(title.toLowerCase());
+        extras.push({
+          key: `as-crit-pen-${title.slice(0, 20)}`,
+          category: "Pénalités",
+          title,
+          explanation:
+            "Pénalité chiffrée prévue au contrat — à anticiper en cas de radiation ou résiliation.",
+          severity: criterion.score >= 8 ? "eleve" : "modere",
+        });
+      }
+    }
+  }
+
+  // Montants du résumé / liste si toujours manquant (ex. « 3,91 € » frais gestion).
+  if (!hasFee && !extras.some((e) => isAssuranceFeeWatchTitle(e.title))) {
+    for (const amount of analysis.amounts ?? []) {
+      if (typeof amount !== "string") continue;
+      if (
+        /frais|gestion|hors\s+cotisation/i.test(amount) &&
+        /\d/.test(amount)
+      ) {
+        const title = shortTitle(
+          /frais/i.test(amount) ? amount : `Frais de gestion : ${amount}`,
+        );
+        if (
+          title &&
+          !seen.has(title.toLowerCase()) &&
+          !isProdDisplayNoise(title)
+        ) {
+          seen.add(title.toLowerCase());
+          extras.push({
+            key: `as-amt-fee-${title.slice(0, 20)}`,
+            category: "Frais cachés",
+            title,
+            explanation:
+              "Frais de gestion ou annexes mentionnés hors cotisation.",
+            severity: "modere",
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  if (extras.length === 0) return points;
+  return dedupeDisplayItems([...points, ...extras], (p) => p.title);
+}
+
 function buildWatchPoints(
   analysis: DocumentAnalysis,
   classification?: DocumentClassification,
 ): WatchPoint[] {
-  const findings = (analysis.risk_findings ?? []).filter(
-    (f) => f.status !== "rejected",
-  );
+  const family = resolveWatchDocFamily({
+    category: classification?.category,
+    documentType: analysis.document_type,
+    title: analysis.title,
+  });
+  const findings = (analysis.risk_findings ?? [])
+    .filter((f) => f.status !== "rejected")
+    .map(normalizeFindingCriterionForDisplay);
   // Priorité aux findings confirmés ; sinon ambigus (évite « rien » avec score élevé).
   const confirmed = findings.filter((f) => f.status === "confirmed");
   const usable =
@@ -337,7 +496,7 @@ function buildWatchPoints(
     return [
       {
         key: `rf-${index}-${finding.description.slice(0, 20)}`,
-        category: criterionPlainLabel(finding.criterion_id),
+        category: watchCategoryLabel(finding, family),
         title,
         explanation,
         severity: finding.severity,
@@ -347,8 +506,28 @@ function buildWatchPoints(
     ];
   });
 
-  const dedupedFindings = dedupeDisplayItems(fromFindings, (p) => p.title);
-  if (dedupedFindings.length > 0) return dedupedFindings;
+  let dedupedFindings = dedupeDisplayItems(fromFindings, (p) => p.title);
+
+  // Assurance / mutuelle : compléter depuis critères si frais / pénalités absents du top.
+  if (family === "assurance") {
+    dedupedFindings = supplementAssuranceWatchPoints(
+      dedupedFindings,
+      analysis,
+      family,
+    );
+  }
+
+  if (dedupedFindings.length > 0) {
+    if (family === "assurance") {
+      return [...dedupedFindings]
+        .sort(
+          (a, b) =>
+            assuranceTitlePriority(a.title) - assuranceTitlePriority(b.title),
+        )
+        .slice(0, 8);
+    }
+    return dedupedFindings;
+  }
 
   // Fallback : points importants / risques texte (P1 ou bundle sans findings)
   const importantTitles = filterGenericImportantPoints(

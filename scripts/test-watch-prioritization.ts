@@ -516,6 +516,62 @@ Pénalités de retard : 40 € par mois de retard.
   }
 }
 
+// Mutuelle : tacite + frais gestion + pénalité radiation + carence dans le top
+{
+  const mutuelleFindings = [
+    {
+      criterion_id: "renouvellement_tacite" as const,
+      description: "Reconduction tacite annuelle",
+      severity: "eleve" as const,
+      confidence: 0.9,
+      status: "confirmed" as const,
+      why: "Renouvellement automatique.",
+      excerpt: "reconduction tacite",
+    },
+    {
+      criterion_id: "delais" as const,
+      description: "Délai de carence : 3 mois",
+      severity: "modere" as const,
+      confidence: 0.85,
+      status: "confirmed" as const,
+      why: "Carence avant garanties.",
+      excerpt: "délai de carence de 3 mois",
+    },
+    // Cas réel : frais classés à tort en obligations (hors cotisation).
+    {
+      criterion_id: "obligations_importantes" as const,
+      description: "Frais cachés: 3,91 €/mois",
+      severity: "eleve" as const,
+      confidence: 0.9,
+      status: "confirmed" as const,
+      why: "Frais de gestion hors cotisation.",
+      excerpt: "frais de gestion de 3,91 € / mois hors cotisation",
+    },
+    {
+      criterion_id: "penalites" as const,
+      description: "Pénalité de radiation : 25 €",
+      severity: "eleve" as const,
+      confidence: 0.88,
+      status: "confirmed" as const,
+      why: "Pénalité en cas de radiation.",
+      excerpt: "pénalité de 25 € en cas de radiation",
+    },
+  ];
+  const ranked = rankFindingsForWatch(mutuelleFindings, {
+    category: "assurance",
+    documentType: "Mutuelle",
+    title: "Contrat mutuelle",
+  });
+  const top = titles(ranked).slice(0, 6);
+  console.log("MUTUELLE_TOP", top);
+  assert.ok(top.some((t) => /tacite|reconduction/i.test(t)), "tacite");
+  assert.ok(top.some((t) => /3[,.]91|frais/i.test(t)), "frais 3,91");
+  assert.ok(top.some((t) => /25|p[ée]nalit|radiation/i.test(t)), "pénalité 25");
+  assert.ok(top.some((t) => /carence/i.test(t)), "carence");
+  const feeIdx = ranked.findIndex((f) => /3[,.]91|frais/i.test(f.description));
+  assert.ok(feeIdx >= 0 && feeIdx < 4, "frais dans le top");
+}
+
 console.log("OK watch prioritization by document family");
 
 const EDF_FACTURE = `
