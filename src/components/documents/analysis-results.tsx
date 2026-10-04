@@ -5,7 +5,6 @@ import {
   cleanActionsForDisplay,
   cleanExcerptForDisplay,
   cleanProseForDisplay,
-  cleanSummaryForDisplay,
   cleanTitleForDisplay,
   dedupeDisplayItems,
   dedupeStringList,
@@ -738,7 +737,7 @@ export function AnalysisResults({
       className={cn("w-full space-y-8", className)}
       aria-label="Résultat d'analyse"
     >
-      {/* En-tête léger */}
+      {/* En-tête léger — TTS hors carte résumé (chrome UI ≠ texte d’analyse) */}
       <div className="flex flex-wrap items-end justify-between gap-4 text-left">
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-[2.25rem] leading-[1.08] tracking-[-0.025em] text-[var(--foreground)] sm:text-[2.5rem]">
@@ -761,33 +760,15 @@ export function AnalysisResults({
           ) : null}
         </div>
 
-        <div className="rounded-[var(--radius-lg)] border border-[var(--hairline)] bg-[var(--surface)] px-4 py-2.5 text-left shadow-[var(--highlight),var(--shadow-xs)]">
-          <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
-            Type de document
-          </p>
-          <p className="mt-0.5 text-sm font-medium text-[var(--foreground)]">
-            {documentType}
-          </p>
-        </div>
-      </div>
-
-      {/* 1. Résumé — héros */}
-      <section
-        className="ui-card-elevated animate-fade-up relative isolate overflow-hidden rounded-[var(--radius-2xl)] px-5 py-7 text-left sm:px-9 sm:py-9"
-        aria-labelledby="analysis-summary-heading"
-      >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_70%_at_0%_0%,color-mix(in_oklab,var(--accent)_9%,transparent),transparent_65%)]"
-        />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,var(--accent),color-mix(in_oklab,var(--accent)_20%,transparent)_60%,transparent)]"
-        />
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--accent)]">
-            Résumé
-          </p>
+        <div className="flex flex-col items-stretch gap-3 sm:items-end">
+          <div className="rounded-[var(--radius-lg)] border border-[var(--hairline)] bg-[var(--surface)] px-4 py-2.5 text-left shadow-[var(--highlight),var(--shadow-xs)] sm:text-right">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
+              Type de document
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-[var(--foreground)]">
+              {documentType}
+            </p>
+          </div>
           <AnalysisTtsButton
             documentKey={documentId ?? historyId ?? summaryTitle}
             title={summaryTitle}
@@ -799,6 +780,25 @@ export function AnalysisResults({
             actions={ttsActions}
           />
         </div>
+      </div>
+
+      {/* 1. Résumé — héros (texte d’analyse uniquement) */}
+      <section
+        className="ui-card-elevated animate-fade-up relative isolate overflow-hidden rounded-[var(--radius-2xl)] px-5 py-7 text-left sm:px-9 sm:py-9"
+        aria-labelledby="analysis-summary-heading"
+        data-analysis-summary
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_55%_70%_at_0%_0%,color-mix(in_oklab,var(--accent)_9%,transparent),transparent_65%)]"
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-[linear-gradient(90deg,var(--accent),color-mix(in_oklab,var(--accent)_20%,transparent)_60%,transparent)]"
+        />
+        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--accent)]">
+          Résumé
+        </p>
         <h3
           id="analysis-summary-heading"
           className="mt-3 font-display text-[1.75rem] leading-[1.15] tracking-[-0.02em] text-[var(--foreground)] sm:text-[2.125rem]"
@@ -806,7 +806,10 @@ export function AnalysisResults({
           {summaryTitle}
         </h3>
         {summary || isPreviewLoading || isPreview ? (
-          <p className="mt-5 max-w-3xl text-base leading-[1.7] text-[var(--foreground)] sm:text-[1.0625rem]">
+          <p
+            className="mt-5 max-w-3xl text-base leading-[1.7] text-[var(--foreground)] sm:text-[1.0625rem]"
+            data-testid="analysis-summary-text"
+          >
             {summary ||
               (isPreviewLoading
                 ? "Aperçu en cours — un résumé plus complet arrivera après l’analyse (1 à 3 minutes)."

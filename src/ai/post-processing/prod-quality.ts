@@ -1,6 +1,7 @@
 import {
   cleanActionsForDisplay,
   cleanSummaryForDisplay,
+  stripTtsUiChrome,
 } from "@/ai/post-processing/display-cleanup";
 import {
   familyImplicationFallback,
@@ -741,7 +742,8 @@ export function resolveDisplaySummary(
     return cleaned;
   }
 
-  const raw = analysis.summary?.trim() ?? "";
+  // Même chemin « relaxed » : jamais de chrome TTS / UI dans le résumé affiché.
+  const raw = stripTtsUiChrome(analysis.summary?.trim() ?? "");
   if (raw && !SUMMARY_PLACEHOLDER_RE.test(raw)) {
     const relaxed = raw.replace(/\s+/g, " ").slice(0, 360);
     if (

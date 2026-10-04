@@ -249,8 +249,6 @@ export function AnalysisTtsButton({
     const ok = hasSpeechSynthesis();
     setCanSpeak(ok);
     setUnsupported(!ok);
-    // DEBUG temporaire
-    console.log(`TTS mount canSpeak=${ok}`);
     if (!ok) return;
     const refresh = () => {
       voiceRef.current = pickFrenchVoice();
@@ -282,8 +280,13 @@ export function AnalysisTtsButton({
 
   const ready = canSpeak && script.length > 0;
 
+  // Chrome UI uniquement — jamais lu / exporté avec le résumé d’analyse.
   const disclaimer = (
-    <p className="max-w-[18rem] text-xs leading-snug text-[var(--muted)] sm:max-w-[14rem] sm:text-right">
+    <p
+      aria-hidden="true"
+      data-ui-chrome="tts-disclaimer"
+      className="max-w-[18rem] text-xs leading-snug text-[var(--muted)] sm:max-w-[14rem] sm:text-right"
+    >
       La voix est celle de votre appareil (qualité variable selon téléphone,
       ordinateur et navigateur).
     </p>

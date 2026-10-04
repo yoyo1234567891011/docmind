@@ -830,5 +830,14 @@ function scrubNoiseProseFragments(text: string): string {
 export function scrubDisplayProse(text: string): string {
   if (typeof text !== "string") return "";
   if (!text.trim()) return text;
-  return scrubNoiseProseFragments(scrubAbsurdAmountsInText(text));
+  // Chrome UI TTS — ne doit jamais entrer en summary / mémoire / keywords.
+  const withoutTts = text
+    .replace(
+      /\s*La voix est celle de votre appareil\s*\([^)]*\)\.?/gi,
+      " ",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!withoutTts) return "";
+  return scrubNoiseProseFragments(scrubAbsurdAmountsInText(withoutTts));
 }

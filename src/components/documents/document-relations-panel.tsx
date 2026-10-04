@@ -250,13 +250,19 @@ export function DocumentRelationsPanel({
 
   const phase = data?.relationsPhase ?? initialPhase ?? "pending";
   const relationsRaw = data?.relations ?? [];
-  // Une carte par couple (type + document lié) — évite 2× « doublon ».
+  // Ignorer auto-relations + une carte par (type, otherId).
   const relations = (() => {
     const seen = new Set<string>();
     const out: RelationListItem[] = [];
     for (const r of relationsRaw) {
-      const peerId = r.peer?.documentId || r.toDocId || r.fromDocId || r.id;
-      const key = `${r.type}::${peerId}`;
+      const otherId =
+        [r.peer?.documentId, r.toDocId, r.fromDocId].find(
+          (id) => Boolean(id) && id !== documentId,
+        ) ?? null;
+      if (!otherId) continue;
+      if (r.fromDocId && r.toDocId && r.fromDocId === r.toDocId) continue;
+      if (r.peer?.documentId && r.peer.documentId === documentId) continue;
+      const key = `${r.type}::${otherId}`;
       if (seen.has(key)) continue;
       seen.add(key);
       out.push(r);
@@ -264,12 +270,12 @@ export function DocumentRelationsPanel({
     return out;
   })();
   const showSkeleton = loading || phase === "pending";
-  const showEmpty =
-    !showSkeleton &&
-    !error &&
-    phase === "ready" &&
-    relations.length === 0;
   const showFailed = !showSkeleton && phase === "failed" && relations.length === 0;
+
+  // Aucune relation réelle → ne pas afficher le bloc (pas de liste / puces vides).
+  if (!showSkeleton && !error && !showFailed && relations.length === 0) {
+    return null;
+  }
 
   return (
     <section
@@ -304,23 +310,10 @@ export function DocumentRelationsPanel({
           </p>
         ) : null}
 
-        {showEmpty ? (
-          <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-5">
-            <p className="text-sm text-[var(--foreground)]">
-              Aucun lien pertinent pour l’instant.
-            </p>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              {data && data.sameCategoryCount > 0
-                ? `${data.sameCategoryCount} document${data.sameCategoryCount > 1 ? "s" : ""} dans la même catégorie — aucun doublon ni renouvellement détecté.`
-                : "Ajoutez d’autres documents pour détecter doublons, renouvellements et contreparties communes."}
-            </p>
-          </div>
-        ) : null}
-
         {!showSkeleton && relations.length > 0 ? (
           <ul className="space-y-3">
             {relations.map((item) => (
-              <li key={item.id}>
+              <li key={`${item.type}::${item.peer?.documentId || item.id}`}>
                 <RelationCard
                   item={item}
                   documentId={documentId}

@@ -31,6 +31,19 @@ const LEADING_STOP_TOKEN =
 
 const WORD_CHARS = /^[\p{L}\p{N}'’\-]+$/u;
 
+/**
+ * Chrome UI TTS (analysis-tts-button) — ne doit jamais polluer
+ * summary / mémoire / keywords / export.
+ */
+const TTS_UI_CHROME_RE =
+  /\s*La voix est celle de votre appareil\s*\([^)]*\)\.?/gi;
+
+/** Retire le disclaimer lecteur vocal s’il a fuité dans une prose métier. */
+export function stripTtsUiChrome(raw: string): string {
+  if (typeof raw !== "string" || !raw) return "";
+  return raw.replace(TTS_UI_CHROME_RE, " ").replace(/\s+/g, " ").trim();
+}
+
 /** Normalise pour comparer deux libellés (dédup soft). */
 export function normalizeDisplayKey(text: string): string {
   if (typeof text !== "string") return "";
@@ -84,6 +97,8 @@ export function startsWithBrokenFragment(text: string): boolean {
   if (!t) return true;
   if (/^['’]/.test(t)) return true;
   if (BROKEN_WORD_PREFIX.test(t)) return true;
+  // Slash / ponctuation / symbole en tête (ex. « / an Clauses… »)
+  if (/^[/\\|#$&*=~<>[\]{}()]+/.test(t)) return true;
   if (/^[.,;:!?…]/.test(t)) return true;
 
   const first = (t.split(/\s+/)[0] ?? "")
@@ -95,6 +110,12 @@ export function startsWithBrokenFragment(text: string): boolean {
     /^[a-zàâäéèêëïîôùûüç]/u.test(first) &&
     looksLikeTruncatedWord(first) &&
     !LEADING_STOP.test(first)
+  ) {
+    return true;
+  }
+  // Unité orpheline avant une majuscule (« an Clauses sensibles »)
+  if (
+    /^(?:an|ans|mois|jours?|eur|€|%|ht|ttc)\s+[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ«"]/i.test(t)
   ) {
     return true;
   }
@@ -166,8 +187,13 @@ function stripMidSentenceLead(raw: string): string {
 }
 
 function stripLeadingJunk(raw: string): string {
-  let t = normalizeSpaces(raw);
-  t = t.replace(/^[•\-–—:,.;…«"']+\s*/, "").trim();
+  let t = normalizeSpaces(stripTtsUiChrome(raw));
+  t = t.replace(/^[•\-–—:,.;…«"'/\\|#$&*=~<>]+\s*/, "").trim();
+  // « / an Clauses » → « Clauses… »
+  t = t.replace(
+    /^(?:an|ans|mois|jours?|eur|€|%|ht|ttc)\s+(?=[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ«"])/i,
+    "",
+  );
   t = stripMidSentenceLead(t);
   t = stripBrokenLeadingFragments(t);
 
@@ -257,15 +283,17 @@ export function cleanSummaryForDisplay(
   raw: string | undefined | null,
 ): string | null {
   if (!raw?.trim()) return null;
+  const withoutChrome = stripTtsUiChrome(raw);
+  if (!withoutChrome) return null;
   // Fragment ultra-court type « Le relev » → masquer
   if (
-    endsWithIncompleteToken(raw) &&
-    normalizeSpaces(raw).length < 40 &&
-    lastSentenceEndIndex(raw) < 0
+    endsWithIncompleteToken(withoutChrome) &&
+    normalizeSpaces(withoutChrome).length < 40 &&
+    lastSentenceEndIndex(withoutChrome) < 0
   ) {
     return null;
   }
-  const cleaned = cleanProseForDisplay(raw, { minLength: 28 });
+  const cleaned = cleanProseForDisplay(withoutChrome, { minLength: 28 });
   if (!cleaned) return null;
   if (startsWithBrokenFragment(cleaned) || endsWithIncompleteToken(cleaned)) {
     return null;

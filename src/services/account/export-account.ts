@@ -1,5 +1,6 @@
 import { access, readFile } from "fs/promises";
 
+import { stripTtsUiChrome } from "@/ai/post-processing/display-cleanup";
 import { usePersistentStorage } from "@/config/persistence";
 import { AppError } from "@/lib/errors";
 import { buildZipBuffer } from "@/lib/zip";
@@ -24,6 +25,24 @@ import {
   listRelationsForDoc,
 } from "@/services/memory";
 import { getMemoryDocument } from "@/services/memory/document-store";
+import type { HistoryRecord } from "@/types";
+
+/** Export : jamais de chrome TTS dans summary / fiche. */
+function sanitizeRecordForExport(record: HistoryRecord): HistoryRecord {
+  const analysis = record.analysis
+    ? {
+        ...record.analysis,
+        summary: stripTtsUiChrome(record.analysis.summary ?? ""),
+      }
+    : record.analysis;
+  const sheet = record.sheet
+    ? {
+        ...record.sheet,
+        summary: stripTtsUiChrome(record.sheet.summary ?? ""),
+      }
+    : record.sheet;
+  return { ...record, analysis, sheet };
+}
 
 async function loadExportPdf(
   userId: string,
@@ -176,9 +195,10 @@ export async function buildUserDataExportZip(userId: string): Promise<{
   }
 
   for (const record of history) {
+    const safe = sanitizeRecordForExport(record);
     entries.push({
       path: `history/${record.id}.json`,
-      data: JSON.stringify(record, null, 2),
+      data: JSON.stringify(safe, null, 2),
     });
     const pdf = await loadExportPdf(userId, record.documentId);
     if (!pdf) continue;

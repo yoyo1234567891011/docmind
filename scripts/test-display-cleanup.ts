@@ -155,6 +155,30 @@ assert(titleOk.length > 0, "title should survive");
 const titleBad = cleanTitleForDisplay("Le relev");
 assert(titleBad === "" || !endsWithIncompleteToken(titleBad), `bad title: « ${titleBad} »`);
 
+// TTS chrome UI ne doit jamais rester dans un résumé
+const ttsPolluted = cleanSummaryForDisplay(
+  "Contrat mutuelle avec cotisation mensuelle. La voix est celle de votre appareil (qualité variable selon téléphone, ordinateur et navigateur).",
+);
+assert(ttsPolluted !== null, "summary with TTS chrome should survive after strip");
+assert(
+  ttsPolluted !== null && !/voix est celle/i.test(ttsPolluted),
+  `TTS chrome leaked into summary: « ${ttsPolluted} »`,
+);
+
+// Extrait coupant au milieu (« / an Clauses… »)
+const slashExcerpt = cleanExcerptForDisplay(
+  "/ an Clauses sensibles : résiliation et cotisation.",
+);
+assert(
+  slashExcerpt === null ||
+    (!startsWithBrokenFragment(slashExcerpt) && !/^\//.test(slashExcerpt) && !/^an\b/i.test(slashExcerpt)),
+  `slash mid-word excerpt bad: « ${slashExcerpt} »`,
+);
+assert(
+  startsWithBrokenFragment("/ an Clauses sensibles") === true,
+  "slash+an must be broken fragment",
+);
+
 console.log("OK display-cleanup truncate", {
   badSummary,
   goodSummary,

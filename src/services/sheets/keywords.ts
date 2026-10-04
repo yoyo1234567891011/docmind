@@ -1,3 +1,4 @@
+import { stripTtsUiChrome } from "@/ai/post-processing/display-cleanup";
 import type { DocumentAnalysis, DocumentClassification } from "@/types";
 
 const STOPWORDS = new Set(
@@ -138,7 +139,7 @@ export function extractSheetKeywords(
     if (f.criterion_id) bag.push(f.criterion_id.replace(/_/g, " "));
   }
 
-  bag.push(...tokenize(analysis.summary ?? "").slice(0, 24));
+  bag.push(...tokenize(stripTtsUiChrome(analysis.summary ?? "")).slice(0, 24));
 
   const seen = new Set<string>();
   const out: string[] = [];

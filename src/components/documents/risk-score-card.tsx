@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import {
+  cleanExcerptForDisplay,
   cleanProseForDisplay,
   endsWithIncompleteToken,
   startsWithBrokenFragment,
@@ -43,10 +44,16 @@ function getLevelMeta(level: RiskAssessment["risk_level"]) {
   }
 }
 
+/** Preuves / raisons du score : même cleanup que les extraits de risques. */
 function cleanReason(raw: string): string | null {
+  const asExcerpt = cleanExcerptForDisplay(raw);
+  if (asExcerpt) return asExcerpt;
   const cleaned = cleanProseForDisplay(raw, { minLength: 12 });
   if (!cleaned) return null;
   if (endsWithIncompleteToken(cleaned) || startsWithBrokenFragment(cleaned)) {
+    return null;
+  }
+  if (/^[/\\|]|^(?:an|ans)\s+[A-ZÀÂÄÉÈÊËÏÎÔÙÛÜÇ]/i.test(cleaned)) {
     return null;
   }
   return cleaned;
@@ -55,14 +62,15 @@ function cleanReason(raw: string): string | null {
 function cleanExplanation(raw: string): string {
   const lines = raw
     .split(/\n+/)
-    .map((line) => cleanProseForDisplay(line, { minLength: 12 }))
+    .map((line) => cleanExcerptForDisplay(line) ?? cleanProseForDisplay(line, { minLength: 12 }))
     .filter((line): line is string => Boolean(line))
     .filter(
       (line) =>
         !endsWithIncompleteToken(line) && !startsWithBrokenFragment(line),
     );
   if (lines.length > 0) return lines.join("\n");
-  const whole = cleanProseForDisplay(raw, { minLength: 12 });
+  const whole =
+    cleanExcerptForDisplay(raw) ?? cleanProseForDisplay(raw, { minLength: 12 });
   if (
     whole &&
     !endsWithIncompleteToken(whole) &&

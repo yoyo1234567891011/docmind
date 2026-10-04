@@ -1,3 +1,4 @@
+import { stripTtsUiChrome } from "@/ai/post-processing/display-cleanup";
 import { extractEuroAmounts } from "@/services/search/parse-values";
 import {
   computeSheetConfidence,
@@ -58,7 +59,7 @@ export function buildDocumentSheetFromAnalysis(
     type: analysis.document_type || input.classification.label,
     category: input.classification.category,
     categoryLabel: input.classification.label,
-    summary: analysis.summary?.trim() || "",
+    summary: stripTtsUiChrome(analysis.summary ?? ""),
     people: uniqueStrings(analysis.people ?? []),
     organizations: uniqueStrings(analysis.organizations ?? []),
     amounts,
