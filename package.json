@@ -2,7 +2,7 @@
   "name": "docmind",
   "version": "0.1.0",
   "private": true,
-  "description": "DocMind - analyse de PDF avec IA locale (Ollama)",
+  "description": "Échélia — analyse de PDF avec IA (documents, risques, échéances)",
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:next": "next dev --turbopack -H 0.0.0.0 -p 3000",

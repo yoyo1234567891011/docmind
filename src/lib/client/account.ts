@@ -48,7 +48,7 @@ export async function downloadAccountExport(): Promise<void> {
   const blob = await response.blob();
   const disposition = response.headers.get("Content-Disposition") || "";
   const match = /filename="([^"]+)"/.exec(disposition);
-  const fileName = match?.[1] || "docmind-export.zip";
+  const fileName = match?.[1] || "echelia-export.zip";
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

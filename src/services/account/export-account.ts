@@ -216,7 +216,7 @@ export async function buildUserDataExportZip(userId: string): Promise<{
   const stamp = exportedAt.replace(/[:.]/g, "-");
   return {
     buffer,
-    fileName: `docmind-export-${userId.slice(0, 8)}-${stamp}.zip`,
+    fileName: `echelia-export-${userId.slice(0, 8)}-${stamp}.zip`,
     entryCount: entries.length,
   };
 }

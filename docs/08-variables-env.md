@@ -12,7 +12,7 @@ Copier vers `.env.local` en développement.
 | `NEXT_PUBLIC_APP_URL` | URL publique (Stripe redirects) — **obligatoire** en deploy. Prod : `https://xn--chlia-9rac.com` (échélia.com) |
 | `EXTRA_APP_ORIGINS` | Origines CSRF additionnelles (virgules), ex. `https://xn--chlia-9rac.fr` |
 | `RESEND_API_KEY` | Clé API Resend (emails) |
-| `RESEND_FROM_EMAIL` | Expéditeur vérifié, ex. `DocMind <notifications@échélia.com>` |
+| `RESEND_FROM_EMAIL` | Expéditeur vérifié, ex. `Échélia <notifications@échélia.com>` |
 | `DOCMIND_SKIP_ENV_ASSERT` | `1` = saute l’assert boot (CI seulement) |
 | `MAINTENANCE_MODE` | Active la page maintenance |
 | `MAINTENANCE_MESSAGE` | Message affiché |
@@ -44,14 +44,14 @@ Défaut contact : `contact@échélia.com`
 | Variable | Description |
 |----------|-------------|
 | `RESEND_API_KEY` | Clé API Resend |
-| `RESEND_FROM_EMAIL` | Expéditeur, ex. `DocMind <notifications@échélia.com>` |
+| `RESEND_FROM_EMAIL` | Expéditeur, ex. `Échélia <notifications@échélia.com>` |
 
 ### Setup Resend (échélia.com)
 
 1. Resend → Domains → Add `échélia.com` (ou sous-domaine `notifications.échélia.com`).
 2. Ajouter les enregistrements DNS (SPF, DKIM, éventuellement DMARC) indiqués par Resend.
 3. Attendre le statut **Verified**.
-4. Sur Vercel : `RESEND_API_KEY` + `RESEND_FROM_EMAIL=DocMind <notifications@échélia.com>`.
+4. Sur Vercel : `RESEND_API_KEY` + `RESEND_FROM_EMAIL=Échélia <notifications@échélia.com>`.
 5. Redeploy. Sans clé → canal email reste en stub (outbox seulement).
 
 ## Ollama
