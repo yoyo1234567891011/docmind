@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { BrandLockup } from "@/components/brand/brand-lockup";
 import { LandingSectionLink } from "@/components/landing/landing-section-link";
-import { AnalyzeIcon, CloseIcon, MenuIcon } from "@/components/ui/icons";
-import { siteConfig } from "@/config/site";
+import { CloseIcon, MenuIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -48,19 +48,11 @@ export function LandingNav() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-5 sm:px-6">
         <LandingSectionLink
           sectionId="top"
-          className="group flex items-center gap-2.5 rounded-[var(--radius-md)]"
+          className="group flex items-center rounded-[var(--radius-md)] transition-opacity hover:opacity-90"
           onNavigate={() => setMenuOpen(false)}
+          aria-label="Échélia — accueil"
         >
-          <span
-            aria-hidden
-            className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[0.45rem] bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[inset_0_1px_0_color-mix(in_oklab,white_25%,transparent),var(--shadow-accent)] transition-transform duration-300 ease-[var(--ease-spring)] group-hover:scale-105"
-          >
-            <span className="absolute inset-0 bg-[linear-gradient(160deg,color-mix(in_oklab,white_22%,transparent),transparent_55%)]" />
-            <AnalyzeIcon className="relative h-3.5 w-3.5" />
-          </span>
-          <span className="font-display text-[1.375rem] leading-none tracking-tight text-[var(--foreground)]">
-            {siteConfig.name}
-          </span>
+          <BrandLockup priority />
         </LandingSectionLink>
 
         <nav className="hidden items-center gap-px md:flex">
