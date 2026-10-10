@@ -53,19 +53,18 @@ export function getPlanQuotaFeatureLines(planId: BillingPlanId): string[] {
  * Plans proposés à l’achat (landing + facturation).
  * Premium / Extra restent dans BILLING_PLANS (abonnés existants) mais hors catalogue.
  */
-export const PUBLIC_BILLING_PLAN_IDS: readonly BillingPlanId[] = [
-  "free",
-  "basique",
-  "pro",
-] as const;
+export const PUBLIC_BILLING_PLAN_IDS = ["free", "basique", "pro"] as const;
+
+export type PublicBillingPlanId = (typeof PUBLIC_BILLING_PLAN_IDS)[number];
 
 /** Plans encore valides mais non proposés à l’achat. */
-export const HIDDEN_CATALOG_PLAN_IDS: readonly BillingPlanId[] = [
-  "premium",
-  "extra",
-] as const;
+export const HIDDEN_CATALOG_PLAN_IDS = ["premium", "extra"] as const;
 
-export function isPublicBillingPlanId(planId: BillingPlanId): boolean {
+export type HiddenCatalogPlanId = (typeof HIDDEN_CATALOG_PLAN_IDS)[number];
+
+export function isPublicBillingPlanId(
+  planId: BillingPlanId,
+): planId is PublicBillingPlanId {
   return (PUBLIC_BILLING_PLAN_IDS as readonly string[]).includes(planId);
 }
 
@@ -76,7 +75,7 @@ export function isPublicBillingPlanId(planId: BillingPlanId): boolean {
 export function getVisibleBillingPlanIds(
   currentPlanId?: BillingPlanId | null,
 ): BillingPlanId[] {
-  const ids = [...PUBLIC_BILLING_PLAN_IDS];
+  const ids: BillingPlanId[] = [...PUBLIC_BILLING_PLAN_IDS];
   if (
     currentPlanId &&
     (HIDDEN_CATALOG_PLAN_IDS as readonly string[]).includes(currentPlanId) &&

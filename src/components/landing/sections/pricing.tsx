@@ -12,10 +12,11 @@ import {
   BILLING_PLANS,
   getPlanCardFeatures,
   PUBLIC_BILLING_PLAN_IDS,
+  type PublicBillingPlanId,
 } from "@/config/billing";
 
 const LANDING_EXTRA: Record<
-  (typeof PUBLIC_BILLING_PLAN_IDS)[number],
+  PublicBillingPlanId,
   { cta: string; href: string; period: string | null }
 > = {
   free: {
