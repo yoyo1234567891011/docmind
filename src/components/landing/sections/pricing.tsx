@@ -8,19 +8,14 @@ import {
 } from "@/components/landing/landing-cta-styles";
 import { LandingSectionHeader } from "@/components/landing/landing-section-header";
 import { CheckIcon } from "@/components/ui/icons";
-import { BILLING_PLANS, getPlanCardFeatures } from "@/config/billing";
-import type { BillingPlanId } from "@/types/billing";
-
-const PLAN_ORDER: BillingPlanId[] = [
-  "free",
-  "basique",
-  "pro",
-  "premium",
-  "extra",
-];
+import {
+  BILLING_PLANS,
+  getPlanCardFeatures,
+  PUBLIC_BILLING_PLAN_IDS,
+} from "@/config/billing";
 
 const LANDING_EXTRA: Record<
-  BillingPlanId,
+  (typeof PUBLIC_BILLING_PLAN_IDS)[number],
   { cta: string; href: string; period: string | null }
 > = {
   free: {
@@ -35,16 +30,6 @@ const LANDING_EXTRA: Record<
   },
   pro: {
     cta: "Essayer Pro",
-    href: "/auth/signup?next=/facturation",
-    period: "/ mois",
-  },
-  premium: {
-    cta: "Choisir Premium",
-    href: "/auth/signup?next=/facturation",
-    period: "/ mois",
-  },
-  extra: {
-    cta: "Choisir Extra",
     href: "/auth/signup?next=/facturation",
     period: "/ mois",
   },
@@ -63,8 +48,8 @@ export function LandingPricing() {
           description="Commencez gratuitement. PDF texte uniquement (pas de scans). L’agent courrier est inclus dès Basique."
         />
 
-        <div className="mt-12 grid items-stretch gap-4 sm:mt-14 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {PLAN_ORDER.map((id) => {
+        <div className="mt-12 grid items-stretch gap-4 sm:mt-14 sm:grid-cols-2 lg:grid-cols-3">
+          {PUBLIC_BILLING_PLAN_IDS.map((id) => {
             const plan = BILLING_PLANS[id];
             const extra = LANDING_EXTRA[id];
             const highlight = Boolean(plan.highlighted);

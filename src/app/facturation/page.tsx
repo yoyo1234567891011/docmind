@@ -18,7 +18,7 @@ const BillingView = dynamic(
 
 export const metadata: Metadata = {
   title: "Facturation",
-  description: "Abonnement Échélia : Gratuit, Basique, Pro, Premium, Extra.",
+  description: "Abonnement Échélia : Gratuit, Basique, Pro.",
 };
 
 export default function FacturationPage() {

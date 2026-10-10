@@ -50,6 +50,44 @@ export function getPlanQuotaFeatureLines(planId: BillingPlanId): string[] {
 }
 
 /**
+ * Plans proposés à l’achat (landing + facturation).
+ * Premium / Extra restent dans BILLING_PLANS (abonnés existants) mais hors catalogue.
+ */
+export const PUBLIC_BILLING_PLAN_IDS: readonly BillingPlanId[] = [
+  "free",
+  "basique",
+  "pro",
+] as const;
+
+/** Plans encore valides mais non proposés à l’achat. */
+export const HIDDEN_CATALOG_PLAN_IDS: readonly BillingPlanId[] = [
+  "premium",
+  "extra",
+] as const;
+
+export function isPublicBillingPlanId(planId: BillingPlanId): boolean {
+  return (PUBLIC_BILLING_PLAN_IDS as readonly string[]).includes(planId);
+}
+
+/**
+ * Cartes à afficher : catalogue public + plan actuel s’il est hors catalogue
+ * (abonné Premium / Extra existant).
+ */
+export function getVisibleBillingPlanIds(
+  currentPlanId?: BillingPlanId | null,
+): BillingPlanId[] {
+  const ids = [...PUBLIC_BILLING_PLAN_IDS];
+  if (
+    currentPlanId &&
+    (HIDDEN_CATALOG_PLAN_IDS as readonly string[]).includes(currentPlanId) &&
+    !ids.includes(currentPlanId)
+  ) {
+    ids.push(currentPlanId);
+  }
+  return ids;
+}
+
+/**
  * Catalogue offres Échélia (5 plans).
  * Prix Stripe : STRIPE_PRICE_BASIQUE | PRO | PREMIUM | EXTRA (price_xxx).
  * `features` = extras marketing ; quotas via getPlanCardFeatures / withLiveQuotaFeatures.
@@ -62,11 +100,7 @@ export const BILLING_PLANS: Record<BillingPlanId, BillingPlanDefinition> = {
     priceMonthlyEur: null,
     stripe: false,
     entitlements: CORE_ENTITLEMENTS,
-    features: [
-      "Résumé + points à surveiller",
-      "Historique de base",
-      "Max 30 pages / document",
-    ],
+    features: ["Max 30 pages / document"],
   },
   basique: {
     id: "basique",
@@ -75,7 +109,7 @@ export const BILLING_PLANS: Record<BillingPlanId, BillingPlanDefinition> = {
     priceMonthlyEur: 9.99,
     stripe: true,
     entitlements: PAID_ENTITLEMENTS,
-    features: ["Tout Gratuit", "Portail facturation Stripe"],
+    features: [],
   },
   pro: {
     id: "pro",
@@ -85,20 +119,16 @@ export const BILLING_PLANS: Record<BillingPlanId, BillingPlanDefinition> = {
     stripe: true,
     highlighted: true,
     entitlements: PAID_ENTITLEMENTS,
-    features: ["Tout Basique", "Meilleur rapport qualité/prix"],
+    features: [],
   },
   premium: {
     id: "premium",
     name: "Premium",
-    description: "Volume confortable, support prioritaire et nouveautés.",
+    description: "Volume confortable pour une utilisation régulière.",
     priceMonthlyEur: 34.99,
     stripe: true,
     entitlements: PREMIUM_ENTITLEMENTS,
-    features: [
-      "Tout Pro",
-      "Support prioritaire",
-      "Nouveautés en avant-première",
-    ],
+    features: ["Tout Pro"],
   },
   extra: {
     id: "extra",

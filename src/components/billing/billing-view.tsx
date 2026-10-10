@@ -16,6 +16,7 @@ import {
   syncBilling,
   type BillingApiResponse,
 } from "@/lib/client";
+import { getVisibleBillingPlanIds } from "@/config/billing";
 import {
   describePlanChangeMessage,
   describePlanChangePreview,
@@ -263,6 +264,9 @@ export function BillingView() {
   const upcomingView = showUpcomingBilling
     ? describeUpcomingInvoice(upcomingInvoice, plan, subscription)
     : null;
+
+  const visiblePlanIds = new Set(getVisibleBillingPlanIds(plan.id));
+  const catalogPlans = plans.filter((item) => visiblePlanIds.has(item.id));
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-5 py-10 sm:px-6">
@@ -747,8 +751,13 @@ export function BillingView() {
         </label>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {plans.map((item) => {
+      <section
+        className={cn(
+          "grid gap-4 sm:grid-cols-2 lg:grid-cols-3",
+          catalogPlans.length > 3 ? "xl:grid-cols-4" : null,
+        )}
+      >
+        {catalogPlans.map((item) => {
           const active = item.id === plan.id;
           const highlighted = Boolean(item.highlighted);
           const canCheckout =
