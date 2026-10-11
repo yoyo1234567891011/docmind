@@ -1,19 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { AuthField } from "@/components/auth/auth-field";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
-import { docmindConfig } from "@/config/docmind";
+import { SIGNUP_FULL_MESSAGE } from "@/config/signup-limits";
 import { trackClientAnalytics } from "@/lib/client/analytics";
+import { csrfHeaders } from "@/lib/client/csrf";
 import {
-  getAuthEmailRedirectTo,
   isLocalAuthOrigin,
   getAuthEmailRedirectOrigin,
 } from "@/lib/auth/email-redirect";
-import { createClient } from "@/lib/supabase/client";
+
+type SignupStatus = {
+  open: boolean;
+  message: string | null;
+};
 
 export function SignupForm() {
   const [fullName, setFullName] = useState("");
@@ -23,6 +27,37 @@ export function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [signupOpen, setSignupOpen] = useState(true);
+  const [closedMessage, setClosedMessage] = useState(SIGNUP_FULL_MESSAGE);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/signup-status", {
+          method: "GET",
+          credentials: "same-origin",
+        });
+        const json = (await res.json()) as {
+          success?: boolean;
+          data?: SignupStatus;
+        };
+        if (cancelled) return;
+        if (json.success && json.data) {
+          setSignupOpen(json.data.open);
+          setClosedMessage(json.data.message || SIGNUP_FULL_MESSAGE);
+        }
+      } catch {
+        /* statut optionnel — le POST serveur reste la source de vérité */
+      } finally {
+        if (!cancelled) setStatusLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -42,22 +77,33 @@ export function SignupForm() {
     }
 
     try {
-      const supabase = createClient();
-      // Absolu → /auth/callback (jamais relatif / localhost / Vercel en dur)
-      const emailRedirectTo = getAuthEmailRedirectTo(
-        docmindConfig.auth.callbackPath,
-      );
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: { full_name: fullName.trim() },
-          emailRedirectTo,
-        },
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: await csrfHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          fullName: fullName.trim(),
+          acceptedTerms: true,
+        }),
       });
+      const json = (await res.json()) as {
+        success?: boolean;
+        error?: { message?: string };
+      };
 
-      if (signUpError) {
-        setError(signUpError.message);
+      if (!res.ok || !json.success) {
+        const message =
+          json.error?.message?.trim() ||
+          (res.status === 403
+            ? SIGNUP_FULL_MESSAGE
+            : "Inscription impossible. Vérifiez la configuration Supabase.");
+        setError(message);
+        if (message === SIGNUP_FULL_MESSAGE) {
+          setSignupOpen(false);
+          setClosedMessage(message);
+        }
         return;
       }
 
@@ -109,6 +155,30 @@ export function SignupForm() {
             démarré (<code className="text-xs">npm run dev</code>).
           </p>
         ) : null}
+      </AuthShell>
+    );
+  }
+
+  if (!statusLoading && !signupOpen) {
+    return (
+      <AuthShell
+        title="Inscriptions complètes"
+        subtitle={closedMessage}
+        footer={
+          <Link
+            href="/auth/login"
+            className="text-[var(--accent)] hover:underline"
+          >
+            Se connecter
+          </Link>
+        }
+      >
+        <p
+          role="status"
+          className="rounded-lg bg-[var(--warning-soft)] px-3 py-2 text-sm text-[var(--foreground)]"
+        >
+          {closedMessage}
+        </p>
       </AuthShell>
     );
   }
@@ -185,7 +255,11 @@ export function SignupForm() {
           </p>
         ) : null}
 
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loading || statusLoading}
+        >
           {loading ? "Création…" : "S'inscrire"}
         </Button>
       </form>

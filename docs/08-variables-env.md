@@ -18,6 +18,7 @@ Copier vers `.env.local` en développement.
 | `MAINTENANCE_MESSAGE` | Message affiché |
 | `MAINTENANCE_BYPASS_SECRET` | Secret bypass ops |
 | `BETA_FEEDBACK_ENABLED` | Active signalements |
+| `SIGNUP_MAX_USERS` | Plafond temporaire d’inscriptions (défaut code `35`). `0` / `off` / `false` / `unlimited` = pas de plafond |
 
 ## Auth & admin
 

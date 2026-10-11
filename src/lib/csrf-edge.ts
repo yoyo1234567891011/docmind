@@ -16,6 +16,7 @@ const EXEMPT = [
 const CRITICAL = [
   "/api/account/delete",
   "/api/account/export",
+  "/api/auth/signup",
   "/api/billing/",
   "/api/upload",
   "/api/analyze",

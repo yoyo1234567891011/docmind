@@ -19,6 +19,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/mentions-legales",
   "/guide",
   "/api/health",
+  "/api/auth/signup",
+  "/api/auth/signup-status",
   "/api/stripe/webhook",
   "/api/billing/webhook",
   // Auth via CRON_SECRET dans la route (pas de session Supabase).

@@ -22,6 +22,7 @@ const CSRF_EXEMPT_PREFIXES = [
 const CRITICAL_CSRF_PREFIXES = [
   "/api/account/delete",
   "/api/account/export",
+  "/api/auth/signup",
   "/api/billing/",
   "/api/upload",
   "/api/analyze",
